@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { and, eq, gt, isNull, ne } from "drizzle-orm";
+import { and, eq, gt, isNull, ne, sql } from "drizzle-orm";
 import type { Config } from "../../config.js";
 import type { Db } from "../../db/client.js";
 import type { ActorContext } from "../../lib/context.js";
@@ -22,7 +22,8 @@ export interface SessionInfo {
   mfaVerified: boolean;
 }
 
-export type MfaState = "verify" | "setup";
+/** Wat de gebruiker na het wachtwoord nog moet doen: 2FA instellen, 2FA-code invoeren, of niets. */
+export type MfaState = "verify" | "setup" | "none";
 
 export class AuthService {
   constructor(
@@ -30,10 +31,14 @@ export class AuthService {
     private readonly config: Config,
   ) {}
 
-  /** Stap 1: e-mail + wachtwoord. Levert een sessie op die pas na 2FA volledig bruikbaar is. */
-  async login(email: string, password: string, meta: { ip?: string; userAgent?: string; requestId?: string }) {
-    const normalized = email.trim().toLowerCase();
-    const [user] = await this.db.select().from(users).where(eq(users.email, normalized)).limit(1);
+  /**
+   * Stap 1: inlognaam (e-mail of gebruikersnaam) + wachtwoord.
+   * Levert een sessie op die pas na 2FA volledig bruikbaar is (tenzij 2FA voor deze gebruiker is uitgezet).
+   */
+  async login(identifier: string, password: string, meta: { ip?: string; userAgent?: string; requestId?: string }) {
+    const normalized = identifier.trim().toLowerCase();
+    const column = normalized.includes("@") ? users.email : users.username;
+    const [user] = await this.db.select().from(users).where(eq(sql`lower(${column})`, normalized)).limit(1);
     const actor: ActorContext = {
       userId: user?.id ?? null,
       organizationId: user?.organizationId ?? null,
@@ -47,7 +52,7 @@ export class AuthService {
       await recordAudit(this.db, actor, {
         action: "auth.login_failed",
         entityType: "user",
-        metadata: { email: normalized, reason: "unknown_email" },
+        metadata: { login: normalized, reason: "unknown_login" },
       });
       throw unauthorized("invalid_credentials", "E-mailadres of wachtwoord onjuist");
     }
@@ -64,6 +69,8 @@ export class AuthService {
 
     const token = randomToken();
     const now = new Date();
+    // Zonder verplichte 2FA (en zonder vrijwillig ingestelde 2FA) is de sessie direct volledig.
+    const mfa: MfaState = user.totpEnabledAt ? "verify" : user.mfaRequired ? "setup" : "none";
     const [session] = await this.db.transaction(async (tx) => {
       await tx
         .update(users)
@@ -77,12 +84,12 @@ export class AuthService {
           tokenHash: sha256(token),
           ip: meta.ip,
           userAgent: meta.userAgent?.slice(0, 500),
+          mfaVerified: mfa === "none",
           expiresAt: new Date(now.getTime() + this.config.SESSION_ABSOLUTE_TIMEOUT_HOURS * 3600_000),
         })
         .returning();
     });
 
-    const mfa: MfaState = user.totpEnabledAt ? "verify" : "setup";
     return { token, sessionId: session!.id, mfa };
   }
 
@@ -140,7 +147,7 @@ export class AuthService {
       .update(users)
       .set({ totpSecretEncrypted: encryptSecret(secret, this.config.ENCRYPTION_KEY) })
       .where(eq(users.id, user.id));
-    return { secret, otpauthUrl: otpauthUrl(secret, user.email, this.config.APP_NAME) };
+    return { secret, otpauthUrl: otpauthUrl(secret, user.email ?? user.username ?? user.id, this.config.APP_NAME) };
   }
 
   /** Bevestigt 2FA met een eerste code. Levert eenmalige herstelcodes op. */
@@ -215,12 +222,14 @@ export class AuthService {
 
   async changePassword(user: User, sessionId: string, current: string, next: string, actor: ActorContext) {
     if (!(await verifyPassword(user.passwordHash, current))) {
+      await this.registerFailure(user, actor, "wrong_current_password");
       throw badRequest("invalid_credentials", "Huidig wachtwoord onjuist");
     }
     assertPasswordPolicy(next);
+    if (current === next) throw badRequest("same_password", "Kies een ander wachtwoord dan het huidige");
     const passwordHash = await hashPassword(next);
     await this.db.transaction(async (tx) => {
-      await tx.update(users).set({ passwordHash }).where(eq(users.id, user.id));
+      await tx.update(users).set({ passwordHash, mustChangePassword: false }).where(eq(users.id, user.id));
       // Alle andere sessies vervallen: wie het oude wachtwoord kende, is eruit.
       await tx
         .update(sessions)

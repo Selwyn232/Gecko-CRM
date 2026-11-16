@@ -32,6 +32,7 @@ try {
     name,
     password,
     roleIds: [admin.id],
+    mustChangePassword: false,
   });
   console.log(`Beheerder aangemaakt: ${user.email}. Stel bij eerste login 2FA in.`);
 } finally {

@@ -6,6 +6,16 @@ const OPTIONS = { memoryCost: 19456, timeCost: 2, parallelism: 1 } as const;
 
 export const MIN_PASSWORD_LENGTH = 12;
 
+/** Startwachtwoorden die de gebruiker bij de eerste login móét vervangen, mogen korter zijn. */
+export const MIN_INITIAL_PASSWORD_LENGTH = 4;
+
+export function assertInitialPasswordPolicy(password: string, mustChange: boolean) {
+  if (!mustChange) return assertPasswordPolicy(password);
+  if (password.length < MIN_INITIAL_PASSWORD_LENGTH || password.length > 256) {
+    throw badRequest("weak_password", `Startwachtwoord moet minimaal ${MIN_INITIAL_PASSWORD_LENGTH} tekens zijn`);
+  }
+}
+
 export function assertPasswordPolicy(password: string) {
   if (password.length < MIN_PASSWORD_LENGTH) {
     throw badRequest("weak_password", `Wachtwoord moet minimaal ${MIN_PASSWORD_LENGTH} tekens zijn`);

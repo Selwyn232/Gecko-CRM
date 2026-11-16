@@ -35,8 +35,10 @@ export const api = {
 // ---- Types (spiegelen de API) ----
 export interface Me {
   id: string;
-  email: string;
+  email: string | null;
+  username: string | null;
   name: string;
+  mustChangePassword: boolean;
   organizationId: string;
   mfaEnabled: boolean;
   mfaVerified: boolean;
@@ -103,8 +105,11 @@ export interface VatCode {
 export interface User {
   id: string;
   organizationId: string;
-  email: string;
+  email: string | null;
+  username: string | null;
   name: string;
+  mfaRequired: boolean;
+  mustChangePassword: boolean;
   isActive: boolean;
   mfaEnabled: boolean;
   lockedUntil: string | null;

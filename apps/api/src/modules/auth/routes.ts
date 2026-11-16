@@ -2,7 +2,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import type { Config } from "../../config.js";
 import { SESSION_COOKIE } from "../../http/auth-plugin.js";
-import { unauthorized } from "../../lib/errors.js";
+import { forbidden, unauthorized } from "../../lib/errors.js";
 import type { AuthService } from "./service.js";
 import { PERMISSIONS } from "./permissions.js";
 
@@ -22,7 +22,8 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
     "/auth/login",
     {
       config: { auth: "public", rateLimit: { max: 10, timeWindow: "1 minute" } },
-      schema: { body: z.object({ email: z.string().email(), password: z.string().min(1).max(256) }) },
+      // `email` mag ook een gebruikersnaam zijn (veldnaam behouden voor bestaande clients).
+      schema: { body: z.object({ email: z.string().min(1).max(254), password: z.string().min(1).max(256) }) },
     },
     async (req, reply) => {
       const result = await authService.login(req.body.email, req.body.password, {
@@ -47,7 +48,9 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
     return {
       id: user.id,
       email: user.email,
+      username: user.username,
       name: user.name,
+      mustChangePassword: user.mustChangePassword,
       organizationId: user.organizationId,
       mfaEnabled: user.totpEnabledAt !== null,
       mfaVerified,
@@ -89,10 +92,13 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
   app.post(
     "/auth/change-password",
     {
+      // Bereikbaar zonder volledige toegang: wie verplicht een nieuw wachtwoord moet kiezen, moet hier kunnen komen.
+      config: { auth: "password", rateLimit: { max: 10, timeWindow: "1 minute" } },
       schema: { body: z.object({ currentPassword: z.string(), newPassword: z.string() }) },
     },
     async (req) => {
       if (!req.auth) throw unauthorized();
+      if (!req.auth.mfaVerified) throw forbidden("mfa_required", "Tweestapsverificatie vereist");
       await authService.changePassword(
         req.auth.user,
         req.auth.sessionId,

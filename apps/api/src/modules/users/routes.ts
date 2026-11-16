@@ -42,10 +42,13 @@ export const userRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
       schema: {
         body: z.object({
           organizationId: z.string().uuid(),
-          email: z.string().email(),
+          email: z.string().email().nullish(),
+          username: z.string().regex(/^[a-zA-Z0-9._-]{2,50}$/, "Alleen letters, cijfers, punt, - en _").nullish(),
           name: z.string().min(1).max(200),
           password: z.string(),
           roleIds: z.array(z.string().uuid()).default([]),
+          mfaRequired: z.boolean().optional(),
+          mustChangePassword: z.boolean().optional(),
         }),
       },
     },
@@ -63,7 +66,9 @@ export const userRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
         params: IdParams,
         body: z.object({
           name: z.string().min(1).max(200).optional(),
-          email: z.string().email().optional(),
+          email: z.string().email().nullish(),
+          username: z.string().regex(/^[a-zA-Z0-9._-]{2,50}$/, "Alleen letters, cijfers, punt, - en _").nullish(),
+          mfaRequired: z.boolean().optional(),
           organizationId: z.string().uuid().optional(),
           isActive: z.boolean().optional(),
           roleIds: z.array(z.string().uuid()).optional(),
@@ -75,9 +80,12 @@ export const userRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
 
   app.post(
     "/users/:id/reset-password",
-    { preValidation: manage, schema: { params: IdParams, body: z.object({ password: z.string() }) } },
+    {
+      preValidation: manage,
+      schema: { params: IdParams, body: z.object({ password: z.string(), mustChangePassword: z.boolean().default(true) }) },
+    },
     async (req) => {
-      await adminResetPassword(db, req.actor, req.params.id, req.body.password);
+      await adminResetPassword(db, req.actor, req.params.id, req.body.password, req.body.mustChangePassword);
       return { ok: true };
     },
   );

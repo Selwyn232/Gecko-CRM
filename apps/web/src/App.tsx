@@ -14,7 +14,7 @@ import { UsersPage } from "./pages/Users";
 export function App() {
   const { me, can, logout } = useAuth();
   const [changingPassword, setChangingPassword] = useState(false);
-  if (!me || !me.mfaVerified) return <LoginPage />;
+  if (!me || !me.mfaVerified || me.mustChangePassword) return <LoginPage />;
 
   return (
     <div className="shell">
@@ -34,7 +34,7 @@ export function App() {
         </nav>
         <div className="sidebar-footer">
           <div style={{ color: "var(--text)", fontWeight: 500 }}>{me.name}</div>
-          <div>{me.email}</div>
+          <div>{me.username ?? me.email}</div>
           <div className="row" style={{ marginTop: 8 }}>
             <button className="btn small" onClick={() => setChangingPassword(true)}>Wachtwoord</button>
             <button className="btn small" onClick={logout}>Uitloggen</button>

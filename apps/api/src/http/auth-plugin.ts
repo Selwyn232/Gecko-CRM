@@ -47,6 +47,9 @@ export const authPlugin = fp<{ db: Db; authService: AuthService }>(async (app, {
     if (level === "full" && !session.mfaVerified) {
       throw forbidden("mfa_required", "Tweestapsverificatie vereist");
     }
+    if (level === "full" && session.user.mustChangePassword) {
+      throw forbidden("password_change_required", "Kies eerst een eigen wachtwoord");
+    }
   });
 });
 

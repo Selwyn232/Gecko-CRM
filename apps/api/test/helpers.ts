@@ -61,13 +61,15 @@ export async function roleId(db: Db, key: string) {
 let counter = 0;
 export async function makeUser(db: Db, roleKeys: string[] = [], email?: string) {
   const roleIds = await Promise.all(roleKeys.map((k) => roleId(db, k)));
-  return createUser(db, systemActor(), {
+  const u = await createUser(db, systemActor(), {
     organizationId: await geckoOrgId(db),
     email: email ?? `user${++counter}-${Date.now()}@gecko.test`,
     name: "Test Gebruiker",
     password: PASSWORD,
     roleIds,
+    mustChangePassword: false,
   });
+  return { ...u, email: u.email! };
 }
 
 /** Volledige login inclusief 2FA-instelling. Geeft headers terug voor vervolgverzoeken. */

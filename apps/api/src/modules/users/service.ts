@@ -3,7 +3,7 @@ import type { Db, DbOrTx } from "../../db/client.js";
 import type { ActorContext } from "../../lib/context.js";
 import { badRequest, notFound } from "../../lib/errors.js";
 import { recordAudit } from "../audit/service.js";
-import { assertPasswordPolicy, hashPassword } from "../auth/password.js";
+import { assertInitialPasswordPolicy, hashPassword } from "../auth/password.js";
 import { recoveryCodes, sessions, userRoles, users, type User } from "../auth/schema.js";
 import { organizations } from "../organizations/schema.js";
 import { assertActiveAdminRemains, assertRolesExist } from "../roles/service.js";
@@ -14,7 +14,10 @@ export function toPublicUser(u: User, roleIds: string[] = []) {
     id: u.id,
     organizationId: u.organizationId,
     email: u.email,
+    username: u.username,
     name: u.name,
+    mfaRequired: u.mfaRequired,
+    mustChangePassword: u.mustChangePassword,
     isActive: u.isActive,
     mfaEnabled: u.totpEnabledAt !== null,
     lockedUntil: u.lockedUntil,
@@ -42,7 +45,11 @@ async function snapshot(db: DbOrTx, id: string) {
 export async function listUsers(db: DbOrTx, q: { organizationId?: string; search?: string; roleId?: string }) {
   const filters: SQL[] = [];
   if (q.organizationId) filters.push(eq(users.organizationId, q.organizationId));
-  if (q.search) filters.push(or(ilike(users.name, `%${q.search}%`), ilike(users.email, `%${q.search}%`))!);
+  if (q.search) {
+    filters.push(
+      or(ilike(users.name, `%${q.search}%`), ilike(users.email, `%${q.search}%`), ilike(users.username, `%${q.search}%`))!,
+    );
+  }
   if (q.roleId) {
     filters.push(
       inArray(users.id, db.select({ id: userRoles.userId }).from(userRoles).where(eq(userRoles.roleId, q.roleId))),
@@ -65,14 +72,29 @@ export async function getUser(db: DbOrTx, id: string) {
 
 export interface CreateUserInput {
   organizationId: string;
-  email: string;
+  email?: string | null;
+  username?: string | null;
   name: string;
   password: string;
   roleIds: string[];
+  mfaRequired?: boolean;
+  /** Standaard: gebruiker kiest bij eerste login een eigen wachtwoord. */
+  mustChangePassword?: boolean;
+}
+
+const normalizeLogin = (v: string | null | undefined) => (v ? v.trim().toLowerCase() : null);
+
+function assertHasLogin(email: string | null, username: string | null) {
+  if (!email && !username) throw badRequest("login_required", "Vul een e-mailadres of gebruikersnaam in");
+  if (username && username.includes("@")) throw badRequest("invalid_username", "Een gebruikersnaam mag geen @ bevatten");
 }
 
 export async function createUser(db: Db, actor: ActorContext, input: CreateUserInput) {
-  assertPasswordPolicy(input.password);
+  const email = normalizeLogin(input.email);
+  const username = normalizeLogin(input.username);
+  assertHasLogin(email, username);
+  const mustChangePassword = input.mustChangePassword ?? true;
+  assertInitialPasswordPolicy(input.password, mustChangePassword);
   const passwordHash = await hashPassword(input.password);
   return db.transaction(async (tx) => {
     const [org] = await tx.select().from(organizations).where(eq(organizations.id, input.organizationId));
@@ -82,9 +104,12 @@ export async function createUser(db: Db, actor: ActorContext, input: CreateUserI
       .insert(users)
       .values({
         organizationId: input.organizationId,
-        email: input.email.trim().toLowerCase(),
+        email,
+        username,
         name: input.name,
         passwordHash,
+        mfaRequired: input.mfaRequired ?? true,
+        mustChangePassword,
       })
       .returning();
     if (input.roleIds.length) {
@@ -98,7 +123,9 @@ export async function createUser(db: Db, actor: ActorContext, input: CreateUserI
 
 export interface UpdateUserInput {
   name?: string;
-  email?: string;
+  email?: string | null;
+  username?: string | null;
+  mfaRequired?: boolean;
   organizationId?: string;
   isActive?: boolean;
   roleIds?: string[];
@@ -111,9 +138,14 @@ export async function updateUser(db: Db, actor: ActorContext, id: string, input:
 
     const patch: Partial<typeof users.$inferInsert> = {};
     if (input.name !== undefined) patch.name = input.name;
-    if (input.email !== undefined) patch.email = input.email.trim().toLowerCase();
+    if (input.email !== undefined) patch.email = normalizeLogin(input.email);
+    if (input.username !== undefined) patch.username = normalizeLogin(input.username);
+    if (input.mfaRequired !== undefined) patch.mfaRequired = input.mfaRequired;
     if (input.organizationId !== undefined) patch.organizationId = input.organizationId;
     if (input.isActive !== undefined) patch.isActive = input.isActive;
+    if (patch.email !== undefined || patch.username !== undefined) {
+      assertHasLogin(patch.email !== undefined ? patch.email : before.email, patch.username !== undefined ? patch.username : before.username);
+    }
     if (Object.keys(patch).length) await tx.update(users).set(patch).where(eq(users.id, id));
 
     if (input.roleIds) {
@@ -132,14 +164,17 @@ export async function updateUser(db: Db, actor: ActorContext, id: string, input:
   });
 }
 
-/** Beheerder zet een nieuw wachtwoord; alle sessies van de gebruiker vervallen. */
-export async function adminResetPassword(db: Db, actor: ActorContext, id: string, password: string) {
-  assertPasswordPolicy(password);
+/**
+ * Beheerder zet een nieuw wachtwoord; alle sessies van de gebruiker vervallen.
+ * Standaard moet de gebruiker daarna zelf een nieuw wachtwoord kiezen.
+ */
+export async function adminResetPassword(db: Db, actor: ActorContext, id: string, password: string, mustChangePassword = true) {
+  assertInitialPasswordPolicy(password, mustChangePassword);
   const passwordHash = await hashPassword(password);
   await db.transaction(async (tx) => {
     const res = await tx
       .update(users)
-      .set({ passwordHash, failedLoginCount: 0, lockedUntil: null })
+      .set({ passwordHash, mustChangePassword, failedLoginCount: 0, lockedUntil: null })
       .where(eq(users.id, id))
       .returning({ id: users.id });
     if (!res.length) throw notFound("Gebruiker");

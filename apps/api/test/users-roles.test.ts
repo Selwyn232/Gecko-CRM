@@ -45,10 +45,18 @@ describe("gebruikers en rollen", () => {
       method: "POST",
       url: "/api/users",
       headers: admin.headers,
-      payload: { organizationId: await geckoOrgId(ctx.db), email: "zwak@gecko.test", name: "x", password: "kort" },
+      payload: { organizationId: await geckoOrgId(ctx.db), email: "zwak@gecko.test", name: "x", password: "kort", mustChangePassword: false },
     });
     expect(res.statusCode).toBe(400);
     expect(res.json().error.code).toBe("weak_password");
+    // Ook een startwachtwoord heeft een ondergrens
+    const tooShort = await ctx.app.inject({
+      method: "POST",
+      url: "/api/users",
+      headers: admin.headers,
+      payload: { organizationId: await geckoOrgId(ctx.db), email: "zwak2@gecko.test", name: "x", password: "abc" },
+    });
+    expect(tooShort.json().error.code).toBe("weak_password");
   });
 
   it("gebruiker zonder recht krijgt 403", async () => {

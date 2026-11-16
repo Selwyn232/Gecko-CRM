@@ -5,8 +5,11 @@
  * 3. optioneel voorbeelddata (SEED_DEMO=true)
  * 4. eerste beheerder, alleen als er nog géén gebruikers zijn
  *    (BOOTSTRAP_ADMIN_EMAIL + BOOTSTRAP_ADMIN_PASSWORD). Verwijder die variabelen na de eerste login.
+ * 5. optioneel extra beheerders op gebruikersnaam, zonder 2FA en met verplicht nieuw wachtwoord bij
+ *    eerste login: BOOTSTRAP_USERS="naam:startwachtwoord,naam2:startwachtwoord2".
+ *    Bestaat de gebruikersnaam al, dan wordt die overgeslagen. Verwijder de variabele daarna.
  */
-import { count, eq } from "drizzle-orm";
+import { count, eq, sql } from "drizzle-orm";
 import { loadConfig } from "../config.js";
 import { createDb } from "../db/client.js";
 import { runMigrations } from "../db/migrate.js";
@@ -35,6 +38,29 @@ try {
     const [admin] = await db.select().from(roles).where(eq(roles.key, ADMIN_ROLE_KEY));
     await createUser(db, systemActor(), { organizationId: gecko!.id, email, name: "Beheerder", password, roleIds: [admin!.id] });
     console.log(`Eerste beheerder aangemaakt: ${email}`);
+  }
+
+  const extra = process.env.BOOTSTRAP_USERS?.split(",").map((e) => e.trim()).filter(Boolean) ?? [];
+  if (extra.length) {
+    const [gecko] = await db.select().from(organizations).where(eq(organizations.type, "gecko")).limit(1);
+    const [admin] = await db.select().from(roles).where(eq(roles.key, ADMIN_ROLE_KEY));
+    for (const entry of extra) {
+      const [name, pw] = entry.split(":");
+      if (!name || !pw) continue;
+      const [exists] = await db.select().from(users).where(eq(sql`lower(${users.username})`, name.toLowerCase()));
+      if (exists) continue;
+      const displayName = name.charAt(0).toUpperCase() + name.slice(1);
+      await createUser(db, systemActor(), {
+        organizationId: gecko!.id,
+        username: name,
+        name: displayName,
+        password: pw,
+        roleIds: [admin!.id],
+        mfaRequired: false,
+        mustChangePassword: true,
+      });
+      console.log(`Gebruiker aangemaakt: ${name.toLowerCase()}`);
+    }
   }
 } finally {
   await pool.end();

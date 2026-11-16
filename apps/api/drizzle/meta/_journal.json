@@ -15,6 +15,13 @@
       "when": 1794800529145,
       "tag": "0001_audit_log_immutable",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794802334349,
+      "tag": "0002_user_username_mfa_flag",
+      "breakpoints": true
     }
   ]
 }

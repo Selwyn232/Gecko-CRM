@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   pgTable,
@@ -20,8 +21,9 @@ export const users = pgTable(
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id),
-    /** Altijd opgeslagen in kleine letters. */
-    email: text("email").notNull(),
+    /** Altijd opgeslagen in kleine letters. E-mail of gebruikersnaam (minstens één) is de inlognaam. */
+    email: text("email"),
+    username: text("username"),
     name: text("name").notNull(),
     passwordHash: text("password_hash").notNull(),
     isActive: boolean("is_active").notNull().default(true),
@@ -30,6 +32,10 @@ export const users = pgTable(
     totpEnabledAt: timestamp("totp_enabled_at", { withTimezone: true }),
     /** Laatst gebruikte TOTP-stap; voorkomt dat één code twee keer werkt. */
     totpLastStep: integer("totp_last_step"),
+    /** Of 2FA verplicht is voor deze gebruiker. Standaard ja; uitzonderingen zijn een bewuste keuze van een beheerder. */
+    mfaRequired: boolean("mfa_required").notNull().default(true),
+    /** Gebruiker moet eerst een eigen wachtwoord kiezen voordat het systeem bruikbaar is. */
+    mustChangePassword: boolean("must_change_password").notNull().default(false),
     failedLoginCount: integer("failed_login_count").notNull().default(0),
     lockedUntil: timestamp("locked_until", { withTimezone: true }),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
@@ -37,6 +43,8 @@ export const users = pgTable(
   },
   (t) => [
     uniqueIndex("users_email_unique").on(sql`lower(${t.email})`),
+    uniqueIndex("users_username_unique").on(sql`lower(${t.username})`),
+    check("users_login_present", sql`${t.email} IS NOT NULL OR ${t.username} IS NOT NULL`),
     index("users_organization_idx").on(t.organizationId),
   ],
 );

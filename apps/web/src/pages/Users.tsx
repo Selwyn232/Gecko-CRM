@@ -27,10 +27,12 @@ export function UsersPage() {
             <tbody>
               {users.data?.map((u) => (
                 <tr key={u.id} className={can("users.manage") ? "clickable" : ""} onClick={() => can("users.manage") && setEditing(u)}>
-                  <td><strong>{u.name}</strong><div className="muted">{u.email}</div></td>
+                  <td><strong>{u.name}</strong><div className="muted">{[u.username, u.email].filter(Boolean).join(" · ")}</div></td>
                   <td>{nameById(orgs.data, u.organizationId)}</td>
                   <td>{u.roleIds.map((id) => <span key={id} className="badge" style={{ marginRight: 4 }}>{nameById(roles.data, id)}</span>)}</td>
-                  <td>{u.mfaEnabled ? <span className="badge green">Aan</span> : <span className="badge yellow">Nog instellen</span>}</td>
+                  <td>
+                    {u.mfaEnabled ? <span className="badge green">Aan</span> : u.mfaRequired ? <span className="badge yellow">Nog instellen</span> : <span className="badge red">Uitgezet</span>}
+                  </td>
                   <td>{formatDateTime(u.lastLoginAt)}</td>
                   <td>
                     {!u.isActive ? <span className="badge">Inactief</span> : u.lockedUntil && new Date(u.lockedUntil) > new Date() ? <span className="badge red">Geblokkeerd</span> : <span className="badge green">Actief</span>}
@@ -53,6 +55,8 @@ function UserForm({ user, onClose }: { user?: User; onClose: () => void }) {
   const [form, setForm] = useState({
     name: user?.name ?? "",
     email: user?.email ?? "",
+    username: user?.username ?? "",
+    mfaRequired: user?.mfaRequired ?? true,
     organizationId: user?.organizationId ?? "",
     password: "",
     isActive: user?.isActive ?? true,
@@ -66,16 +70,24 @@ function UserForm({ user, onClose }: { user?: User; onClose: () => void }) {
   const save = useMutation({
     mutationFn: () =>
       user
-        ? api.patch(`/users/${user.id}`, { name: form.name, email: form.email, organizationId: form.organizationId, isActive: form.isActive, roleIds: form.roleIds })
-        : api.post("/users", form),
+        ? api.patch(`/users/${user.id}`, {
+            name: form.name,
+            email: form.email || null,
+            username: form.username || null,
+            mfaRequired: form.mfaRequired,
+            organizationId: form.organizationId,
+            isActive: form.isActive,
+            roleIds: form.roleIds,
+          })
+        : api.post("/users", { ...form, email: form.email || null, username: form.username || null }),
     onSuccess: done,
   });
   const action = useMutation({
     mutationFn: async (kind: "reset-mfa" | "unlock" | "reset-password") => {
       if (kind === "reset-password") {
-        if (form.password.length < 12) throw new Error("Vul eerst een nieuw wachtwoord in (minimaal 12 tekens)");
+        if (form.password.length < 4) throw new Error("Vul eerst een startwachtwoord in");
         await api.post(`/users/${user!.id}/reset-password`, { password: form.password });
-        return "Wachtwoord gewijzigd; de gebruiker is overal uitgelogd.";
+        return "Startwachtwoord ingesteld; de gebruiker is overal uitgelogd en kiest bij de volgende login een eigen wachtwoord.";
       }
       await api.post(`/users/${user!.id}/${kind}`);
       return kind === "reset-mfa" ? "2FA gewist; de gebruiker stelt het bij de volgende login opnieuw in." : "Account gedeblokkeerd.";
@@ -93,22 +105,27 @@ function UserForm({ user, onClose }: { user?: User; onClose: () => void }) {
       {notice && <div className="alert info">{notice}</div>}
       <div className="grid-2">
         <Field label="Naam"><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-        <Field label="E-mail"><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
+        <Field label="Gebruikersnaam"><input value={form.username} autoCapitalize="none" onChange={(e) => setForm({ ...form, username: e.target.value })} /></Field>
       </div>
+      <Field label="E-mail"><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
       <Field label="Organisatie">
         <select value={form.organizationId} onChange={(e) => setForm({ ...form, organizationId: e.target.value })}>
           <option value="">Kies…</option>
           {orgs.data?.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
       </Field>
-      <Field label={user ? "Nieuw wachtwoord (alleen bij resetten)" : "Startwachtwoord (min. 12 tekens)"}>
+      <Field label={user ? "Nieuw startwachtwoord (alleen bij resetten)" : "Startwachtwoord (gebruiker kiest bij eerste login een eigen wachtwoord)"}>
         <input type="password" autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
       </Field>
       <div className="field">Rollen</div>
       {roles.data?.map((r) => (
         <label key={r.id} className="checkbox"><input type="checkbox" checked={form.roleIds.includes(r.id)} onChange={() => toggle(r.id)} /> {r.name}</label>
       ))}
-      {user && <label className="checkbox" style={{ marginTop: 8 }}><input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Actief</label>}
+      <label className="checkbox" style={{ marginTop: 8 }}>
+        <input type="checkbox" checked={form.mfaRequired} onChange={(e) => setForm({ ...form, mfaRequired: e.target.checked })} />
+        <span>Tweestapsverificatie verplicht {!form.mfaRequired && <span className="badge red">Afgeraden</span>}</span>
+      </label>
+      {user && <label className="checkbox"><input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Actief</label>}
       {user && (
         <div className="row" style={{ marginTop: 12 }}>
           <button className="btn small" onClick={() => action.mutate("reset-password")}>Wachtwoord resetten</button>
