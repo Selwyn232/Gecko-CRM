@@ -19,6 +19,14 @@ const ConfigSchema = z.object({
     .enum(["true", "false"])
     .default("true")
     .transform((v) => v === "true"),
+  /** Publieke basis-URL van het CRM, voor links in e-mails (zonder / aan het eind). */
+  APP_BASE_URL: z.string().url().default("http://localhost:3000"),
+  /** Mailgun. Zonder sleutel wordt er niets verstuurd: e-mails worden alleen vastgelegd. */
+  MAILGUN_API_KEY: z.string().optional(),
+  MAILGUN_DOMAIN: z.string().optional(),
+  MAILGUN_REGION: z.enum(["eu", "us"]).default("eu"),
+  /** Afzender, bv. "Gecko <noreply@mail.gecko.nl>". Standaard noreply@MAILGUN_DOMAIN. */
+  MAIL_FROM: z.string().optional(),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
 });
 

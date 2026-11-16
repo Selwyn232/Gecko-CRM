@@ -13,6 +13,7 @@ import { formatCustomerNumber } from "../customers/service.js";
 import { emitEvent } from "../events/service.js";
 import { advisors, organizations } from "../organizations/schema.js";
 import { createProjectInTx } from "../projects/service.js";
+import { quoteContentHash } from "./hash.js";
 import { quoteLines, quotes, type Quote, type QuoteLine } from "./schema.js";
 
 export const formatQuoteNumber = (n: number) => `O-${String(n).padStart(6, "0")}`;
@@ -319,7 +320,15 @@ export async function sendQuote(db: Db, actor: ActorContext, id: string) {
       .set({ status: "sent", sentAt: new Date(), priceDate: today, validUntil: addDays(today, ch!.quoteValidityDays), feeBasisPoints: ch!.feeBasisPoints })
       .where(eq(quotes.id, id))
       .returning();
-    await recordAudit(tx, actor, { action: "quote.sent", entityType: "quote", entityId: id, before: { status: q.status }, after: { status: after!.status, validUntil: after!.validUntil } });
+    const contentHash = quoteContentHash(await getQuote(tx, id));
+    await tx.update(quotes).set({ contentHash }).where(eq(quotes.id, id));
+    await recordAudit(tx, actor, {
+      action: "quote.sent",
+      entityType: "quote",
+      entityId: id,
+      before: { status: q.status },
+      after: { status: after!.status, validUntil: after!.validUntil, contentHash },
+    });
     await emitEvent(tx, "quote.sent", { type: "quote", id }, { quoteId: id, customerId: q.customerId });
     return getQuote(tx, id);
   });
@@ -340,7 +349,7 @@ export async function acceptQuote(
   db: Db,
   actor: ActorContext,
   id: string,
-  input: { acceptedByName: string; method: NonNullable<Quote["acceptanceMethod"]>; acceptedAt?: Date },
+  input: { acceptedByName: string; method: NonNullable<Quote["acceptanceMethod"]>; acceptedAt?: Date; evidence?: Record<string, unknown> },
 ) {
   return db.transaction(async (tx) => {
     const q = await loadSent(tx, id);
@@ -354,7 +363,14 @@ export async function acceptQuote(
     });
     await tx
       .update(quotes)
-      .set({ status: "accepted", acceptedAt: input.acceptedAt ?? new Date(), acceptedByName: input.acceptedByName, acceptanceMethod: input.method, projectId: project.id })
+      .set({
+        status: "accepted",
+        acceptedAt: input.acceptedAt ?? new Date(),
+        acceptedByName: input.acceptedByName,
+        acceptanceMethod: input.method,
+        acceptanceEvidence: input.evidence ?? null,
+        projectId: project.id,
+      })
       .where(eq(quotes.id, id));
     await recordAudit(tx, actor, {
       action: "quote.accepted",

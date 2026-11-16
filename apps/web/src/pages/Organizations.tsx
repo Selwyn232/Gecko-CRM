@@ -57,11 +57,29 @@ function OrgForm({ org, onClose }: { org?: Organization; onClose: () => void }) 
     kvkNumber: org?.kvkNumber ?? "",
     email: org?.email ?? "",
     phone: org?.phone ?? "",
+    vatNumber: org?.vatNumber ?? "",
+    street: org?.street ?? "",
+    houseNumber: org?.houseNumber ?? "",
+    postalCode: org?.postalCode ?? "",
+    city: org?.city ?? "",
+    iban: org?.iban ?? "",
     isActive: org?.isActive ?? true,
   });
   const save = useMutation({
     mutationFn: () => {
-      const body = { ...form, kvkNumber: form.kvkNumber || null, email: form.email || null, phone: form.phone || null };
+      const empty = (v: string) => (v.trim() === "" ? null : v.trim());
+      const body = {
+        ...form,
+        kvkNumber: empty(form.kvkNumber),
+        email: empty(form.email),
+        phone: empty(form.phone),
+        vatNumber: empty(form.vatNumber),
+        street: empty(form.street),
+        houseNumber: empty(form.houseNumber),
+        postalCode: empty(form.postalCode),
+        city: empty(form.city),
+        iban: empty(form.iban),
+      };
       if (org) {
         const { type: _t, ...rest } = body;
         return api.patch(`/organizations/${org.id}`, rest);
@@ -87,6 +105,14 @@ function OrgForm({ org, onClose }: { org?: Organization; onClose: () => void }) 
         <Field label="Telefoon"><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
       </div>
       <Field label="E-mail"><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
+      <div className="grid-2">
+        <Field label="Straat"><input value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} /></Field>
+        <Field label="Huisnummer"><input value={form.houseNumber} onChange={(e) => setForm({ ...form, houseNumber: e.target.value })} /></Field>
+        <Field label="Postcode"><input value={form.postalCode} onChange={(e) => setForm({ ...form, postalCode: e.target.value })} /></Field>
+        <Field label="Plaats"><input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></Field>
+        <Field label="Btw-nummer"><input value={form.vatNumber} onChange={(e) => setForm({ ...form, vatNumber: e.target.value })} /></Field>
+        <Field label="IBAN"><input value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value })} /></Field>
+      </div>
       <label className="checkbox"><input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Actief</label>
       {org?.type === "sales_partner" && <AdvisorsSection organizationId={org.id} />}
       <div className="modal-actions">

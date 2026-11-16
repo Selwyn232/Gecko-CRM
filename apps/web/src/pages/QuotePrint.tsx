@@ -30,8 +30,9 @@ export function QuotePrintPage() {
         <div>
           <div className="brand"><span className="brand-mark">G</span> {gecko?.name ?? "Gecko BV"}</div>
           <div className="muted" style={{ fontSize: 12 }}>
-            {[gecko?.email, gecko?.phone].filter(Boolean).join(" · ")}
-            {gecko?.kvkNumber && <div>KvK {gecko.kvkNumber}</div>}
+            {gecko?.street && <div>{gecko.street} {gecko.houseNumber}, {gecko.postalCode} {gecko.city}</div>}
+            <div>{[gecko?.email, gecko?.phone].filter(Boolean).join(" · ")}</div>
+            <div>{[gecko?.kvkNumber && `KvK ${gecko.kvkNumber}`, gecko?.vatNumber && `btw ${gecko.vatNumber}`].filter(Boolean).join(" · ")}</div>
           </div>
         </div>
         <div style={{ textAlign: "right" }}>

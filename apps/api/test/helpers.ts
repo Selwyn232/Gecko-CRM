@@ -9,6 +9,7 @@ import { currentStep, totpAt } from "../src/lib/totp.js";
 import { roles } from "../src/modules/auth/schema.js";
 import { organizations } from "../src/modules/organizations/schema.js";
 import { createUser } from "../src/modules/users/service.js";
+import type { EmailTransport } from "../src/modules/email/transport.js";
 
 export const PASSWORD = "een-lang-wachtwoord-123";
 
@@ -32,11 +33,11 @@ export async function resetDb(db: Db) {
   await seed(db);
 }
 
-export async function createTestContext(): Promise<TestContext> {
+export async function createTestContext(opts: { emailTransport?: EmailTransport | null } = {}): Promise<TestContext> {
   const config = loadConfig();
   const { db, pool } = createDb(config.DATABASE_URL);
   await resetDb(db);
-  const app = await buildApp({ config, db });
+  const app = await buildApp({ config, db, emailTransport: opts.emailTransport ?? null });
   await app.ready();
   return {
     app,

@@ -12,6 +12,7 @@ import { ProjectsPage } from "./pages/Projects";
 import { QuoteDetailPage } from "./pages/QuoteDetail";
 import { QuotePrintPage } from "./pages/QuotePrint";
 import { QuotesPage } from "./pages/Quotes";
+import { PublicQuotePage } from "./pages/PublicQuote";
 import { LoginPage } from "./pages/Login";
 import { OrganizationsPage } from "./pages/Organizations";
 import { ProductDetailPage } from "./pages/ProductDetail";
@@ -23,6 +24,14 @@ export function App() {
   const { me, can, logout } = useAuth();
   const [changingPassword, setChangingPassword] = useState(false);
   const location = useLocation();
+  // Klantpagina's zonder login
+  if (location.pathname.startsWith("/akkoord/")) {
+    return (
+      <Routes>
+        <Route path="/akkoord/:token" element={<PublicQuotePage />} />
+      </Routes>
+    );
+  }
   if (!me || !me.mfaVerified || me.mustChangePassword) return <LoginPage />;
   if (/^\/offertes\/[^/]+\/print$/.test(location.pathname)) {
     return (

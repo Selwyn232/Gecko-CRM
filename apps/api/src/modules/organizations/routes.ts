@@ -20,6 +20,12 @@ const OrgBody = z.object({
   vatNumber: z.string().max(20).nullish(),
   email: z.string().email().nullish(),
   phone: z.string().max(30).nullish(),
+  street: z.string().max(200).nullish(),
+  houseNumber: z.string().max(20).nullish(),
+  postalCode: z.string().max(10).nullish(),
+  city: z.string().max(100).nullish(),
+  iban: z.string().max(34).nullish(),
+  website: z.string().max(200).nullish(),
   isActive: z.boolean().optional(),
 });
 const IdParams = z.object({ id: z.string().uuid() });

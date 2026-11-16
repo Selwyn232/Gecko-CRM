@@ -49,6 +49,12 @@ export interface Organization {
   name: string;
   type: "gecko" | "sales_partner" | "installation_partner" | "supplier";
   kvkNumber: string | null;
+  vatNumber: string | null;
+  street: string | null;
+  houseNumber: string | null;
+  postalCode: string | null;
+  city: string | null;
+  iban: string | null;
   email: string | null;
   phone: string | null;
   isActive: boolean;
@@ -274,6 +280,7 @@ export interface Quote {
   projectId: string | null;
   customerNote: string | null;
   internalNote: string | null;
+  acceptanceEvidence: Record<string, unknown> | null;
   createdAt: string;
   customer: CustomerSummary;
   property: Property;

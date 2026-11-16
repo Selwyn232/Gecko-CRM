@@ -22,6 +22,7 @@ import { customerRoutes } from "./modules/customers/routes.js";
 import { journeyRoutes } from "./modules/journeys/routes.js";
 import { projectRoutes } from "./modules/projects/routes.js";
 import { quoteRoutes } from "./modules/quotes/routes.js";
+import { transportFromConfig, type EmailTransport } from "./modules/email/transport.js";
 import { organizationRoutes } from "./modules/organizations/routes.js";
 import { roleRoutes } from "./modules/roles/routes.js";
 import { userRoutes } from "./modules/users/routes.js";
@@ -36,6 +37,8 @@ export interface AppDeps {
   db: Db;
   /** Map met de gebouwde webapplicatie. Leeg = alleen API (zoals in tests). */
   webDistDir?: string;
+  /** E-mailverzending. Standaard volgens de configuratie (Mailgun of niets); tests geven een eigen transport mee. */
+  emailTransport?: EmailTransport | null;
 }
 
 /** Serveert de webapplicatie; onbekende paden buiten /api krijgen index.html (client-side routing). */
@@ -47,7 +50,7 @@ async function registerWebApp(app: FastifyInstance, dir: string) {
   });
 }
 
-export async function buildApp({ config, db, webDistDir }: AppDeps) {
+export async function buildApp({ config, db, webDistDir, emailTransport = transportFromConfig(config) }: AppDeps) {
   const app = Fastify({
     logger:
       config.NODE_ENV === "test"
@@ -133,7 +136,7 @@ export async function buildApp({ config, db, webDistDir }: AppDeps) {
       await api.register(customerRoutes, { db });
       await api.register(projectRoutes, { db });
       await api.register(journeyRoutes, { db });
-      await api.register(quoteRoutes, { db });
+      await api.register(quoteRoutes, { db, config, emailTransport });
     },
     { prefix: "/api" },
   );

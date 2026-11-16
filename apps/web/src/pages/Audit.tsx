@@ -56,6 +56,7 @@ const ACTIONS: Record<string, string> = {
   "quote.accepted": "Offerte geaccepteerd",
   "quote.rejected": "Offerte afgewezen",
   "quote.revised": "Nieuwe offerteversie",
+  "quote.link_sent": "Offerte ter akkoord verstuurd",
   "advisor.created": "Adviseur toegevoegd",
   "advisor.updated": "Adviseur gewijzigd",
 };

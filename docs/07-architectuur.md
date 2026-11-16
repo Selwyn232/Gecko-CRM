@@ -70,7 +70,8 @@ Doel: geen dataverlies van betekenis en snel herstel.
 | Build | `npx -y pnpm@10.28.0 install --frozen-lockfile --prod=false && npx -y pnpm@10.28.0 build` |
 | Start | `node apps/api/dist/cli/bootstrap.js && node apps/api/dist/server.js` (eerst migraties en basisgegevens, dan de server) |
 | Database | `gecko-crm-db`, PostgreSQL 16, plan Basic 1 GB, 5 GB opslag, regio Frankfurt, point-in-time recovery actief |
-| Variabelen | `DATABASE_URL`, `ENCRYPTION_KEY`, `NODE_ENV=production`, `NODE_VERSION=22` |
+| Variabelen | `DATABASE_URL`, `ENCRYPTION_KEY`, `NODE_ENV=production`, `NODE_VERSION=22`, `APP_BASE_URL` |
+| E-mail (zelf in te vullen) | `MAILGUN_API_KEY` (verzendsleutel van het domein), `MAILGUN_DOMAIN`, `MAILGUN_REGION=eu`, optioneel `MAIL_FROM`. Zonder deze variabelen worden e-mails alleen vastgelegd, niet verstuurd |
 
 Eenmalig bij een lege database: `BOOTSTRAP_ADMIN_EMAIL` en `BOOTSTRAP_ADMIN_PASSWORD` maken de eerste beheerder aan,
 `SEED_DEMO=true` laadt voorbeelddata. Verwijder deze variabelen daarna.

@@ -25,6 +25,7 @@ export function QuoteDetailPage() {
   const quote = useQuery({ queryKey: ["quote", id], queryFn: () => api.get<Quote>(`/quotes/${id}`) });
   const [accepting, setAccepting] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [sendingLink, setSendingLink] = useState(false);
 
   const setQuote = (q: Quote) => {
     qc.setQueryData(["quote", q.id], q);
@@ -61,7 +62,8 @@ export function QuoteDetailPage() {
         <div className="row">
           <a className="btn" href={`/offertes/${q.id}/print`} target="_blank" rel="noreferrer">Afdrukken / PDF</a>
           {manage && draft && <button className="btn primary" disabled={!q.lines.length || action.isPending} onClick={() => action.mutate("send")}>Definitief maken</button>}
-          {manage && q.effectiveStatus === "sent" && <button className="btn primary" onClick={() => setAccepting(true)}>Akkoord registreren</button>}
+          {manage && q.effectiveStatus === "sent" && <button className="btn primary" onClick={() => setSendingLink(true)}>Versturen ter akkoord</button>}
+          {manage && q.effectiveStatus === "sent" && <button className="btn" onClick={() => setAccepting(true)}>Akkoord registreren</button>}
           {manage && q.effectiveStatus === "sent" && <button className="btn danger" onClick={() => setRejecting(true)}>Afgewezen</button>}
           {manage && (q.status === "sent" || q.status === "rejected") && <button className="btn" onClick={() => action.mutate("revise")}>Nieuwe versie</button>}
         </div>
@@ -107,6 +109,9 @@ export function QuoteDetailPage() {
         )}
       </div>
 
+      {q.status !== "draft" && <EmailsCard quoteId={q.id} />}
+      {q.acceptanceEvidence && <EvidenceCard evidence={q.acceptanceEvidence} />}
+      {sendingLink && <SendLinkModal quote={q} onClose={() => setSendingLink(false)} />}
       {accepting && <AcceptModal quote={q} onClose={() => setAccepting(false)} onSaved={setQuote} />}
       {rejecting && <RejectModal quote={q} onClose={() => setRejecting(false)} onSaved={setQuote} />}
     </>
@@ -288,5 +293,103 @@ function RejectModal({ quote, onClose, onSaved }: { quote: Quote; onClose: () =>
         <button className="btn danger" onClick={() => save.mutate()}>Afgewezen registreren</button>
       </div>
     </Modal>
+  );
+}
+
+interface SendLinkResult {
+  email: string;
+  emailStatus: "sent" | "failed" | "not_sent" | "queued";
+  emailError: string | null;
+  url: string | null;
+}
+
+function SendLinkModal({ quote, onClose }: { quote: Quote; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [email, setEmail] = useState(quote.customer.email ?? "");
+  const send = useMutation({
+    mutationFn: () => api.post<SendLinkResult>(`/quotes/${quote.id}/send-link`, { email: email || null }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["quote-emails", quote.id] }),
+  });
+  const r = send.data;
+  return (
+    <Modal title="Versturen ter akkoord" onClose={onClose}>
+      <ErrorBox error={send.error} />
+      {!r ? (
+        <>
+          <p className="muted">De klant ontvangt de offerte per e-mail met een persoonlijke link. Na het invoeren van een code (per e-mail) kan de klant digitaal akkoord geven; het project wordt dan automatisch aangemaakt. Een eerder verstuurde link vervalt.</p>
+          <Field label="E-mailadres klant"><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></Field>
+          <div className="modal-actions">
+            <button className="btn" onClick={onClose}>Annuleren</button>
+            <button className="btn primary" disabled={!email || send.isPending} onClick={() => send.mutate()}>Versturen</button>
+          </div>
+        </>
+      ) : (
+        <>
+          {r.emailStatus === "sent" && <div className="alert info">Verstuurd naar {r.email}.</div>}
+          {r.emailStatus === "not_sent" && <div className="alert warning">De e-mail is <strong>niet</strong> verstuurd: er is nog geen e-mailkoppeling (Mailgun) ingesteld. Gebruik de link hieronder om te testen of stuur hem zelf door.</div>}
+          {r.emailStatus === "failed" && <div className="alert error">Versturen mislukt: {r.emailError}</div>}
+          {r.url && (
+            <Field label="Persoonlijke link">
+              <div className="row" style={{ flexWrap: "nowrap" }}>
+                <input readOnly value={r.url} style={{ flex: 1, minWidth: 0 }} onFocus={(e) => e.target.select()} />
+                <button className="btn small" onClick={() => void navigator.clipboard?.writeText(r.url!)}>Kopiëren</button>
+              </div>
+            </Field>
+          )}
+          <div className="modal-actions"><button className="btn primary" onClick={onClose}>Sluiten</button></div>
+        </>
+      )}
+    </Modal>
+  );
+}
+
+const EMAIL_STATUS: Record<string, { label: string; color: string }> = {
+  sent: { label: "Verstuurd", color: "green" },
+  failed: { label: "Mislukt", color: "red" },
+  not_sent: { label: "Niet verstuurd (geen koppeling)", color: "yellow" },
+  queued: { label: "In wachtrij", color: "blue" },
+};
+const TEMPLATES: Record<string, string> = { "quote.link": "Offerte ter akkoord", "quote.code": "Verificatiecode", "quote.accepted": "Bevestiging akkoord" };
+
+function EmailsCard({ quoteId }: { quoteId: string }) {
+  const emails = useQuery({
+    queryKey: ["quote-emails", quoteId],
+    queryFn: () => api.get<{ id: string; toAddress: string; template: string; status: string; error: string | null; createdAt: string }[]>(`/quotes/${quoteId}/emails`),
+  });
+  if (!emails.data?.length) return null;
+  return (
+    <div className="card flush">
+      <div style={{ padding: "16px 20px 8px" }}><h2 style={{ margin: 0 }}>E-mails</h2></div>
+      <table>
+        <thead><tr><th>Tijdstip</th><th>Bericht</th><th>Aan</th><th>Status</th></tr></thead>
+        <tbody>
+          {emails.data.map((e) => (
+            <tr key={e.id}>
+              <td className="muted">{formatDateTime(e.createdAt)}</td>
+              <td>{TEMPLATES[e.template] ?? e.template}</td>
+              <td>{e.toAddress}</td>
+              <td><span className={`status ${EMAIL_STATUS[e.status]?.color ?? "gray"}`}>{EMAIL_STATUS[e.status]?.label ?? e.status}</span>{e.error && <div className="muted" style={{ fontSize: 12 }}>{e.error}</div>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function EvidenceCard({ evidence }: { evidence: Record<string, unknown> }) {
+  const e = evidence as { email?: string; acceptedAt?: string; typedName?: string; ip?: string; userAgent?: string; contentHash?: string };
+  return (
+    <div className="card">
+      <h2>Bewijs van digitaal akkoord</h2>
+      <dl className="kv">
+        <dt>Tijdstip</dt><dd>{formatDateTime(e.acceptedAt ?? null)}</dd>
+        <dt>Naam (ingetypt)</dt><dd>{e.typedName}</dd>
+        <dt>E-mail (geverifieerd)</dt><dd>{e.email}</dd>
+        <dt>IP-adres</dt><dd className="mono">{e.ip ?? "—"}</dd>
+        <dt>Apparaat</dt><dd style={{ fontSize: 12 }}>{e.userAgent ?? "—"}</dd>
+        <dt>Kenmerk inhoud</dt><dd className="mono" style={{ fontSize: 12 }}>{e.contentHash?.slice(0, 32)}…</dd>
+      </dl>
+    </div>
   );
 }

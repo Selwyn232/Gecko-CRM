@@ -1,4 +1,4 @@
-import { bigint, date, index, integer, numeric, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, date, index, integer, jsonb, numeric, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { id, timestamps } from "../../db/columns.js";
 import { users } from "../auth/schema.js";
 import { productGroups, products, salesChannels } from "../catalog/schema.js";
@@ -45,6 +45,10 @@ export const quotes = pgTable(
     rejectionReason: text("rejection_reason"),
     supersedesQuoteId: uuid("supersedes_quote_id"),
     projectId: uuid("project_id").references(() => projects.id),
+    /** SHA-256 van de inhoud bij definitief maken; bewijst later welke offerte precies is geaccepteerd. */
+    contentHash: text("content_hash"),
+    /** Bewijs van digitaal akkoord: e-mailadres, verificatie, IP, apparaat, tijdstip, inhoud-hash. */
+    acceptanceEvidence: jsonb("acceptance_evidence"),
     /** Tekst op de offerte voor de klant. */
     customerNote: text("customer_note"),
     /** Interne notitie, niet op de offerte. */
@@ -82,3 +86,39 @@ export const quoteLines = pgTable(
 
 export type Quote = typeof quotes.$inferSelect;
 export type QuoteLine = typeof quoteLines.$inferSelect;
+
+/**
+ * Persoonlijke link waarmee de klant een offerte bekijkt en digitaal accepteert.
+ * Alleen de hash van het token staat in de database.
+ */
+export const quoteLinks = pgTable(
+  "quote_links",
+  {
+    id: id(),
+    quoteId: uuid("quote_id").notNull().references(() => quotes.id),
+    tokenHash: text("token_hash").notNull().unique(),
+    /** Het adres waarheen link en verificatiecodes gaan. */
+    email: text("email").notNull(),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    lastViewedAt: timestamp("last_viewed_at", { withTimezone: true }),
+  },
+  (t) => [index("quote_links_quote_idx").on(t.quoteId)],
+);
+
+/** Eenmalige verificatiecode (per e-mail) voordat de klant akkoord kan geven. */
+export const quoteLinkCodes = pgTable(
+  "quote_link_codes",
+  {
+    id: id(),
+    linkId: uuid("link_id").notNull().references(() => quoteLinks.id, { onDelete: "cascade" }),
+    codeHash: text("code_hash").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("quote_link_codes_link_idx").on(t.linkId)],
+);

@@ -86,7 +86,24 @@ export async function seed(db: Db) {
       const [created] = await tx.insert(organizations).values({ name, type }).returning();
       return created!;
     };
-    await ensureOrg("Gecko BV", "gecko");
+    const gecko = await ensureOrg("Gecko BV", "gecko");
+    // FICTIEVE bedrijfsgegevens (open punt O16). Alleen ingevuld als ze leeg zijn; vervang ze in Organisaties.
+    if (!gecko.street) {
+      await tx
+        .update(organizations)
+        .set({
+          street: "Voorbeeldstraat",
+          houseNumber: "1",
+          postalCode: "1234AB",
+          city: "Utrecht",
+          kvkNumber: "00000000",
+          vatNumber: "NL000000000B01",
+          iban: "NL00BANK0000000000",
+          email: gecko.email ?? "info@gecko.example",
+          phone: gecko.phone ?? "+31300000000",
+        })
+        .where(eq(organizations.id, gecko.id));
+    }
     const greenteam = await ensureOrg("Greenteam", "sales_partner");
     await ensureOrg("OSW", "supplier");
 

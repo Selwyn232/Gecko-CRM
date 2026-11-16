@@ -57,6 +57,13 @@
       "when": 1794803405104,
       "tag": "0007_grant_quote_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794804811968,
+      "tag": "0008_email_quote_links_org_address",
+      "breakpoints": true
     }
   ]
 }
