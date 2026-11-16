@@ -66,17 +66,16 @@ Doel: geen dataverlies van betekenis en snel herstel.
 
 | Onderdeel | Instelling |
 |---|---|
-| Webservice | `gecko-crm`, regio Frankfurt, Node 22. Deployt automatisch bij elke push naar de ontwikkelbranch |
+| Webservice | `gecko-crm-web` (plan Starter, geen slaapstand), regio Frankfurt, Node 22. Deployt automatisch bij elke push naar de ontwikkelbranch |
 | Build | `npx -y pnpm@10.28.0 install --frozen-lockfile --prod=false && npx -y pnpm@10.28.0 build` |
 | Start | `node apps/api/dist/cli/bootstrap.js && node apps/api/dist/server.js` (eerst migraties en basisgegevens, dan de server) |
-| Database | `gecko-crm-db`, PostgreSQL 16, regio Frankfurt |
+| Database | `gecko-crm-db`, PostgreSQL 16, plan Basic 1 GB, 5 GB opslag, regio Frankfurt, point-in-time recovery actief |
 | Variabelen | `DATABASE_URL`, `ENCRYPTION_KEY`, `NODE_ENV=production`, `NODE_VERSION=22` |
 
 Eenmalig bij een lege database: `BOOTSTRAP_ADMIN_EMAIL` en `BOOTSTRAP_ADMIN_PASSWORD` maken de eerste beheerder aan,
 `SEED_DEMO=true` laadt voorbeelddata. Verwijder deze variabelen daarna.
 
-**Let op — demo-omgeving.** Beide draaien nu op het gratis plan: de server valt na 15 minuten zonder bezoek in slaap
-(eerste bezoek duurt dan ~1 minuut), en de gratis database **vervalt na 30 dagen en heeft geen backups**. Vóór er
-echte klantdata in gaat: betaalde plannen met point-in-time recovery en de backupmaatregelen hierboven.
+**Nog te doen vóór echte klantdata:** dagelijkse versleutelde dump naar aparte opslag bij een andere aanbieder,
+herstel-test, en de duur van point-in-time recovery controleren (hangt af van het Render-werkruimteplan).
 
 `ENCRYPTION_KEY` nooit wijzigen of kwijtraken: daarmee zijn de 2FA-geheimen versleuteld.
