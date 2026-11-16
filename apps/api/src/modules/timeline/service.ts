@@ -129,31 +129,33 @@ export async function search(db: DbOrTx, actor: ActorContext, qInput: string) {
   const results: { kind: string; label: string; detail: string; href: string }[] = [];
 
   if (can("customers.read")) {
-    const rows = await db
-      .selectDistinct({ c: customers, street: properties.street, houseNumber: properties.houseNumber, postalCode: properties.postalCode, city: properties.city })
-      .from(customers)
-      .leftJoin(properties, eq(properties.customerId, customers.id))
-      .where(
-        sql`(
-          (coalesce(${customers.firstName}, '') || ' ' || ${customers.lastName}) ILIKE ${like}
-          OR ${customers.email} ILIKE ${like}
-          OR (${digits.length >= 6 ? sql`regexp_replace(coalesce(${customers.phone}, ''), '\\D', '', 'g') LIKE ${`%${digits.slice(-9)}%`}` : sql`false`})
-          OR (${num !== null && /^k/i.test(q) ? sql`${customers.number} = ${num}` : sql`false`})
-          OR replace(upper(${properties.postalCode}), ' ', '') LIKE ${`${postal}%`}
-          OR (${properties.street} || ' ' || ${properties.houseNumber}) ILIKE ${like}
-        )`,
-      )
-      .limit(8);
-    const seen = new Set<string>();
-    for (const r of rows) {
-      if (seen.has(r.c.id)) continue;
-      seen.add(r.c.id);
-      results.push({
-        kind: "Klant",
-        label: [r.c.firstName, r.c.lastName].filter(Boolean).join(" "),
-        detail: [formatCustomerNumber(r.c.number), r.street && `${r.street} ${r.houseNumber}, ${r.city}`, r.c.email].filter(Boolean).join(" · "),
-        href: `/klanten/${r.c.id}`,
-      });
+    // Losse, elk via een index uit te voeren zoekopdrachten (migratie 0029), samengevoegd met UNION.
+    const parts = [
+      sql`SELECT id FROM customers WHERE (coalesce(first_name, '') || ' ' || last_name) ILIKE ${like}`,
+      sql`SELECT id FROM customers WHERE email ILIKE ${like}`,
+      sql`SELECT customer_id AS id FROM properties WHERE replace(upper(postal_code), ' ', '') LIKE ${`${postal}%`}`,
+      sql`SELECT customer_id AS id FROM properties WHERE (street || ' ' || house_number) ILIKE ${like}`,
+    ];
+    if (digits.length >= 6) parts.push(sql`SELECT id FROM customers WHERE regexp_replace(coalesce(phone, ''), '\\D', '', 'g') LIKE ${`%${digits.slice(-9)}%`}`);
+    if (num !== null && /^k/i.test(q)) parts.push(sql`SELECT id FROM customers WHERE number = ${num}`);
+    const ids = ((await db.execute(sql`SELECT DISTINCT id FROM (${sql.join(parts, sql` UNION `)}) u LIMIT 8`)).rows as { id: string }[]).map((r) => r.id);
+    if (ids.length) {
+      const rows = await db
+        .select({ c: customers, street: properties.street, houseNumber: properties.houseNumber, city: properties.city })
+        .from(customers)
+        .leftJoin(properties, eq(properties.customerId, customers.id))
+        .where(inArray(customers.id, ids));
+      const seen = new Set<string>();
+      for (const r of rows) {
+        if (seen.has(r.c.id)) continue;
+        seen.add(r.c.id);
+        results.push({
+          kind: "Klant",
+          label: [r.c.firstName, r.c.lastName].filter(Boolean).join(" "),
+          detail: [formatCustomerNumber(r.c.number), r.street && `${r.street} ${r.houseNumber}, ${r.city}`, r.c.email].filter(Boolean).join(" · "),
+          href: `/klanten/${r.c.id}`,
+        });
+      }
     }
   }
   if (num !== null) {

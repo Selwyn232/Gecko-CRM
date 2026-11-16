@@ -76,21 +76,26 @@ export async function listCustomers(db: DbOrTx, q: { search?: string; limit: num
     const s = q.search.trim();
     const like = `%${s}%`;
     const numeric = s.replace(/^k-?/i, "");
+    // Dezelfde expressies als de trigram-indexen (migratie 0029), zodat zoeken snel blijft bij veel klanten.
     const parts: SQL[] = [
-      ilike(customers.lastName, like),
-      ilike(customers.firstName, like),
-      ilike(sql`${customers.firstName} || ' ' || ${customers.lastName}`, like),
+      sql`(coalesce(${customers.firstName}, '') || ' ' || ${customers.lastName}) ILIKE ${like}`,
       ilike(customers.email, like),
       inArray(
         customers.id,
         db
           .select({ id: properties.customerId })
           .from(properties)
-          .where(or(ilike(properties.postalCode, `%${s.replace(/\s/g, "")}%`), ilike(properties.street, like), ilike(properties.city, like))),
+          .where(
+            or(
+              sql`replace(upper(${properties.postalCode}), ' ', '') LIKE ${`%${s.replace(/\s/g, "").toUpperCase()}%`}`,
+              sql`(${properties.street} || ' ' || ${properties.houseNumber}) ILIKE ${like}`,
+              ilike(properties.city, like),
+            ),
+          ),
       ),
     ];
     const digits = s.replace(/\D/g, "");
-    if (digits.length >= 6) parts.push(ilike(customers.phone, `%${digits.slice(-9)}%`));
+    if (digits.length >= 6) parts.push(sql`regexp_replace(coalesce(${customers.phone}, ''), '\\D', '', 'g') LIKE ${`%${digits.slice(-9)}%`}`);
     if (/^\d+$/.test(numeric)) parts.push(eq(customers.number, Number(numeric)));
     filters.push(or(...parts)!);
   }

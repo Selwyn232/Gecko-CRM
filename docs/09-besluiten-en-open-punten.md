@@ -60,6 +60,7 @@
 | B55 | Selfbilling automatisch bundelen (instelling "Selfbilling: elke maandag automatisch conceptfacturen", standaard uit): maandag vanaf 9:00 een concept per partner zonder open concept; definitief maken blijft handwerk. CSV-exports van klanten, projecten en offertes (volgens rechten, gelogd) | 2026-11-16 |
 | B56 | Taken (klantkaart: titel, voor wie, deadline, project; afvinken) en meldingen (belletje): bij een toegewezen taak, ingediend rapport, geaccepteerde offerte, factuur naar incasso en selfbilling "niet akkoord". Open taken met deadline binnen 7 dagen op Mijn werk | 2026-11-16 |
 | B57 | AVG op de klantkaart (knop Privacy): inzage-export (JSON met alle vastgelegde gegevens) en anonimiseren — naam, contact, adres (op PC4 na), notities, e-mailinhoud, foto's en handtekeningnaam gewist; facturen 7 jaar bewaard, offertes als bewijs. Alleen zonder lopend project of open factuur; beide gelogd. Juridisch te bevestigen (O9) | 2026-11-16 |
+| B58 | Groei getest met 100.000 klanten en 33.000 projecten: lijsten, startpagina en rapportages < 0,2 s, zoekbalk ~0,01 s (trigram-indexen, pg_trgm), export alle klanten ~1 s | 2026-11-16 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten

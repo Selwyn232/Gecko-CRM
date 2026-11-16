@@ -204,6 +204,13 @@
       "when": 1794843555802,
       "tag": "0028_tasks_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794844301380,
+      "tag": "0029_search_indexes",
+      "breakpoints": true
     }
   ]
 }
