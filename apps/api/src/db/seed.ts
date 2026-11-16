@@ -15,6 +15,22 @@ import { ensureDefaultJourneys } from "../modules/journeys/service.js";
 const DEFAULT_ROLES: { key: string; name: string; description: string; isSystem?: boolean; permissions: Permission[] }[] = [
   { key: ADMIN_ROLE_KEY, name: "Beheerder", description: "Volledige toegang", isSystem: true, permissions: [] },
   {
+    key: "medewerker",
+    name: "Medewerker",
+    description: "Kan het hele CRM gebruiken, maar geen instellingen wijzigen",
+    permissions: [
+      "customers.read",
+      "customers.manage",
+      "projects.read",
+      "projects.manage",
+      "catalog.read",
+      "purchase_prices.read",
+      "organizations.read",
+      "users.read",
+      "audit.read",
+    ],
+  },
+  {
     key: "klantspecialist",
     name: "Klantspecialist",
     description: "Klantcontact en dossierbeheer",

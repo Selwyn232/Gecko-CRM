@@ -135,3 +135,22 @@ describe("projecten en klantreis", () => {
     expect((await api("POST", "/customers", { lastName: "x" }, headers)).statusCode).toBe(403);
   });
 });
+
+describe("rol medewerker", () => {
+  it("mag klanten en projecten gebruiken, maar niets instellen", async () => {
+    const u = await makeUser(ctx.db, ["medewerker"]);
+    const { headers } = await loginWithMfa(ctx.app, u.email);
+    const c = await api("POST", "/customers", { lastName: "Medewerkerstest", property }, headers);
+    expect(c.statusCode).toBe(201);
+    const p = await api("POST", "/projects", { customerId: c.json().id, propertyId: c.json().properties[0].id, productGroupId: batteryGroupId, salesChannelId: channelId }, headers);
+    expect(p.statusCode).toBe(201);
+    expect((await api("GET", "/products", undefined, headers)).statusCode).toBe(200);
+
+    expect((await api("POST", "/products", { code: "X", name: "x", productGroupId: batteryGroupId, type: "package", vatCode: "hoog" }, headers)).statusCode).toBe(403);
+    expect((await api("POST", `/journeys/${batteryGroupId}/statuses`, { key: "x_y", name: "x", phase: "x" }, headers)).statusCode).toBe(403);
+    expect((await api("PATCH", `/users/${u.id}`, { name: "x" }, headers)).statusCode).toBe(403);
+    expect((await api("POST", "/roles", { key: "x_y", name: "x", permissions: [] }, headers)).statusCode).toBe(403);
+    expect((await api("POST", "/organizations", { name: "x", type: "supplier" }, headers)).statusCode).toBe(403);
+    expect((await api("POST", "/vat-codes/hoog/rates", { rateBasisPoints: 2200, validFrom: "2099-01-01" }, headers)).statusCode).toBe(403);
+  });
+});
