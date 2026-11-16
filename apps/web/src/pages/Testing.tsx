@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { ErrorBox, Field, PageHead } from "../components/ui";
-import { useProductGroups } from "../hooks";
+import { useChannels, useProductGroups } from "../hooks";
 
 interface Scenario {
   projectId: string;
@@ -13,6 +13,8 @@ interface Scenario {
   partnerId: string;
   partnerUserId: string;
   regionName: string;
+  salesChannelName?: string;
+  feeBasisPoints?: number | null;
 }
 
 const STORAGE_KEY = "gecko-test-scenario";
@@ -29,6 +31,8 @@ export function TestingPage() {
   const { me } = useAuth();
   const qc = useQueryClient();
   const groups = useProductGroups();
+  const channels = useChannels();
+  const [channelId, setChannelId] = useState("");
   const status = useQuery({ queryKey: ["test-status"], queryFn: () => api.get<{ testMode: boolean }>("/testing/status") });
   const [groupId, setGroupId] = useState("");
   const [email, setEmail] = useState(me?.email ?? "");
@@ -40,7 +44,7 @@ export function TestingPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["test-status"] }),
   });
   const create = useMutation({
-    mutationFn: () => api.post<Scenario>("/testing/scenario", { productGroupId: groupId || groups.data?.[0]?.id, email, postalCode }),
+    mutationFn: () => api.post<Scenario>("/testing/scenario", { productGroupId: groupId || groups.data?.[0]?.id, email, postalCode, salesChannelId: channelId || null }),
     onSuccess: (s) => {
       setScenario(s);
       try {
@@ -58,7 +62,7 @@ export function TestingPage() {
 
   return (
     <>
-      <PageHead title="Testen" sub="Doorloop het hele proces — offerte, schouw, aanbetaling, rapport, meerwerk, installatie, oplevering en eindfactuur — met een testklant en testinstallateur." />
+      <PageHead title="Testen" sub="Doorloop het hele proces — offerte, schouw, aanbetaling, rapport, meerwerk, installatie, oplevering, eindfactuur en selfbilling met akkoord — met een testklant, Greenteam (test) en testinstallateur." />
 
       <div className="card">
         <div className="row" style={{ justifyContent: "space-between" }}>
@@ -74,7 +78,7 @@ export function TestingPage() {
       <div className="card">
         <h2>1. Testscenario aanmaken</h2>
         <p className="muted" style={{ fontSize: 13 }}>
-          Maakt een testklant met een geaccepteerde offerte en een project dat klaarstaat voor de schouw, plus de <strong>Testinstallateur (test)</strong> met werkgebied en beschikbaarheid voor de komende 14 dagen. E-mails gaan naar het adres hieronder.
+          Maakt een testklant met een geaccepteerde offerte en een project dat klaarstaat voor de schouw, plus de <strong>Testinstallateur (test)</strong> met werkgebied, beschikbaarheid voor de komende 14 dagen en een partnertarief. Standaard verkocht via <strong>Greenteam (test)</strong>: een testkopie met testadviseur en fee, zodat je ook de selfbilling kunt testen zonder de echte Greenteam aan te passen. Alle e-mails — ook de akkoordmails van de selfbilling — gaan naar het adres hieronder.
         </p>
         <ErrorBox error={create.error} />
         <div className="grid-2">
@@ -85,6 +89,12 @@ export function TestingPage() {
           </Field>
           <Field label="E-mail testklant (ontvangt offerte, facturen en bevestigingen)"><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
           <Field label="Postcode testadres"><input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} /></Field>
+          <Field label="Verkoopkanaal">
+            <select value={channelId} onChange={(e) => setChannelId(e.target.value)}>
+              <option value="">Greenteam (test) — met adviseur en fee, akkoordmails naar jou (aanbevolen)</option>
+              {channels.data?.filter((c) => c.isActive && c.key !== "greenteam_test").map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </Field>
         </div>
         <button className="btn primary" disabled={!on || !email || create.isPending} onClick={() => create.mutate()}>{create.isPending ? "Bezig…" : "Testscenario aanmaken"}</button>
         {!on && <span className="muted" style={{ marginLeft: 8 }}>Zet eerst de testmodus aan.</span>}
@@ -93,7 +103,7 @@ export function TestingPage() {
       {scenario && (
         <div className="card">
           <h2>2. Doorloop het proces</h2>
-          <p className="muted" style={{ fontSize: 13 }}>Testproject in gebied <strong>{scenario.regionName}</strong>. Volg de stappen; als installateur werk je via <em>Inloggen als</em> (gele balk bovenin om terug te keren).</p>
+          <p className="muted" style={{ fontSize: 13 }}>Testproject in gebied <strong>{scenario.regionName}</strong>{scenario.salesChannelName && <>, verkocht via <strong>{scenario.salesChannelName}</strong>{scenario.feeBasisPoints != null && <> ({scenario.feeBasisPoints / 100}% fee)</>}</>}. Volg de stappen; als installateur werk je via <em>Inloggen als</em> (gele balk bovenin om terug te keren).</p>
           <ol className="steps">
             <li>
               <div><div className="who">Planner</div><strong>Schouw inplannen</strong><div className="muted">Op het project bij Afspraken → Schouw plannen. Kies een dagdeel van de testinstallateur. Daarna gaat automatisch de aanbetalingsfactuur uit.</div></div>
@@ -122,6 +132,21 @@ export function TestingPage() {
             <li>
               <div><div className="who">Planner</div><strong>Opleverrapport goedkeuren</strong><div className="muted">Daarna gaat automatisch de eindfactuur uit (incl. meerwerk, minus aanbetaling). Betaal die → project "Afgerond".</div></div>
               <Link className="btn small" to="/planning">Naar planning</Link>
+            </li>
+            <li>
+              <div><div className="who">Finance</div><strong>Selfbilling Greenteam (kan al na stap 2)</strong><div className="muted">Selfbilling → Uit te betalen → Greenteam (test) → Conceptfactuur maken → Definitief maken en ter akkoord sturen.</div></div>
+              <Link className="btn small" to="/selfbilling">Naar selfbilling</Link>
+            </li>
+            <li>
+              <div><div className="who">Greenteam</div><strong>Akkoord geven</strong><div className="muted">Open de mail "Ter akkoord: selfbillingfactuur…" in je inbox → Factuur bekijken en akkoord geven. Probeer ook "Niet akkoord" en daarna in het CRM "Opnieuw ter akkoord sturen".</div></div>
+            </li>
+            <li>
+              <div><div className="who">Finance</div><strong>Selfbilling installateur (na stap 7)</strong><div className="muted">Zelfde route voor Testinstallateur (test): partnertarief min eventuele boetes, btw verlegd. Akkoord via de mail, of via het portaal (Inloggen als → Uitbetalingen; mag alleen in testmodus).</div></div>
+              <button className="btn small primary" onClick={() => void impersonate()}>Inloggen als testinstallateur</button>
+            </li>
+            <li>
+              <div><div className="who">Finance</div><strong>Uitbetalen</strong><div className="muted">Na akkoord: op de selfbillingfactuur → Markeren als betaald.</div></div>
+              <Link className="btn small" to="/selfbilling">Naar selfbilling</Link>
             </li>
           </ol>
         </div>

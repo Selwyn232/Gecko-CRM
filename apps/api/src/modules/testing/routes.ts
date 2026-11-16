@@ -18,6 +18,8 @@ export const testingRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db
           productGroupId: z.string().uuid(),
           email: z.string().email(),
           postalCode: z.string().regex(/^\s*[1-9]\d{3}\s*[a-zA-Z]{2}\s*$/, "Ongeldige postcode"),
+          /** Leeg = "Greenteam (test)". */
+          salesChannelId: z.string().uuid().nullish(),
         }),
       },
     },

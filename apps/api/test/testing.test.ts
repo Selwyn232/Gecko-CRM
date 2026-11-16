@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { todayIso } from "../src/lib/dates.js";
 import { productGroups, salesChannels } from "../src/modules/catalog/schema.js";
+import { organizations } from "../src/modules/organizations/schema.js";
 import { processOutbox } from "../src/modules/jobs/outbox.js";
 import { adminSession, createTestContext, type TestContext } from "./helpers.js";
 
@@ -32,6 +33,15 @@ describe("testmodus en testscenario", () => {
     expect(res.statusCode, res.body).toBe(201);
     const s = res.json();
     expect((await call("GET", `/projects/${s.projectId}`)).json().status.key).toBe("schouw_inplannen");
+    // Standaard via "Greenteam (test)": testadviseur, fee en akkoordmails naar het testadres
+    expect(s).toMatchObject({ salesChannelName: "Greenteam (test)", feeBasisPoints: 1000 });
+    const quote = (await call("GET", `/quotes/${s.quoteId}`)).json();
+    expect(quote.advisor.name).toBe("Testadviseur (test)");
+    const orgs = (await ctx.db.select().from(organizations)).filter((o) => o.name.endsWith("(test)"));
+    expect(orgs.map((o) => o.email)).toEqual(["tester@example.nl", "tester@example.nl"]);
+    // Echte Greenteam ongewijzigd
+    const [realGt] = await ctx.db.select().from(salesChannels).where(eq(salesChannels.key, "greenteam"));
+    expect(realGt!.feeBasisPoints).toBeNull();
 
     // In testmodus: vandaag plannen (zonder voorlooptijd) en direct rapport indienen
     const slots = (await call("GET", `/planning/slots?projectId=${s.projectId}&type=survey`)).json().slots;
@@ -47,6 +57,9 @@ describe("testmodus en testscenario", () => {
     // Tweede scenario hergebruikt dezelfde testinstallateur
     const s2 = (await call("POST", "/testing/scenario", body)).json();
     expect(s2.partnerId).toBe(s.partnerId);
+    // Expliciet kanaal kiezen kan ook
+    const s3 = (await call("POST", "/testing/scenario", { ...body, salesChannelId: channelId })).json();
+    expect(s3.salesChannelName).toBe("Web");
     await call("PUT", "/settings/test.mode", { value: false });
   });
 });
