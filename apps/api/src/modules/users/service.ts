@@ -5,7 +5,7 @@ import { badRequest, notFound } from "../../lib/errors.js";
 import { recordAudit } from "../audit/service.js";
 import { assertInitialPasswordPolicy, hashPassword } from "../auth/password.js";
 import { recoveryCodes, sessions, userRoles, users, type User } from "../auth/schema.js";
-import { organizations } from "../organizations/schema.js";
+import { advisors, organizations } from "../organizations/schema.js";
 import { assertActiveAdminRemains, assertRolesExist } from "../roles/service.js";
 
 /** Publieke weergave: nooit hashes of geheimen naar buiten. */
@@ -22,6 +22,7 @@ export function toPublicUser(u: User, roleIds: string[] = []) {
     mfaEnabled: u.totpEnabledAt !== null,
     lockedUntil: u.lockedUntil,
     lastLoginAt: u.lastLoginAt,
+    advisorId: u.advisorId,
     roleIds,
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
@@ -80,6 +81,15 @@ export interface CreateUserInput {
   mfaRequired?: boolean;
   /** Standaard: gebruiker kiest bij eerste login een eigen wachtwoord. */
   mustChangePassword?: boolean;
+  /** Alleen voor gebruikers van een verkooppartner: koppeling aan één adviseur. */
+  advisorId?: string | null;
+}
+
+/** Adviseur moet bij de organisatie van de gebruiker horen. */
+async function assertAdvisor(tx: DbOrTx, organizationId: string, advisorId: string | null | undefined) {
+  if (!advisorId) return;
+  const [a] = await tx.select().from(advisors).where(eq(advisors.id, advisorId));
+  if (!a || a.organizationId !== organizationId) throw badRequest("invalid_advisor", "Adviseur hoort niet bij de organisatie van deze gebruiker");
 }
 
 const normalizeLogin = (v: string | null | undefined) => (v ? v.trim().toLowerCase() : null);
@@ -100,6 +110,7 @@ export async function createUser(db: Db, actor: ActorContext, input: CreateUserI
     const [org] = await tx.select().from(organizations).where(eq(organizations.id, input.organizationId));
     if (!org) throw badRequest("unknown_organization", "Organisatie bestaat niet");
     await assertRolesExist(tx, input.roleIds);
+    await assertAdvisor(tx, input.organizationId, input.advisorId);
     const [u] = await tx
       .insert(users)
       .values({
@@ -110,6 +121,7 @@ export async function createUser(db: Db, actor: ActorContext, input: CreateUserI
         passwordHash,
         mfaRequired: input.mfaRequired ?? true,
         mustChangePassword,
+        advisorId: input.advisorId ?? null,
       })
       .returning();
     if (input.roleIds.length) {
@@ -129,6 +141,7 @@ export interface UpdateUserInput {
   organizationId?: string;
   isActive?: boolean;
   roleIds?: string[];
+  advisorId?: string | null;
 }
 
 export async function updateUser(db: Db, actor: ActorContext, id: string, input: UpdateUserInput) {
@@ -143,6 +156,11 @@ export async function updateUser(db: Db, actor: ActorContext, id: string, input:
     if (input.mfaRequired !== undefined) patch.mfaRequired = input.mfaRequired;
     if (input.organizationId !== undefined) patch.organizationId = input.organizationId;
     if (input.isActive !== undefined) patch.isActive = input.isActive;
+    if (input.advisorId !== undefined) {
+      const [cur] = await tx.select({ org: users.organizationId }).from(users).where(eq(users.id, id));
+      await assertAdvisor(tx, input.organizationId ?? cur!.org, input.advisorId);
+      patch.advisorId = input.advisorId;
+    }
     if (patch.email !== undefined || patch.username !== undefined) {
       assertHasLogin(patch.email !== undefined ? patch.email : before.email, patch.username !== undefined ? patch.username : before.username);
     }

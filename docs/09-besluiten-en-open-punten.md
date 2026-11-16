@@ -55,6 +55,7 @@
 | B50 | Meerdere ploegen per installatiepartner (Organisaties → aantal ploegen): zoveel afspraken passen tegelijk in een beschikbaar dagdeel. Planvoorstel bij het inplannen: beste 3 momenten op basis van snelheid, drukte van de partner en of de partner die dag al in de buurt (PC2) is, met uitleg; de planner bevestigt | 2026-11-16 |
 | B51 | Project annuleren in één keer (statusknop "Geannuleerd"): geplande afspraken vervallen, openstaande offertes afgewezen, gekozen facturen gecrediteerd, status geannuleerd (kan vanuit elke open status). Nog niet afgerekende fee/installatie wordt niet meer uitbetaald. Terugbetalen en al afgerekende selfbilling corrigeren blijven handwerk en worden gemeld (O2) | 2026-11-16 |
 | B52 | Klanttijdlijn op de klantkaart (notities, belnotities, e-mails, statuswissels, afspraken, offertes, facturen, betalingen; filterbaar). Notities zijn intern. Zoekbalk in de zijbalk (toets /): klant op naam, e-mail, telefoon, postcode, adres, en K-/P-/O-/F-nummers; resultaten volgens rechten | 2026-11-16 |
+| B53 | Verkooppartnerportaal voor Greenteam: gebruikers met rol "Verkooppartner" in de organisatie Greenteam maken klanten en offertes (catalogus en prijzen van hun kanaal, geen kostprijzen), versturen ze ter akkoord, volgen de projectstatus en zien hun fee. Gekoppeld aan een adviseur (bij Gebruikers) = alleen eigen offertes/klanten; zonder koppeling = hele organisatie | 2026-11-16 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten

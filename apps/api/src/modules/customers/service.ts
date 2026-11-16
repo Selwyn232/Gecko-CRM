@@ -140,7 +140,7 @@ export async function createCustomer(db: Db, actor: ActorContext, input: Custome
       const [ch] = await tx.select().from(salesChannels).where(eq(salesChannels.id, data.salesChannelId));
       if (!ch) throw badRequest("unknown_sales_channel", "Verkoopkanaal bestaat niet");
     }
-    const [c] = await tx.insert(customers).values(cleanCustomer(data)).returning();
+    const [c] = await tx.insert(customers).values({ ...cleanCustomer(data), createdBy: actor.userId }).returning();
     await recordAudit(tx, actor, { action: "customer.created", entityType: "customer", entityId: c!.id, after: c });
     if (property) {
       const [p] = await tx.insert(properties).values({ ...cleanProperty(property), customerId: c!.id }).returning();

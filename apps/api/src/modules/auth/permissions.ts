@@ -30,6 +30,7 @@ export const PERMISSIONS = {
   "planning.read": "Planning en afspraken bekijken",
   "planning.manage": "Afspraken plannen, regio's en beschikbaarheid beheren, rapporten beoordelen",
   "partner.portal": "Partnerportaal (alleen eigen afspraken, beschikbaarheid en rapporten)",
+  "sales.portal": "Verkooppartnerportaal (alleen eigen klanten, offertes en fee; geen inkoopprijzen)",
   "invoices.manage": "Facturen maken, crediteren, betalingen registreren en aanmaningen beheren",
 } as const;
 

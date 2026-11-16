@@ -16,6 +16,8 @@ export const customers = pgTable(
     phone: text("phone"),
     /** Kanaal waarlangs de klant binnenkwam. */
     salesChannelId: uuid("sales_channel_id").references(() => salesChannels.id),
+    /** Wie de klant aanmaakte (o.a. om adviseurs alleen hun eigen klanten te tonen). */
+    createdBy: uuid("created_by"),
     notes: text("notes"),
     ...timestamps(),
   },

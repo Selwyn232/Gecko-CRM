@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, type User } from "../api";
 import { useAuth } from "../auth";
@@ -81,6 +81,13 @@ function UserForm({ user, onClose }: { user?: User; onClose: () => void }) {
     password: "",
     isActive: user?.isActive ?? true,
     roleIds: user?.roleIds ?? [],
+    advisorId: (user as (User & { advisorId?: string | null }) | undefined)?.advisorId ?? "",
+  });
+  const org = orgs.data?.find((o) => o.id === form.organizationId);
+  const advisors = useQuery({
+    queryKey: ["advisors", form.organizationId],
+    queryFn: () => api.get<{ id: string; name: string }[]>(`/advisors?organizationId=${form.organizationId}`),
+    enabled: org?.type === "sales_partner",
   });
   const [notice, setNotice] = useState<string | null>(null);
   const done = async () => {
@@ -98,8 +105,9 @@ function UserForm({ user, onClose }: { user?: User; onClose: () => void }) {
             organizationId: form.organizationId,
             isActive: form.isActive,
             roleIds: form.roleIds,
+            advisorId: org?.type === "sales_partner" ? form.advisorId || null : null,
           })
-        : api.post("/users", { ...form, email: form.email || null, username: form.username || null }),
+        : api.post("/users", { ...form, email: form.email || null, username: form.username || null, advisorId: org?.type === "sales_partner" ? form.advisorId || null : null }),
     onSuccess: done,
   });
   const action = useMutation({
@@ -134,6 +142,14 @@ function UserForm({ user, onClose }: { user?: User; onClose: () => void }) {
           {orgs.data?.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
       </Field>
+      {org?.type === "sales_partner" && (
+        <Field label="Adviseur (leeg = ziet alle offertes van de verkooppartner)">
+          <select value={form.advisorId} onChange={(e) => setForm({ ...form, advisorId: e.target.value })}>
+            <option value="">— hele organisatie —</option>
+            {advisors.data?.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </Field>
+      )}
       <Field label={user ? "Nieuw startwachtwoord (alleen bij resetten)" : "Startwachtwoord (gebruiker kiest bij eerste login een eigen wachtwoord)"}>
         <input type="password" autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
       </Field>

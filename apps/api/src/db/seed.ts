@@ -25,6 +25,13 @@ const DEFAULT_ROLES: { key: string; name: string; description: string; isSystem?
     permissions: ["partner.portal"],
   },
   {
+    key: "verkooppartner",
+    name: "Verkooppartner (adviseur)",
+    description: "Verkooppartnerportaal: eigen klanten en offertes maken en versturen, eigen fee zien",
+    isSystem: true,
+    permissions: ["sales.portal"],
+  },
+  {
     key: "medewerker",
     name: "Medewerker",
     description: "Kan het hele CRM gebruiken, maar geen instellingen wijzigen",

@@ -12,6 +12,7 @@ import { CustomersPage } from "./pages/Customers";
 import { JourneysPage } from "./pages/Journeys";
 import { MessagesPage } from "./pages/Messages";
 import { WorkPage } from "./pages/Work";
+import { SalesApp } from "./sales/SalesApp";
 import { GlobalSearch } from "./components/GlobalSearch";
 import { CustomerPortalPage, PortalRedeemPage } from "./pages/CustomerPortal";
 import { ChecklistsPage } from "./pages/Checklists";
@@ -58,6 +59,15 @@ export function App() {
     );
   }
   if (!me || !me.mfaVerified || (me.mustChangePassword && !me.impersonatedBy)) return <LoginPage />;
+  if (me.organizationType === "sales_partner") {
+    return (
+      <>
+        <TestModeBar />
+        <ImpersonationBar />
+        <SalesApp />
+      </>
+    );
+  }
   if (me.organizationType === "installation_partner") {
     if (/^\/uitbetalingen\/[^/]+\/print$/.test(location.pathname)) {
       return (

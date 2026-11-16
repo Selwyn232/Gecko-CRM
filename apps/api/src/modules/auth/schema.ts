@@ -12,7 +12,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { id, timestamps } from "../../db/columns.js";
-import { organizations } from "../organizations/schema.js";
+import { advisors, organizations } from "../organizations/schema.js";
 
 export const users = pgTable(
   "users",
@@ -39,6 +39,8 @@ export const users = pgTable(
     failedLoginCount: integer("failed_login_count").notNull().default(0),
     lockedUntil: timestamp("locked_until", { withTimezone: true }),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    /** Gebruiker van een verkooppartner die één adviseur is: ziet dan alleen de eigen offertes. */
+    advisorId: uuid("advisor_id").references(() => advisors.id),
     ...timestamps(),
   },
   (t) => [
