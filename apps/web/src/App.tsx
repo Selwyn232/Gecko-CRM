@@ -11,6 +11,7 @@ import { CustomerDetailPage } from "./pages/CustomerDetail";
 import { CustomersPage } from "./pages/Customers";
 import { JourneysPage } from "./pages/Journeys";
 import { MessagesPage } from "./pages/Messages";
+import { SelfBillingDetailPage, SelfBillingPage, SelfBillingPrintPage } from "./pages/SelfBilling";
 import { ProjectDetailPage } from "./pages/ProjectDetail";
 import { ProjectsPage } from "./pages/Projects";
 import { QuoteDetailPage } from "./pages/QuoteDetail";
@@ -50,6 +51,13 @@ export function App() {
   }
   if (!me || !me.mfaVerified || (me.mustChangePassword && !me.impersonatedBy)) return <LoginPage />;
   if (me.organizationType === "installation_partner") {
+    if (/^\/uitbetalingen\/[^/]+\/print$/.test(location.pathname)) {
+      return (
+        <Routes>
+          <Route path="/uitbetalingen/:id/print" element={<SelfBillingPrintPage path="/partner/selfbilling" />} />
+        </Routes>
+      );
+    }
     return (
       <>
         <TestModeBar />
@@ -58,9 +66,10 @@ export function App() {
       </>
     );
   }
-  if (/^\/(offertes|facturen)\/[^/]+\/print$/.test(location.pathname)) {
+  if (/^\/(offertes|facturen|selfbilling)\/[^/]+\/print$/.test(location.pathname)) {
     return (
       <Routes>
+        <Route path="/selfbilling/:id/print" element={<SelfBillingPrintPage />} />
         <Route path="/offertes/:id/print" element={<QuotePrintPage />} />
         <Route path="/facturen/:id/print" element={<InvoicePrintPage />} />
       </Routes>
@@ -83,6 +92,7 @@ export function App() {
           {can("projects.read") && <NavLink to="/projecten">Projecten</NavLink>}
           {can("planning.read") && <NavLink to="/planning">Planning</NavLink>}
           {can("invoices.read") && <NavLink to="/facturen">Facturen</NavLink>}
+          {can("invoices.read") && <NavLink to="/selfbilling">Selfbilling</NavLink>}
           <div className="nav-section">Catalogus</div>
           {can("catalog.read") && <NavLink to="/producten">Producten</NavLink>}
           {can("catalog.read") && <NavLink to="/verkoopkanalen">Verkoopkanalen</NavLink>}
@@ -119,6 +129,8 @@ export function App() {
           <Route path="/offertes" element={<QuotesPage />} />
           <Route path="/facturen" element={<InvoicesPage />} />
           <Route path="/facturen/:id" element={<InvoiceDetailPage />} />
+          <Route path="/selfbilling" element={<SelfBillingPage />} />
+          <Route path="/selfbilling/:id" element={<SelfBillingDetailPage />} />
           <Route path="/instellingen" element={<SettingsPage />} />
           <Route path="/planning" element={<PlanningPage />} />
           <Route path="/testen" element={<TestingPage />} />

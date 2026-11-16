@@ -57,6 +57,10 @@ partner en een aparte factuurreeks per partner.
 Periodiek gebundeld (bv. wekelijks), met specificatie. Fee-percentage(s) zijn configureerbaar per
 kanaal en worden later bepaald.
 
+**Gebouwd (B43):** menu Selfbilling → "Uit te betalen" per partner → conceptfactuur (regels weghalen,
+correctieregel) → definitief en gemaild → betaald markeren. Partners zien hun facturen in het
+partnerportaal onder Uitbetalingen. Export voor Exact als CSV.
+
 ## Margeberekening (op de klantkaart)
 
 Per project en opgeteld per klant:

@@ -9,7 +9,7 @@ import { ChangePasswordModal } from "../components/ChangePassword";
 import { PhotoGrid, PhotoUpload } from "../components/PhotoUpload";
 import { SignaturePad } from "../components/SignaturePad";
 import { ErrorBox, Field, Loading, PageHead } from "../components/ui";
-import { addDaysIso, APPOINTMENT_STATUS, APPOINTMENT_TYPE, formatCents, formatQty, REPORT_REVIEW, TIME_WINDOW, todayIso, weekday } from "../format";
+import { addDaysIso, APPOINTMENT_STATUS, APPOINTMENT_TYPE, formatCents, formatDate, formatQty, REPORT_REVIEW, TIME_WINDOW, todayIso, weekday } from "../format";
 
 /** Portaal voor installatiepartners: alleen eigen afspraken, rapporten en beschikbaarheid. */
 export function PartnerApp() {
@@ -22,6 +22,7 @@ export function PartnerApp() {
         <nav className="nav">
           <NavLink to="/afspraken">Afspraken</NavLink>
           <NavLink to="/beschikbaarheid">Beschikbaarheid</NavLink>
+          <NavLink to="/uitbetalingen">Uitbetalingen</NavLink>
         </nav>
         <div className="sidebar-footer">
           <div style={{ color: "var(--text)", fontWeight: 500 }}>{me?.name}</div>
@@ -38,11 +39,41 @@ export function PartnerApp() {
           <Route path="/afspraken" element={<PartnerAppointments />} />
           <Route path="/afspraken/:id" element={<PartnerAppointment />} />
           <Route path="/beschikbaarheid" element={<PartnerAvailability />} />
+          <Route path="/uitbetalingen" element={<PartnerPayouts />} />
           <Route path="*" element={<Navigate to="/afspraken" replace />} />
         </Routes>
       </main>
       {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
     </div>
+  );
+}
+
+/** Selfbillingfacturen die Gecko namens deze partner heeft opgemaakt. */
+function PartnerPayouts() {
+  const list = useQuery({ queryKey: ["partner-selfbilling"], queryFn: () => api.get<{ id: string; number: string; invoiceDate: string; totalCents: number; status: string; paidAt: string | null }[]>("/partner/selfbilling") });
+  if (list.isLoading) return <Loading />;
+  return (
+    <>
+      <PageHead title="Uitbetalingen" sub="Facturen die Gecko op grond van de zelffactureringsovereenkomst namens u heeft opgemaakt. Klopt er iets niet? Laat het ons binnen 14 dagen weten." />
+      <div className="card flush">
+        {!list.data?.length ? <div className="empty">Nog geen uitbetalingen.</div> : (
+          <table>
+            <thead><tr><th>Factuur</th><th>Datum</th><th className="num">Bedrag</th><th>Status</th><th /></tr></thead>
+            <tbody>
+              {list.data.map((i) => (
+                <tr key={i.id}>
+                  <td className="mono">{i.number}</td>
+                  <td>{formatDate(i.invoiceDate)}</td>
+                  <td className="num">{formatCents(i.totalCents)}</td>
+                  <td>{i.status === "paid" ? <span className="badge green">Betaald {formatDate(i.paidAt)}</span> : <span className="badge yellow">Wordt overgemaakt</span>}</td>
+                  <td><a className="btn small" href={`/uitbetalingen/${i.id}/print`} target="_blank" rel="noreferrer">Bekijken / PDF</a></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </>
   );
 }
 

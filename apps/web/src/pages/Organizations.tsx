@@ -63,6 +63,8 @@ function OrgForm({ org, onClose }: { org?: Organization; onClose: () => void }) 
     postalCode: org?.postalCode ?? "",
     city: org?.city ?? "",
     iban: org?.iban ?? "",
+    selfBillingPrefix: org?.selfBillingPrefix ?? "",
+    selfBillingVatMode: org?.selfBillingVatMode ?? "",
     isActive: org?.isActive ?? true,
   });
   const save = useMutation({
@@ -79,6 +81,8 @@ function OrgForm({ org, onClose }: { org?: Organization; onClose: () => void }) 
         postalCode: empty(form.postalCode),
         city: empty(form.city),
         iban: empty(form.iban),
+        selfBillingPrefix: empty(form.selfBillingPrefix.toUpperCase()),
+        selfBillingVatMode: form.selfBillingVatMode === "" ? null : form.selfBillingVatMode,
       };
       if (org) {
         const { type: _t, ...rest } = body;
@@ -113,6 +117,20 @@ function OrgForm({ org, onClose }: { org?: Organization; onClose: () => void }) 
         <Field label="Btw-nummer"><input value={form.vatNumber} onChange={(e) => setForm({ ...form, vatNumber: e.target.value })} /></Field>
         <Field label="IBAN"><input value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value })} /></Field>
       </div>
+      {(form.type === "sales_partner" || form.type === "installation_partner") && (
+        <div className="grid-2">
+          <Field label="Selfbilling: voorvoegsel factuurnummer">
+            <input value={form.selfBillingPrefix} maxLength={8} placeholder="automatisch uit de naam" onChange={(e) => setForm({ ...form, selfBillingPrefix: e.target.value.toUpperCase() })} />
+          </Field>
+          <Field label="Selfbilling: btw">
+            <select value={form.selfBillingVatMode} onChange={(e) => setForm({ ...form, selfBillingVatMode: e.target.value })}>
+              <option value="">Standaard ({form.type === "installation_partner" ? "verlegd" : "21%"})</option>
+              <option value="normal">Btw volgens tarief (21%)</option>
+              <option value="reverse_charge">Btw verlegd</option>
+            </select>
+          </Field>
+        </div>
+      )}
       <label className="checkbox"><input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Actief</label>
       {org?.type === "sales_partner" && <AdvisorsSection organizationId={org.id} />}
       <div className="modal-actions">

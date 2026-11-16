@@ -26,6 +26,7 @@ import {
 } from "../planning/service.js";
 import { projects } from "../projects/schema.js";
 import { quoteLines, quotes } from "../quotes/schema.js";
+import { getSelfBillingInvoice, listSelfBilling } from "../selfbilling/service.js";
 
 const IdParams = z.object({ id: z.string().uuid() });
 const IsoDate = z.string().refine(isIsoDate, "Datum moet YYYY-MM-DD zijn");
@@ -137,6 +138,14 @@ export const partnerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db
       return submitReport(db, req.actor, a.id, req.body);
     },
   );
+
+  /** Eigen selfbillingfacturen (alleen definitief). */
+  app.get("/partner/selfbilling", { preValidation: portal }, async (req) => listSelfBilling(db, { partnerId: await partnerId(req), onlyFinal: true }));
+  app.get("/partner/selfbilling/:id", { preValidation: portal, schema: { params: IdParams } }, async (req) => {
+    const inv = await getSelfBillingInvoice(db, req.params.id);
+    if (inv.partnerOrganizationId !== (await partnerId(req)) || inv.status === "draft") throw notFound("Factuur");
+    return inv;
+  });
 
   app.get("/partner/penalties", { preValidation: portal }, async (req) => listPenalties(db, { partnerId: await partnerId(req) }));
 

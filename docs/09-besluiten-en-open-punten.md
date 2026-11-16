@@ -45,6 +45,7 @@
 | B41 | Testmodus (instelling, standaard uit): vandaag plannen, rapporten direct indienen, testscenario's met testklant en "Testinstallateur (test)". Paarse balk zolang aan; uitzetten vóór echte klanten | 2026-11-16 |
 | B38 | Partner niet gekomen: boete €250 (instelbaar), automatisch geregistreerd, kwijt te schelden met reden; verrekening via selfbilling | 2026-11-16 |
 | B42 | Klantberichten: per status in de klantreis een e-mail (aan/uit, tekst met invulvelden), plus vaste berichten bij afspraak ingepland/geannuleerd en een herinnering de dag vóór de afspraak (vanaf 9:00). Standaardteksten worden nooit overschreven; elk bericht hooguit één keer (dedupe), alles zichtbaar op de klantkaart. Beheer: Klantberichten (recht journeys.manage) | 2026-11-16 |
+| B43 | Selfbilling: posten worden uitbetaalbaar bij betaalde aanbetaling (fee verkooppartner, per offerte incl. meerwerk, per adviseur) resp. betaalde eindfactuur (installateur: vast partnertarief op het pakket, anders arbeid uit de stuklijst, plus meerwerk tegen partnertarief van de offertedatum). Openstaande boetes worden als negatieve regel (buiten btw) verrekend. Handmatig gebundeld per partner: concept → definitief (eigen nummerreeks per partner, onveranderbaar, "Factuur uitgereikt door afnemer", gemaild) → betaald. Fee-percentage vastgezet bij versturen offerte; was het toen niet ingesteld, dan geldt het actuele percentage van het kanaal. Btw: verkooppartner 21%, installateur standaard verlegd, per partner aan te passen. Export CSV voor Exact | 2026-11-16 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten
@@ -52,7 +53,7 @@
 | # | Vraag | Eigenaar |
 |---|---|---|
 | O1 | Kan één offerte/order meerdere projecten bevatten (combikorting, gecombineerde schouw)? Eén of meerdere aanbetalingsfacturen? | Gecko (overleg) |
-| O2 | Fee-percentage(s) per kanaal en regels bij annulering/creditnota | Gecko |
+| O2 | Fee-percentage(s) per kanaal (in te stellen bij Verkoopkanalen; zonder percentage geen uitbetaling) en regels bij annulering/creditnota (nu via correctieregel) | Gecko |
 | O3 | Warmtefonds/SVN: hoe en wanneer keren zij uit, en in welke delen? | Gecko (navragen) |
 | O5 | Doet Gecko soms zelf de schouw? | Gecko |
 | O6 | Materiaallevering bij partner of bij klant | Gecko + partners |
@@ -69,4 +70,6 @@
 | O21 | Foto's staan nu in de database; bij volume naar object storage (S3/R2, EU) | Techniek |
 | O23 | Checklists schouw/oplevering per productgroep inhoudelijk vaststellen (nu generiek) — definitieve lijst volgt | Gecko + partners |
 | O24 | Partners met meerdere ploegen tegelijk: instelling "aantal ploegen" per partner (nu één ploeg per blok) | Gecko |
+| O25 | Btw bij selfbilling installateurs: standaard "verlegd" (onderaanneming). Laten bevestigen door de accountant, per partner aan te passen bij Organisaties | Accountant |
+| O26 | Selfbilling automatisch wekelijks bundelen (nu handmatig per partner) | Gecko |
 | O13 | Verkoopprijs vast bij ondertekening, ook als inkoop stijgt tijdens lange wachttijd? | Gecko |

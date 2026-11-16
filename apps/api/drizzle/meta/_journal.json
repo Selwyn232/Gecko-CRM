@@ -148,6 +148,13 @@
       "when": 1794834250415,
       "tag": "0020_message_templates",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794836310309,
+      "tag": "0021_selfbilling",
+      "breakpoints": true
     }
   ]
 }

@@ -29,6 +29,10 @@ export const organizations = pgTable(
     city: text("city"),
     iban: text("iban"),
     website: text("website"),
+    /** Selfbilling: voorvoegsel van de eigen factuurreeks (bv. "GT") en btw-behandeling. */
+    selfBillingPrefix: text("self_billing_prefix").unique(),
+    /** "normal" of "reverse_charge"; leeg = standaard per soort (verkooppartner normaal, installateur verlegd). */
+    selfBillingVatMode: text("self_billing_vat_mode"),
     isActive: boolean("is_active").notNull().default(true),
     ...timestamps(),
   },

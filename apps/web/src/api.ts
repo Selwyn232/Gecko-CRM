@@ -61,6 +61,8 @@ export interface Organization {
   iban: string | null;
   email: string | null;
   phone: string | null;
+  selfBillingPrefix?: string | null;
+  selfBillingVatMode?: "normal" | "reverse_charge" | null;
   isActive: boolean;
 }
 export interface ProductGroup {
