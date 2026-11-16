@@ -11,6 +11,7 @@ import { CustomerDetailPage } from "./pages/CustomerDetail";
 import { CustomersPage } from "./pages/Customers";
 import { JourneysPage } from "./pages/Journeys";
 import { MessagesPage } from "./pages/Messages";
+import { ReportsPage } from "./pages/Reports";
 import { PublicSelfBillingPage, SelfBillingDetailPage, SelfBillingPage, SelfBillingPrintPage } from "./pages/SelfBilling";
 import { ProjectDetailPage } from "./pages/ProjectDetail";
 import { ProjectsPage } from "./pages/Projects";
@@ -94,6 +95,7 @@ export function App() {
           {can("planning.read") && <NavLink to="/planning">Planning</NavLink>}
           {can("invoices.read") && <NavLink to="/facturen">Facturen</NavLink>}
           {can("invoices.read") && <NavLink to="/selfbilling">Selfbilling</NavLink>}
+          {can("projects.read") && <NavLink to="/rapportages">Rapportages</NavLink>}
           <div className="nav-section">Catalogus</div>
           {can("catalog.read") && <NavLink to="/producten">Producten</NavLink>}
           {can("catalog.read") && <NavLink to="/verkoopkanalen">Verkoopkanalen</NavLink>}
@@ -131,6 +133,7 @@ export function App() {
           <Route path="/facturen" element={<InvoicesPage />} />
           <Route path="/facturen/:id" element={<InvoiceDetailPage />} />
           <Route path="/selfbilling" element={<SelfBillingPage />} />
+          <Route path="/rapportages" element={<ReportsPage />} />
           <Route path="/selfbilling/:id" element={<SelfBillingDetailPage />} />
           <Route path="/instellingen" element={<SettingsPage />} />
           <Route path="/planning" element={<PlanningPage />} />

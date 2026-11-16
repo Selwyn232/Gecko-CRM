@@ -12,7 +12,7 @@
 - Voor- en nacalculatie op de klantkaart
 - Partnerportaal basis: afspraken, schouw- en opleverrapport, foto's, meerwerk
 - Selfbilling Greenteam en installateurs (gebouwd, zie B43)
-- Basisrapportages: doorlooptijd per fase, marge per productgroep/partner/kanaal, first-time-right
+- Basisrapportages (gebouwd, B45): doorlooptijd per fase, marge per productgroep/partner/kanaal, first-time-right
   installaties, cashflowprognose (openstaande en verwachte betalingen)
 
 ## Versie 2 — communicatie en zelfservice
