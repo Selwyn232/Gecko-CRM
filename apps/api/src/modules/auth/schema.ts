@@ -73,6 +73,8 @@ export const sessions = pgTable(
     /** Alleen de hash van het token staat in de database; een gelekte database levert geen sessies op. */
     tokenHash: text("token_hash").notNull().unique(),
     mfaVerified: boolean("mfa_verified").notNull().default(false),
+    /** Gevuld als een beheerder via "Inloggen als" in dit account kijkt. */
+    impersonatorUserId: uuid("impersonator_user_id").references(() => users.id),
     ip: text("ip"),
     userAgent: text("user_agent"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

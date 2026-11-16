@@ -7,6 +7,7 @@ import { decryptSecret, encryptSecret, randomToken, sha256 } from "../../lib/cry
 import { AppError, badRequest, conflict, unauthorized } from "../../lib/errors.js";
 import { generateTotpSecret, otpauthUrl, verifyTotp } from "../../lib/totp.js";
 import { recordAudit } from "../audit/service.js";
+import { loadPermissions } from "./access.js";
 import { assertPasswordPolicy, getDummyHash, hashPassword, verifyPassword } from "./password.js";
 import { recoveryCodes, sessions, users, type User } from "./schema.js";
 
@@ -20,6 +21,7 @@ export interface SessionInfo {
   sessionId: string;
   user: User;
   mfaVerified: boolean;
+  impersonatorUserId: string | null;
 }
 
 /** Wat de gebruiker na het wachtwoord nog moet doen: 2FA instellen, 2FA-code invoeren, of niets. */
@@ -132,7 +134,34 @@ export class AuthService {
     if (now.getTime() - row.session.lastSeenAt.getTime() > TOUCH_INTERVAL_MS) {
       await this.db.update(sessions).set({ lastSeenAt: now }).where(eq(sessions.id, row.session.id));
     }
-    return { sessionId: row.session.id, user: row.user, mfaVerified: row.session.mfaVerified };
+    return { sessionId: row.session.id, user: row.user, mfaVerified: row.session.mfaVerified, impersonatorUserId: row.session.impersonatorUserId };
+  }
+
+  /**
+   * "Inloggen als": nieuwe sessie voor de doelgebruiker (max. 1 uur) op naam van de beheerder.
+   * Niet als jezelf of als een andere beheerder; doel moet actief zijn.
+   */
+  async startImpersonation(admin: User, targetId: string, actor: ActorContext) {
+    if (admin.id === targetId) throw badRequest("impersonate_self", "Je kunt niet als jezelf inloggen");
+    const [target] = await this.db.select().from(users).where(eq(users.id, targetId));
+    if (!target || !target.isActive) throw badRequest("invalid_target", "Gebruiker bestaat niet of is niet actief");
+    const targetPerms = await loadPermissions(this.db, targetId);
+    if (targetPerms.has("roles.manage") || targetPerms.has("users.impersonate")) {
+      throw badRequest("impersonate_admin", "Inloggen als een andere beheerder is niet toegestaan");
+    }
+    const token = randomToken();
+    await this.db.transaction(async (tx) => {
+      await tx.insert(sessions).values({
+        userId: targetId,
+        tokenHash: sha256(token),
+        mfaVerified: true,
+        impersonatorUserId: admin.id,
+        ip: actor.ip,
+        expiresAt: new Date(Date.now() + 3600_000),
+      });
+      await recordAudit(tx, actor, { action: "auth.impersonation_started", entityType: "user", entityId: targetId, metadata: { adminUserId: admin.id } });
+    });
+    return token;
   }
 
   async logout(sessionId: string) {

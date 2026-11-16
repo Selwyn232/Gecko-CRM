@@ -12,6 +12,18 @@ export function UsersPage() {
   const roles = useRoles();
   const orgs = useOrganizations(can("organizations.read"));
   const [editing, setEditing] = useState<User | "new" | null>(null);
+  const { me } = useAuth();
+  const adminRoleId = roles.data?.find((r) => r.key === "beheerder")?.id;
+  const [impError, setImpError] = useState<unknown>(null);
+  const impersonate = async (id: string) => {
+    setImpError(null);
+    try {
+      await api.post(`/users/${id}/impersonate`);
+      window.location.replace("/");
+    } catch (e) {
+      setImpError(e);
+    }
+  };
 
   return (
     <>
@@ -20,10 +32,11 @@ export function UsersPage() {
         sub="Iedereen die inlogt — medewerkers van Gecko en later partners."
         actions={can("users.manage") && <button className="btn primary" onClick={() => setEditing("new")}>Nieuwe gebruiker</button>}
       />
+      <ErrorBox error={impError} />
       <div className="card flush">
         {users.isLoading ? <Loading /> : (
           <table>
-            <thead><tr><th>Naam</th><th>Organisatie</th><th>Rollen</th><th>2FA</th><th>Laatst ingelogd</th><th>Status</th></tr></thead>
+            <thead><tr><th>Naam</th><th>Organisatie</th><th>Rollen</th><th>2FA</th><th>Laatst ingelogd</th><th>Status</th><th /></tr></thead>
             <tbody>
               {users.data?.map((u) => (
                 <tr key={u.id} className={can("users.manage") ? "clickable" : ""} onClick={() => can("users.manage") && setEditing(u)}>
@@ -36,6 +49,13 @@ export function UsersPage() {
                   <td>{formatDateTime(u.lastLoginAt)}</td>
                   <td>
                     {!u.isActive ? <span className="badge">Inactief</span> : u.lockedUntil && new Date(u.lockedUntil) > new Date() ? <span className="badge red">Geblokkeerd</span> : <span className="badge green">Actief</span>}
+                  </td>
+                  <td className="num">
+                    {can("users.impersonate") && u.isActive && u.id !== me?.id && !u.roleIds.includes(adminRoleId ?? "") && (
+                      <button className="btn small" title="Bekijk en test het systeem zoals deze gebruiker het ziet" onClick={(e) => { e.stopPropagation(); void impersonate(u.id); }}>
+                        Inloggen als
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

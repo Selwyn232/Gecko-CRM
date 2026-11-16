@@ -9,6 +9,7 @@ export const PERMISSIONS = {
   "users.read": "Gebruikers bekijken",
   "users.manage": "Gebruikers aanmaken, wijzigen en blokkeren",
   "roles.manage": "Rollen en rechten beheren",
+  "users.impersonate": "Inloggen als een andere gebruiker om te testen (wordt gelogd)",
   "organizations.read": "Organisaties bekijken",
   "organizations.manage": "Organisaties beheren",
   "audit.read": "Wijzigingslogboek bekijken",

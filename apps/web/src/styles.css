@@ -207,3 +207,6 @@ td.mono, .mono { white-space: nowrap; }
   .nlmap-area { fill: #2a302c; stroke: #4a544d; }
   .nlmap-area.hover { fill: #2f4a3b; }
 }
+
+.impersonation-bar { position: sticky; top: 0; z-index: 20; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 16px; background: #d4a015; color: #1c211d; font-size: 14px; }
+.impersonation-bar .btn { background: #fff; color: #1c211d; border-color: #fff; }

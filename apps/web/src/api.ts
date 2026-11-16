@@ -42,6 +42,8 @@ export interface Me {
   organizationId: string;
   organizationType: string | null;
   organizationName: string | null;
+  /** Gevuld als een beheerder via "Inloggen als" meekijkt. */
+  impersonatedBy: { id: string; name: string } | null;
   mfaEnabled: boolean;
   mfaVerified: boolean;
   permissions: string[];

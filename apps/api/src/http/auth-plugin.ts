@@ -9,6 +9,8 @@ import type { Db } from "../db/client.js";
 import "./types.js";
 
 export const SESSION_COOKIE = "gecko_session";
+/** Bewaart de eigen sessie van de beheerder tijdens "Inloggen als". */
+export const ADMIN_SESSION_COOKIE = "gecko_admin_session";
 
 function extractToken(req: FastifyRequest): string | null {
   const header = req.headers.authorization;
@@ -39,6 +41,7 @@ export const authPlugin = fp<{ db: Db; authService: AuthService }>(async (app, {
         permissions: session.mfaVerified ? await loadPermissions(db, session.user.id) : new Set(),
         requestId: req.id,
         ip: req.ip,
+        impersonatorUserId: session.impersonatorUserId,
       };
     }
 
@@ -47,7 +50,7 @@ export const authPlugin = fp<{ db: Db; authService: AuthService }>(async (app, {
     if (level === "full" && !session.mfaVerified) {
       throw forbidden("mfa_required", "Tweestapsverificatie vereist");
     }
-    if (level === "full" && session.user.mustChangePassword) {
+    if (level === "full" && session.user.mustChangePassword && !session.impersonatorUserId) {
       throw forbidden("password_change_required", "Kies eerst een eigen wachtwoord");
     }
   });

@@ -27,7 +27,7 @@ export async function recordAudit(db: DbOrTx, actor: ActorContext, input: AuditI
     entityType: input.entityType,
     entityId: input.entityId ?? null,
     changes,
-    metadata: input.metadata ?? null,
+    metadata: actor.impersonatorUserId ? { ...(input.metadata ?? {}), impersonatorUserId: actor.impersonatorUserId } : (input.metadata ?? null),
     requestId: actor.requestId ?? null,
     ip: actor.ip ?? null,
   });

@@ -10,6 +10,8 @@ export interface ActorContext {
   permissions: ReadonlySet<Permission>;
   requestId?: string;
   ip?: string;
+  /** Beheerder die via "Inloggen als" namens deze gebruiker werkt. */
+  impersonatorUserId?: string | null;
 }
 
 export const systemActor = (): ActorContext => ({

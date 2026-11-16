@@ -2,6 +2,7 @@ import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom"
 import { useState } from "react";
 import { useAuth } from "./auth";
 import { ChangePasswordModal } from "./components/ChangePassword";
+import { ImpersonationBar } from "./components/ImpersonationBar";
 import { AuditPage } from "./pages/Audit";
 import { ChannelsPage } from "./pages/Channels";
 import { CustomerDetailPage } from "./pages/CustomerDetail";
@@ -44,8 +45,15 @@ export function App() {
       </Routes>
     );
   }
-  if (!me || !me.mfaVerified || me.mustChangePassword) return <LoginPage />;
-  if (me.organizationType === "installation_partner") return <PartnerApp />;
+  if (!me || !me.mfaVerified || (me.mustChangePassword && !me.impersonatedBy)) return <LoginPage />;
+  if (me.organizationType === "installation_partner") {
+    return (
+      <>
+        <ImpersonationBar />
+        <PartnerApp />
+      </>
+    );
+  }
   if (/^\/(offertes|facturen)\/[^/]+\/print$/.test(location.pathname)) {
     return (
       <Routes>
@@ -56,6 +64,8 @@ export function App() {
   }
 
   return (
+    <>
+    <ImpersonationBar />
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
@@ -119,5 +129,6 @@ export function App() {
       </main>
       {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
     </div>
+    </>
   );
 }

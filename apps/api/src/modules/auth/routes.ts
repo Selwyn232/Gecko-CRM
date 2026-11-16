@@ -4,7 +4,8 @@ import { eq } from "drizzle-orm";
 import type { Config } from "../../config.js";
 import type { Db } from "../../db/client.js";
 import { organizations } from "../organizations/schema.js";
-import { SESSION_COOKIE } from "../../http/auth-plugin.js";
+import { ADMIN_SESSION_COOKIE, requirePermission, SESSION_COOKIE } from "../../http/auth-plugin.js";
+import { users } from "./schema.js";
 import { forbidden, unauthorized } from "../../lib/errors.js";
 import type { AuthService } from "./service.js";
 import { PERMISSIONS } from "./permissions.js";
@@ -42,7 +43,36 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
 
   app.post("/auth/logout", { config: { auth: "password" } }, async (req, reply) => {
     await authService.logout(req.auth!.sessionId);
-    reply.clearCookie(SESSION_COOKIE, { path: "/" });
+    // Tijdens "Inloggen als" betekent uitloggen: terug naar het eigen account.
+    const adminToken = req.cookies[ADMIN_SESSION_COOKIE];
+    if (req.auth!.impersonatorUserId && adminToken) {
+      reply.setCookie(SESSION_COOKIE, adminToken, cookieOptions).clearCookie(ADMIN_SESSION_COOKIE, { path: "/" });
+      return { ok: true, returnedToAdmin: true };
+    }
+    reply.clearCookie(SESSION_COOKIE, { path: "/" }).clearCookie(ADMIN_SESSION_COOKIE, { path: "/" });
+    return { ok: true };
+  });
+
+  app.post(
+    "/users/:id/impersonate",
+    { preValidation: requirePermission("users.impersonate"), schema: { params: z.object({ id: z.string().uuid() }) } },
+    async (req, reply) => {
+      if (req.auth!.impersonatorUserId) throw unauthorized("already_impersonating", "Keer eerst terug naar je eigen account");
+      const token = await authService.startImpersonation(req.auth!.user, req.params.id, req.actor);
+      const current = req.cookies[SESSION_COOKIE];
+      if (current) reply.setCookie(ADMIN_SESSION_COOKIE, current, cookieOptions);
+      reply.setCookie(SESSION_COOKIE, token, { ...cookieOptions, maxAge: 3600 });
+      return { ok: true };
+    },
+  );
+
+  app.post("/auth/stop-impersonation", { config: { auth: "password" } }, async (req, reply) => {
+    if (!req.auth!.impersonatorUserId) return { ok: true };
+    await authService.logout(req.auth!.sessionId);
+    const adminToken = req.cookies[ADMIN_SESSION_COOKIE];
+    if (adminToken) reply.setCookie(SESSION_COOKIE, adminToken, cookieOptions);
+    else reply.clearCookie(SESSION_COOKIE, { path: "/" });
+    reply.clearCookie(ADMIN_SESSION_COOKIE, { path: "/" });
     return { ok: true };
   });
 
@@ -61,6 +91,9 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
       mfaEnabled: user.totpEnabledAt !== null,
       mfaVerified,
       permissions: [...req.actor.permissions].sort(),
+      impersonatedBy: req.auth!.impersonatorUserId
+        ? (await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.id, req.auth!.impersonatorUserId)))[0] ?? null
+        : null,
     };
   });
 

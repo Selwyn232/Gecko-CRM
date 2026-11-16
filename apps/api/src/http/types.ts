@@ -13,6 +13,7 @@ export interface AuthState {
   sessionId: string;
   user: User;
   mfaVerified: boolean;
+  impersonatorUserId: string | null;
 }
 
 declare module "fastify" {
