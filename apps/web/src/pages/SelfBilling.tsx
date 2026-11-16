@@ -3,7 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../auth";
-import { SB_KIND, SelfBillingDocument, type SelfBillingDetail } from "../components/SelfBillingDocument";
+import { ApprovalInfo, SB_KIND, sbStatus, SelfBillingDocument, type SelfBillingDetail } from "../components/SelfBillingDocument";
 import { ErrorBox, Field, Loading, Modal, PageHead } from "../components/ui";
 import { formatCents, formatDate, formatPercent, parseEuro, todayIso } from "../format";
 
@@ -27,13 +27,7 @@ interface OpenPartner {
   readyCents: number;
   canBill: boolean;
 }
-type Summary = Omit<SelfBillingDetail, "lines" | "vatBreakdown" | "partnerSnapshot" | "companySnapshot">;
-
-export const SB_STATUS: Record<string, { label: string; cls: string }> = {
-  draft: { label: "Concept", cls: "" },
-  final: { label: "Te betalen", cls: "yellow" },
-  paid: { label: "Betaald", cls: "green" },
-};
+type Summary = Omit<SelfBillingDetail, "lines" | "vatBreakdown" | "partnerSnapshot" | "companySnapshot" | "approval"> & { approvalStatus: SelfBillingDetail["approval"]["status"] };
 const ITEM_KIND: Record<string, string> = { fee: "Fee", installation: "Installatie", extra_work: "Meerwerk" };
 
 export function SelfBillingPage() {
@@ -150,7 +144,7 @@ function InvoiceList() {
                   <td>{SB_KIND[i.kind]}</td>
                   <td>{formatDate(i.invoiceDate ?? i.createdAt)}</td>
                   <td className="num">{formatCents(i.totalCents)}</td>
-                  <td><span className={`badge ${SB_STATUS[i.status]!.cls}`}>{SB_STATUS[i.status]!.label}</span>{i.paidAt && <span className="muted" style={{ marginLeft: 6, fontSize: 12 }}>{formatDate(i.paidAt)}</span>}</td>
+                  <td><span className={`badge ${sbStatus(i.status, i.approvalStatus).cls}`}>{sbStatus(i.status, i.approvalStatus).label}</span>{i.paidAt && <span className="muted" style={{ marginLeft: 6, fontSize: 12 }}>{formatDate(i.paidAt)}</span>}</td>
                 </tr>
               ))}
             </tbody>
@@ -174,6 +168,14 @@ export function SelfBillingDetailPage() {
     await qc.invalidateQueries({ queryKey: ["selfbilling"] });
   };
   const finalize = useMutation({ mutationFn: () => api.post<SelfBillingDetail>(`/selfbilling/${id}/finalize`), onSuccess: refresh });
+  const [resent, setResent] = useState<string | null>(null);
+  const resend = useMutation({
+    mutationFn: () => api.post<{ sentTo: string | null }>(`/selfbilling/${id}/request-approval`),
+    onSuccess: async (r) => {
+      setResent(r.sentTo ? `Opnieuw ter akkoord gemaild naar ${r.sentTo}. De vorige link werkt niet meer.` : "Geen e-mailadres bij deze partner; vul dat in bij Organisaties.");
+      await refresh();
+    },
+  });
   const remove = useMutation({ mutationFn: (lineId: string) => api.del<SelfBillingDetail>(`/selfbilling/${id}/lines/${lineId}`), onSuccess: refresh });
   const del = useMutation({
     mutationFn: () => api.del(`/selfbilling/${id}`),
@@ -192,7 +194,7 @@ export function SelfBillingDetailPage() {
       <div style={{ marginBottom: 8 }}><Link to="/selfbilling">← Selfbilling</Link></div>
       <PageHead
         title={`${d.number ?? "Concept"} — ${d.partnerName}`}
-        sub={`${SB_KIND[d.kind]} · ${SB_STATUS[d.status]!.label}${d.sentAt ? ` · gemaild ${formatDate(d.sentAt)}` : ""}${d.paidAt ? ` · betaald ${formatDate(d.paidAt)}` : ""}`}
+        sub={`${SB_KIND[d.kind]} · ${sbStatus(d.status, d.approval.status).label}${d.sentAt ? ` · ter akkoord gemaild ${formatDate(d.sentAt)}` : ""}${d.paidAt ? ` · betaald ${formatDate(d.paidAt)}` : ""}`}
         actions={
           <>
             {manage && isDraft && <button className="btn" onClick={() => confirm("Concept verwijderen? De posten komen terug bij Uit te betalen.") && del.mutate()}>Concept verwijderen</button>}
@@ -201,18 +203,33 @@ export function SelfBillingDetailPage() {
               <button
                 className="btn primary"
                 disabled={finalize.isPending}
-                onClick={() => confirm("Definitief maken? De factuur krijgt een nummer, is daarna niet meer te wijzigen en wordt naar de partner gemaild.") && finalize.mutate()}
+                onClick={() => confirm("Definitief maken? De factuur krijgt een nummer, is daarna niet meer te wijzigen en wordt ter akkoord naar de partner gemaild.") && finalize.mutate()}
               >
-                Definitief maken en mailen
+                Definitief maken en ter akkoord sturen
               </button>
             )}
+            {manage && d.status === "final" && d.approval.status !== "approved" && (
+              <button className="btn" disabled={resend.isPending} onClick={() => resend.mutate()}>Opnieuw ter akkoord sturen</button>
+            )}
             {!isDraft && <a className="btn" href={`/selfbilling/${d.id}/print`} target="_blank" rel="noreferrer">Afdrukken / PDF</a>}
-            {manage && d.status === "final" && <button className="btn primary" onClick={() => setPaying(true)}>Markeren als betaald</button>}
+            {manage && d.status === "final" && (
+              <button className="btn primary" disabled={d.approval.status !== "approved"} title={d.approval.status !== "approved" ? "Kan pas na akkoord van de ontvanger" : undefined} onClick={() => setPaying(true)}>
+                Markeren als betaald
+              </button>
+            )}
           </>
         }
       />
-      <ErrorBox error={finalize.error ?? remove.error ?? del.error} />
-      {isDraft && <div className="alert info">Concept: controleer de regels. Weggehaalde regels komen terug bij "Uit te betalen". Bij definitief maken krijgt de factuur een nummer uit de reeks van {d.partnerName}.</div>}
+      <ErrorBox error={finalize.error ?? remove.error ?? del.error ?? resend.error} />
+      {resent && <div className="alert info">{resent}</div>}
+      <ApprovalInfo a={d.approval} />
+      {d.status === "final" && d.approval.status === "pending" && (
+        <div className="alert warning">
+          Wacht op akkoord van {d.partnerName}. {d.partnerSnapshot.email ? `De akkoordlink is gemaild naar ${d.partnerSnapshot.email}.` : "Er is geen e-mailadres bekend; vul dat in bij Organisaties en stuur opnieuw ter akkoord."}{" "}
+          {d.kind === "installation" && "De partner kan ook akkoord geven in het partnerportaal. "}Uitbetalen kan pas na akkoord.
+        </div>
+      )}
+      {isDraft && <div className="alert info">Concept: controleer de regels. Weggehaalde regels komen terug bij "Uit te betalen". Bij definitief maken krijgt de factuur een nummer uit de reeks van {d.partnerName} en gaat hij per e-mail ter akkoord naar de partner; uitbetalen kan pas na akkoord.</div>}
       <div className="card"><SelfBillingDocument d={d} onRemoveLine={manage && isDraft ? (lineId) => remove.mutate(lineId) : undefined} /></div>
       {correction && <CorrectionForm id={d.id} vatMode={d.vatMode} onClose={() => setCorrection(false)} onSaved={refresh} />}
       {paying && <PaidForm id={d.id} onClose={() => setPaying(false)} onSaved={refresh} />}
@@ -286,6 +303,92 @@ export function SelfBillingPrintPage({ path = "/selfbilling" }: { path?: string 
     <div className="print-page">
       <div className="print-actions no-print"><button className="btn primary" onClick={() => window.print()}>Afdrukken / opslaan als PDF</button></div>
       <SelfBillingDocument d={inv.data} />
+    </div>
+  );
+}
+
+/** Akkoordpagina voor de ontvanger (link uit de e-mail, zonder inloggen). */
+export function PublicSelfBillingPage() {
+  const { token } = useParams();
+  const qc = useQueryClient();
+  const inv = useQuery({ queryKey: ["public-selfbilling", token], queryFn: () => api.get<SelfBillingDetail>(`/public/selfbilling/${token}`), retry: false });
+  useEffect(() => {
+    if (inv.data) document.title = `Selfbillingfactuur ${inv.data.number}`;
+  }, [inv.data]);
+  if (inv.error) return <div className="public-page"><ErrorBox error={inv.error} /><p>Heeft u inmiddels een nieuwere e-mail gekregen? Gebruik dan de link daarin.</p></div>;
+  if (!inv.data) return <Loading />;
+  return (
+    <div className="public-page">
+      <ApprovalBox
+        d={inv.data}
+        submit={(body) => api.post<SelfBillingDetail>(`/public/selfbilling/${token}/decision`, body)}
+        onDone={(d) => qc.setQueryData(["public-selfbilling", token], d)}
+      />
+      <div className="card"><SelfBillingDocument d={inv.data} /></div>
+    </div>
+  );
+}
+
+/** Akkoord / niet akkoord geven; gebruikt op de openbare pagina en in het partnerportaal. */
+export function ApprovalBox({
+  d,
+  submit,
+  onDone,
+  defaultName = "",
+}: {
+  d: SelfBillingDetail;
+  submit: (body: { decision: "approve" | "dispute"; name: string; reason?: string }) => Promise<SelfBillingDetail>;
+  onDone: (d: SelfBillingDetail) => void;
+  defaultName?: string;
+}) {
+  const [name, setName] = useState(defaultName);
+  const [disputing, setDisputing] = useState(false);
+  const [reason, setReason] = useState("");
+  const [agree, setAgree] = useState(false);
+  const decide = useMutation({ mutationFn: submit, onSuccess: onDone });
+  if (d.status === "paid") return <div className="alert info"><strong>Betaald</strong> op {formatDate(d.paidAt)}.</div>;
+  if (d.approval.status === "approved") return <ApprovalInfo a={d.approval} />;
+  return (
+    <div className="card">
+      <h2 style={{ marginTop: 0 }}>{d.approval.status === "disputed" ? "U heeft aangegeven niet akkoord te zijn" : "Akkoord geven op deze factuur"}</h2>
+      {d.approval.status === "disputed" ? (
+        <p>Reden: {d.approval.disputeReason}. {d.companySnapshot.name} neemt contact met u op. Bent u na overleg toch akkoord? Dan kunt u hieronder alsnog akkoord geven.</p>
+      ) : (
+        <p>
+          {d.companySnapshot.name} heeft deze factuur op grond van de zelffactureringsovereenkomst namens {d.partnerSnapshot.name} opgemaakt.
+          Controleer de specificatie hieronder. <strong>De factuur wordt uitbetaald nadat u akkoord heeft gegeven.</strong>
+        </p>
+      )}
+      <ErrorBox error={decide.error} />
+      <form
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault();
+          decide.mutate(disputing ? { decision: "dispute", name, reason } : { decision: "approve", name });
+        }}
+      >
+        <Field label="Uw naam"><input value={name} onChange={(e) => setName(e.target.value)} required minLength={2} autoComplete="name" /></Field>
+        {disputing ? (
+          <>
+            <Field label="Wat klopt er niet?"><textarea rows={4} value={reason} onChange={(e) => setReason(e.target.value)} required minLength={3} /></Field>
+            <div className="row">
+              <button type="button" className="btn" onClick={() => setDisputing(false)}>Terug</button>
+              <button className="btn danger" disabled={decide.isPending}>Niet akkoord versturen</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <label className="row" style={{ marginBottom: 12 }}>
+              <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+              Ik ga namens {d.partnerSnapshot.name} akkoord met factuur {d.number} van {formatCents(d.totalCents)}.
+            </label>
+            <div className="row">
+              <button className="btn primary" disabled={!agree || decide.isPending}>Akkoord geven</button>
+              {d.approval.status !== "disputed" && <button type="button" className="btn" onClick={() => setDisputing(true)}>Niet akkoord</button>}
+            </div>
+          </>
+        )}
+      </form>
+      <p className="muted" style={{ fontSize: 12, marginTop: 12 }}>Uw keuze wordt vastgelegd met naam, datum en tijd, IP-adres en apparaat.</p>
     </div>
   );
 }

@@ -26,7 +26,11 @@ import {
 } from "../planning/service.js";
 import { projects } from "../projects/schema.js";
 import { quoteLines, quotes } from "../quotes/schema.js";
-import { getSelfBillingInvoice, listSelfBilling } from "../selfbilling/service.js";
+import { Decision } from "../selfbilling/routes.js";
+import { getSetting } from "../settings/service.js";
+import { decideApproval, getSelfBillingInvoice, listSelfBilling, publicView } from "../selfbilling/service.js";
+import type { Config } from "../../config.js";
+import type { EmailTransport } from "../email/transport.js";
 
 const IdParams = z.object({ id: z.string().uuid() });
 const IsoDate = z.string().refine(isIsoDate, "Datum moet YYYY-MM-DD zijn");
@@ -35,7 +39,7 @@ const IsoDate = z.string().refine(isIsoDate, "Datum moet YYYY-MM-DD zijn");
  * Partnerportaal. Elke route is afgeschermd op de organisatie van de ingelogde partner:
  * een partner ziet en wijzigt uitsluitend zijn eigen afspraken, beschikbaarheid en rapporten.
  */
-export const partnerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
+export const partnerRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; emailTransport: EmailTransport | null }> = async (app, { db, config, emailTransport }) => {
   const portal = requirePermission("partner.portal");
 
   /** Organisatie van de ingelogde partner (en controle dat het echt een installatiepartner is). */
@@ -144,7 +148,24 @@ export const partnerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db
   app.get("/partner/selfbilling/:id", { preValidation: portal, schema: { params: IdParams } }, async (req) => {
     const inv = await getSelfBillingInvoice(db, req.params.id);
     if (inv.partnerOrganizationId !== (await partnerId(req)) || inv.status === "draft") throw notFound("Factuur");
-    return inv;
+    return publicView(inv);
+  });
+  /** Akkoord of niet akkoord vanuit het portaal; vastgelegd met de ingelogde gebruiker. */
+  app.post("/partner/selfbilling/:id/decision", { preValidation: portal, schema: { params: IdParams, body: Decision } }, async (req) => {
+    const inv = await getSelfBillingInvoice(db, req.params.id);
+    if (inv.partnerOrganizationId !== (await partnerId(req)) || inv.status === "draft") throw notFound("Factuur");
+    // Akkoord moet van de partner zelf komen; via "Inloggen als" alleen in testmodus (en dan gelogd).
+    if (req.actor.impersonatorUserId && !(await getSetting(db, "test.mode"))) {
+      throw forbidden("impersonation_not_allowed", "Akkoord moet door de partner zelf worden gegeven, niet via Inloggen als");
+    }
+    const done = await decideApproval(
+      db,
+      inv.id,
+      req.body,
+      { method: "portal", userId: req.actor.userId, impersonatorUserId: req.actor.impersonatorUserId ?? null, ip: req.ip, userAgent: req.headers["user-agent"] ?? null, requestId: req.id },
+      { transport: emailTransport, baseUrl: config.APP_BASE_URL },
+    );
+    return publicView(done);
   });
 
   app.get("/partner/penalties", { preValidation: portal }, async (req) => listPenalties(db, { partnerId: await partnerId(req) }));

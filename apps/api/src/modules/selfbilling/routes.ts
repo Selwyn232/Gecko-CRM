@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Db } from "../../db/client.js";
 import { requirePermission } from "../../http/auth-plugin.js";
 import { isIsoDate } from "../../lib/dates.js";
+import type { Config } from "../../config.js";
 import type { EmailTransport } from "../email/transport.js";
 import {
   addCorrection,
@@ -15,12 +16,22 @@ import {
   markSelfBillingPaid,
   openItems,
   removeLine,
+  requestApproval,
+  getByApprovalToken,
+  decideByToken,
 } from "./service.js";
 
 const IdParams = z.object({ id: z.string().uuid() });
 const IsoDate = z.string().refine(isIsoDate, "Datum moet YYYY-MM-DD zijn");
 
-export const selfBillingRoutes: FastifyPluginAsyncZod<{ db: Db; emailTransport: EmailTransport | null }> = async (app, { db, emailTransport }) => {
+export const Decision = z.object({
+  decision: z.enum(["approve", "dispute"]),
+  name: z.string().trim().min(2, "Vul uw naam in").max(200),
+  reason: z.string().trim().max(2000).nullish(),
+}).refine((d) => d.decision === "approve" || (d.reason?.length ?? 0) >= 3, { message: "Geef aan wat er niet klopt", path: ["reason"] });
+
+export const selfBillingRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; emailTransport: EmailTransport | null }> = async (app, { db, config, emailTransport }) => {
+  const deps = { transport: emailTransport, baseUrl: config.APP_BASE_URL };
   const read = requirePermission("invoices.read");
   const manage = requirePermission("invoices.manage");
 
@@ -53,7 +64,21 @@ export const selfBillingRoutes: FastifyPluginAsyncZod<{ db: Db; emailTransport: 
     await deleteDraft(db, req.actor, req.params.id);
     reply.code(204);
   });
-  app.post("/selfbilling/:id/finalize", { preValidation: manage, schema: { params: IdParams } }, async (req) => finalizeSelfBilling(db, emailTransport, req.actor, req.params.id));
+  app.post("/selfbilling/:id/finalize", { preValidation: manage, schema: { params: IdParams } }, async (req) => finalizeSelfBilling(db, deps, req.actor, req.params.id));
+  /** Opnieuw ter akkoord sturen (nieuwe link), bv. na "niet akkoord" en overleg, of als de mail kwijt is. */
+  app.post("/selfbilling/:id/request-approval", { preValidation: manage, schema: { params: IdParams } }, async (req) => requestApproval(db, deps, req.actor, req.params.id));
+
+  // Akkoordpagina voor de ontvanger (zonder inloggen; persoonlijke link uit de e-mail).
+  const Token = z.object({ token: z.string().min(20).max(100) });
+  app.get("/public/selfbilling/:token", { config: { auth: "public", rateLimit: { max: 60, timeWindow: "1 minute" } }, schema: { params: Token } }, async (req) =>
+    getByApprovalToken(db, req.params.token),
+  );
+  app.post(
+    "/public/selfbilling/:token/decision",
+    { config: { auth: "public", rateLimit: { max: 10, timeWindow: "1 minute" } }, schema: { params: Token, body: Decision } },
+    async (req) =>
+      decideByToken(db, req.params.token, req.body, { method: "email_link", ip: req.ip, userAgent: req.headers["user-agent"] ?? null, requestId: req.id }, deps),
+  );
   app.post("/selfbilling/:id/paid", { preValidation: manage, schema: { params: IdParams, body: z.object({ paidAt: IsoDate }) } }, async (req) =>
     markSelfBillingPaid(db, req.actor, req.params.id, req.body.paidAt),
   );

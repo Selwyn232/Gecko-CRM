@@ -1,4 +1,6 @@
 import { and, asc, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
+import { createHash } from "node:crypto";
+import { randomToken, sha256 } from "../../lib/crypto.js";
 import type { Db, DbOrTx } from "../../db/client.js";
 import type { ActorContext } from "../../lib/context.js";
 import { todayIso } from "../../lib/dates.js";
@@ -9,7 +11,7 @@ import { effectivePrice } from "../catalog/prices.js";
 import { bomItems, productGroups, products, salesChannels } from "../catalog/schema.js";
 import { calculateCost, effectiveVatRate } from "../catalog/service.js";
 import { properties } from "../customers/schema.js";
-import { escapeHtml, layout, type Company } from "../email/layout.js";
+import { button, escapeHtml, layout, type Company } from "../email/layout.js";
 import { sendEmail } from "../email/service.js";
 import type { EmailTransport } from "../email/transport.js";
 import { invoices } from "../invoices/schema.js";
@@ -336,8 +338,28 @@ const partnerSnapshot = (o: typeof organizations.$inferSelect) => ({
   email: o.email,
 });
 
-/** Definitief: nummer uit de reeks van de partner, momentopnames, boetes verrekend; daarna naar de partner gemaild. */
-export async function finalizeSelfBilling(db: Db, transport: EmailTransport | null, actor: ActorContext, id: string) {
+export interface ApprovalDeps {
+  transport: EmailTransport | null;
+  /** Basis-URL voor de akkoordlink in de e-mail (APP_BASE_URL). */
+  baseUrl: string;
+}
+
+/** Vingerafdruk van alles wat de ontvanger accordeert. Vastgelegd bij definitief maken, gecontroleerd bij akkoord. */
+export function selfBillingContentHash(inv: Awaited<ReturnType<typeof getSelfBillingInvoice>>) {
+  const canonical = {
+    number: inv.number,
+    date: inv.invoiceDate,
+    partner: inv.partnerSnapshot,
+    company: (inv.companySnapshot as { name: string }).name,
+    vatMode: inv.vatMode,
+    lines: inv.lines.map((l) => [l.kind, l.description, l.advisorName, l.basisCents, l.feeBasisPoints, l.amountCents, l.vatRateBasisPoints]),
+    totals: [inv.subtotalCents, inv.vatCents, inv.totalCents],
+  };
+  return createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
+}
+
+/** Definitief: nummer uit de reeks van de partner, momentopnames, boetes verrekend; daarna ter akkoord naar de partner. */
+export async function finalizeSelfBilling(db: Db, deps: ApprovalDeps, actor: ActorContext, id: string) {
   await db.transaction(async (tx) => {
     const inv = await draftForUpdate(tx, id);
     const lines = await tx.select().from(selfBillingLines).where(eq(selfBillingLines.invoiceId, id));
@@ -360,47 +382,164 @@ export async function finalizeSelfBilling(db: Db, transport: EmailTransport | nu
     await recalc(tx, id);
     await tx
       .update(selfBillingInvoices)
-      .set({ status: "final", number, invoiceDate: date, finalizedAt: new Date(), partnerSnapshot: partnerSnapshot(org!), companySnapshot: await getCompany(tx) })
+      .set({ status: "final", number, invoiceDate: date, finalizedAt: new Date(), partnerSnapshot: partnerSnapshot(org!), companySnapshot: await getCompany(tx), approvalStatus: "pending" })
       .where(eq(selfBillingInvoices.id, id));
+    const contentHash = selfBillingContentHash(await getSelfBillingInvoice(tx, id));
+    await tx.update(selfBillingInvoices).set({ contentHash }).where(eq(selfBillingInvoices.id, id));
     if (penaltyIds.length) await tx.update(partnerPenalties).set({ status: "settled" }).where(inArray(partnerPenalties.id, penaltyIds));
-    await recordAudit(tx, actor, { action: "selfbilling.finalized", entityType: "self_billing_invoice", entityId: id, after: { number, partnerId: org!.id } });
+    await recordAudit(tx, actor, { action: "selfbilling.finalized", entityType: "self_billing_invoice", entityId: id, after: { number, partnerId: org!.id, contentHash } });
   });
-  await mailToPartner(db, transport, id);
+  await requestApproval(db, deps, actor, id);
   return getSelfBillingInvoice(db, id);
 }
 
-async function mailToPartner(db: Db, transport: EmailTransport | null, id: string) {
-  const inv = await getSelfBillingInvoice(db, id);
-  const partner = inv.partnerSnapshot as { name: string; email: string | null } | null;
-  if (!partner?.email) return;
+/**
+ * Stuurt de factuur ter akkoord: nieuwe persoonlijke link (een eerdere link vervalt) en e-mail met akkoordknop.
+ * Ook te gebruiken om na "niet akkoord" en overleg opnieuw te vragen. Geeft het adres terug (null = geen e-mail).
+ */
+export async function requestApproval(db: Db, deps: ApprovalDeps, actor: ActorContext, id: string) {
+  const token = randomToken();
+  const inv = await db.transaction(async (tx) => {
+    const [row] = await tx.select().from(selfBillingInvoices).where(eq(selfBillingInvoices.id, id)).for("update");
+    if (!row) throw notFound("Selfbillingfactuur");
+    if (row.status !== "final" || row.approvalStatus === "approved") throw conflict("not_awaiting_approval", "Deze factuur wacht niet (meer) op akkoord");
+    await tx.update(selfBillingInvoices).set({ approvalStatus: "pending", approvalTokenHash: sha256(token), disputedAt: null, disputeReason: null }).where(eq(selfBillingInvoices.id, id));
+    return getSelfBillingInvoice(tx, id);
+  });
+  const partner = inv.partnerSnapshot as { name: string; email: string | null };
+  await recordAudit(db, actor, { action: "selfbilling.approval_requested", entityType: "self_billing_invoice", entityId: id, metadata: { sentTo: partner.email } });
+  if (!partner.email) return { sentTo: null };
   const company = inv.companySnapshot as Company;
+  const url = `${deps.baseUrl.replace(/\/$/, "")}/selfbilling-akkoord/${token}`;
   const rows = inv.lines
     .map((l) => `<tr><td style="padding:4px 8px 4px 0">${escapeHtml(l.description)}${l.advisorName ? `<br><span style="color:#5f6b62">Adviseur: ${escapeHtml(l.advisorName)}</span>` : ""}</td><td style="padding:4px 0;text-align:right;white-space:nowrap">${euro(l.amountCents)}</td></tr>`)
     .join("");
   const html = `<p>Beste ${escapeHtml(partner.name)},</p>
-<p>Hierbij de selfbillingfactuur <strong>${escapeHtml(inv.number!)}</strong> van ${dateNl(inv.invoiceDate)}, die ${escapeHtml(company.name)} op grond van onze zelffactureringsovereenkomst namens u heeft opgemaakt. Het bedrag van <strong>${euro(inv.totalCents)}</strong> maken wij over op uw rekening.</p>
+<p>${escapeHtml(company.name)} heeft op grond van onze zelffactureringsovereenkomst namens u de selfbillingfactuur <strong>${escapeHtml(inv.number!)}</strong> van ${dateNl(inv.invoiceDate)} opgemaakt, voor een bedrag van <strong>${euro(inv.totalCents)}</strong>.</p>
+<p><strong>Wij betalen deze factuur uit zodra u hem heeft geaccordeerd.</strong> Controleer de specificatie en geef via de knop uw akkoord. Klopt er iets niet? Dan kunt u daar ook aangeven waarom niet.</p>
+${button(url, "Factuur bekijken en akkoord geven")}
 <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;font-size:14px;border-top:1px solid #dfe3dd">${rows}
 <tr><td style="padding:8px 8px 0 0;border-top:1px solid #dfe3dd">Totaal excl. btw</td><td style="padding:8px 0 0;text-align:right;border-top:1px solid #dfe3dd">${euro(inv.subtotalCents)}</td></tr>
 <tr><td style="padding:4px 8px 0 0">${inv.vatMode === "reverse_charge" ? "Btw verlegd" : "Btw"}</td><td style="padding:4px 0 0;text-align:right">${euro(inv.vatCents)}</td></tr>
 <tr><td style="padding:4px 8px 0 0"><strong>Totaal</strong></td><td style="padding:4px 0 0;text-align:right"><strong>${euro(inv.totalCents)}</strong></td></tr></table>
-<p style="font-size:13px;color:#5f6b62">Factuur uitgereikt door afnemer.${inv.vatMode === "reverse_charge" ? " Btw verlegd." : ""} Klopt er iets niet? Beantwoord dan deze e-mail binnen 14 dagen.</p>`;
-  await sendEmail(db, transport, {
+<p style="font-size:13px;color:#5f6b62">Factuur uitgereikt door afnemer.${inv.vatMode === "reverse_charge" ? " Btw verlegd." : ""} De link is persoonlijk; stuur deze e-mail niet door.</p>`;
+  await sendEmail(db, deps.transport, {
     to: partner.email,
-    subject: `Selfbillingfactuur ${inv.number} van ${company.name}`,
+    subject: `Ter akkoord: selfbillingfactuur ${inv.number} van ${company.name}`,
     html: layout(company, html),
-    text: html.replace(/<br>/g, "\n").replace(/<\/(p|tr)>/g, "\n").replace(/<[^>]+>/g, " ").replace(/[ \t]+/g, " ").trim(),
+    text: `${html.replace(/<br>/g, "\n").replace(/<\/(p|tr)>/g, "\n").replace(/<[^>]+>/g, " ").replace(/[ \t]+/g, " ").trim()}\n\nAkkoord geven: ${url}`,
     template: "selfbilling.invoice",
     related: { type: "self_billing_invoice", id },
-    dedupeKey: `selfbilling:${id}`,
   });
   await db.update(selfBillingInvoices).set({ sentAt: new Date() }).where(eq(selfBillingInvoices.id, id));
+  return { sentTo: partner.email };
 }
 
+export interface ApprovalEvidence {
+  method: "email_link" | "portal";
+  ip?: string | null;
+  userAgent?: string | null;
+  userId?: string | null;
+  /** Beheerder die via "Inloggen als" handelde (alleen toegestaan in testmodus). */
+  impersonatorUserId?: string | null;
+  requestId?: string | null;
+}
+
+async function invoiceIdByToken(db: DbOrTx, token: string) {
+  const [row] = await db.select({ id: selfBillingInvoices.id }).from(selfBillingInvoices).where(eq(selfBillingInvoices.approvalTokenHash, sha256(token)));
+  if (!row) throw notFound("Factuur (de link is ongeldig of vervangen door een nieuwere)");
+  return row.id;
+}
+
+/** Wat de ontvanger via de akkoordlink ziet. */
+export async function getByApprovalToken(db: DbOrTx, token: string) {
+  const inv = await getSelfBillingInvoice(db, await invoiceIdByToken(db, token));
+  return publicView(inv);
+}
+
+export const publicView = (inv: Awaited<ReturnType<typeof getSelfBillingInvoice>>) => ({
+  number: inv.number,
+  kind: inv.kind,
+  status: inv.status,
+  invoiceDate: inv.invoiceDate,
+  vatMode: inv.vatMode,
+  subtotalCents: inv.subtotalCents,
+  vatCents: inv.vatCents,
+  totalCents: inv.totalCents,
+  vatBreakdown: inv.vatBreakdown,
+  partnerSnapshot: inv.partnerSnapshot,
+  companySnapshot: inv.companySnapshot,
+  lines: inv.lines,
+  approval: inv.approval,
+  paidAt: inv.paidAt,
+  // Velden die het document nodig heeft maar niets prijsgeven.
+  id: inv.id,
+  partnerOrganizationId: inv.partnerOrganizationId,
+  partnerName: inv.partnerName,
+  sentAt: inv.sentAt,
+  createdAt: inv.createdAt,
+});
+
+/** Akkoord of niet akkoord van de ontvanger, met bewijs (naam, tijd, IP, apparaat, inhoud-hash). */
+export async function decideApproval(
+  db: Db,
+  id: string,
+  input: { decision: "approve" | "dispute"; name: string; reason?: string | null },
+  evidence: ApprovalEvidence,
+  notify?: ApprovalDeps,
+) {
+  const result = await db.transaction(async (tx) => {
+    const [row] = await tx.select().from(selfBillingInvoices).where(eq(selfBillingInvoices.id, id)).for("update");
+    if (!row) throw notFound("Selfbillingfactuur");
+    if (row.status === "draft") throw conflict("not_final", "Deze factuur is nog niet definitief");
+    if (row.approvalStatus === "approved") throw conflict("already_approved", "Deze factuur is al geaccordeerd");
+    if (input.decision === "dispute" && row.approvalStatus === "disputed") throw conflict("already_disputed", "U heeft al aangegeven niet akkoord te zijn; wij nemen contact met u op");
+    const inv = await getSelfBillingInvoice(tx, id);
+    const hash = selfBillingContentHash(inv);
+    if (row.contentHash && hash !== row.contentHash) throw conflict("content_changed", "De factuur komt niet overeen met de vastgelegde versie; neem contact op met Gecko");
+    const sentTo = (inv.partnerSnapshot as { email: string | null }).email;
+    const proof = { ...evidence, sentTo, contentHash: hash, decidedAt: new Date().toISOString(), name: input.name };
+    if (input.decision === "approve") {
+      await tx.update(selfBillingInvoices).set({ approvalStatus: "approved", approvedAt: new Date(), approvedByName: input.name, approvalEvidence: proof }).where(eq(selfBillingInvoices.id, id));
+    } else {
+      await tx.update(selfBillingInvoices).set({ approvalStatus: "disputed", disputedAt: new Date(), disputeReason: input.reason ?? null }).where(eq(selfBillingInvoices.id, id));
+    }
+    const actor: ActorContext = { userId: evidence.userId ?? null, organizationId: row.partnerOrganizationId, permissions: new Set(), ip: evidence.ip ?? undefined, requestId: evidence.requestId ?? undefined, impersonatorUserId: evidence.impersonatorUserId ?? null };
+    await recordAudit(tx, actor, {
+      action: input.decision === "approve" ? "selfbilling.approved" : "selfbilling.disputed",
+      entityType: "self_billing_invoice",
+      entityId: id,
+      metadata: { ...proof, reason: input.reason ?? undefined },
+    });
+    return { number: row.number!, company: inv.companySnapshot as Company, partner: inv.partnerName };
+  });
+  // Bij "niet akkoord" krijgt Gecko een seintje.
+  if (input.decision === "dispute" && notify && result.company.email) {
+    const html = `<p>${escapeHtml(result.partner)} (${escapeHtml(input.name)}) is <strong>niet akkoord</strong> met selfbillingfactuur <strong>${escapeHtml(result.number)}</strong>.</p><p>Reden: ${escapeHtml(input.reason ?? "—")}</p><p>Bekijk de factuur in het CRM onder Selfbilling. Na overleg kunt u hem opnieuw ter akkoord sturen.</p>`;
+    await sendEmail(db, notify.transport, {
+      to: result.company.email,
+      subject: `Niet akkoord: selfbillingfactuur ${result.number} (${result.partner})`,
+      html: layout(result.company, html),
+      text: html.replace(/<[^>]+>/g, ""),
+      template: "selfbilling.disputed",
+      related: { type: "self_billing_invoice", id },
+    });
+  }
+  return getSelfBillingInvoice(db, id);
+}
+
+export async function decideByToken(db: Db, token: string, input: { decision: "approve" | "dispute"; name: string; reason?: string | null }, evidence: ApprovalEvidence, notify: ApprovalDeps) {
+  const id = await invoiceIdByToken(db, token);
+  return publicView(await decideApproval(db, id, input, evidence, notify));
+}
+
+/** Uitbetaling vastleggen; alleen na akkoord van de ontvanger. */
 export async function markSelfBillingPaid(db: Db, actor: ActorContext, id: string, paidAt: string) {
   return db.transaction(async (tx) => {
     const [inv] = await tx.select().from(selfBillingInvoices).where(eq(selfBillingInvoices.id, id)).for("update");
     if (!inv) throw notFound("Selfbillingfactuur");
     if (inv.status !== "final") throw conflict("not_final", "Alleen een definitieve, onbetaalde factuur kan als betaald worden gemarkeerd");
+    if (inv.approvalStatus !== "approved") throw conflict("not_approved", "De ontvanger heeft deze factuur nog niet geaccordeerd; uitbetalen kan pas na akkoord");
     await tx.update(selfBillingInvoices).set({ status: "paid", paidAt }).where(eq(selfBillingInvoices.id, id));
     await recordAudit(tx, actor, { action: "selfbilling.paid", entityType: "self_billing_invoice", entityId: id, after: { paidAt } });
     return getSelfBillingInvoice(tx, id);
@@ -436,6 +575,7 @@ const summary = (i: SelfBillingInvoice) => ({
   vatMode: i.vatMode,
   paidAt: i.paidAt,
   sentAt: i.sentAt,
+  approvalStatus: i.approvalStatus as "pending" | "approved" | "disputed" | null,
   createdAt: i.createdAt,
 });
 
@@ -456,6 +596,15 @@ export async function getSelfBillingInvoice(db: DbOrTx, id: string) {
     partnerSnapshot: inv.partnerSnapshot ?? partnerSnapshot(row.partner),
     companySnapshot: inv.companySnapshot ?? (await getCompany(db)),
     note: inv.note,
+    approval: {
+      status: inv.approvalStatus as "pending" | "approved" | "disputed" | null,
+      approvedAt: inv.approvedAt,
+      approvedByName: inv.approvedByName,
+      method: (inv.approvalEvidence as { method?: string } | null)?.method ?? null,
+      viaImpersonation: !!(inv.approvalEvidence as { impersonatorUserId?: string | null } | null)?.impersonatorUserId,
+      disputedAt: inv.disputedAt,
+      disputeReason: inv.disputeReason,
+    },
     lines: lines.map((l) => ({
       id: l.id,
       kind: l.kind,

@@ -158,10 +158,10 @@ export async function buildApp({
       await api.register(invoiceRoutes, { db, deps: billing });
       await api.register(settingsRoutes, { db });
       await api.register(planningRoutes, { db, emailTransport });
-      await api.register(partnerRoutes, { db });
+      await api.register(partnerRoutes, { db, config, emailTransport });
       await api.register(testingRoutes, { db });
       await api.register(messageRoutes, { db, emailTransport });
-      await api.register(selfBillingRoutes, { db, emailTransport });
+      await api.register(selfBillingRoutes, { db, config, emailTransport });
     },
     { prefix: "/api" },
   );

@@ -2,11 +2,14 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { todayIso } from "../src/lib/dates.js";
 import { productGroups, salesChannels } from "../src/modules/catalog/schema.js";
+import { auditLog } from "../src/modules/audit/schema.js";
 import { MemoryTransport } from "../src/modules/email/transport.js";
 import { organizations } from "../src/modules/organizations/schema.js";
 import { partnerPenalties } from "../src/modules/planning/schema.js";
 import { selfBillingInvoices, selfBillingLines } from "../src/modules/selfbilling/schema.js";
-import { adminSession, createTestContext, type TestContext } from "./helpers.js";
+import { createUser } from "../src/modules/users/service.js";
+import { systemActor } from "../src/lib/context.js";
+import { adminSession, createTestContext, PASSWORD, roleId, type TestContext } from "./helpers.js";
 
 const mail = new MemoryTransport();
 let ctx: TestContext;
@@ -105,7 +108,66 @@ describe("selfbilling", () => {
     const sent = mail.sent.find((m) => m.to === "noord@example.nl");
     expect(sent?.subject).toContain(fin.number);
     expect(sent?.text).toContain("Factuur uitgereikt door afnemer");
+    expect(sent?.html).toContain("akkoord geven");
     expect(await openFor(partnerId)).toBeUndefined();
+  });
+
+  it("ontvanger moet accorderen vóór uitbetaling; akkoord en niet-akkoord worden gelogd", async () => {
+    const [inv] = await ctx.db.select().from(selfBillingInvoices).where(eq(selfBillingInvoices.partnerOrganizationId, partnerId));
+    expect(inv!.approvalStatus).toBe("pending");
+    expect((await api("POST", `/selfbilling/${inv!.id}/paid`, { paidAt: todayIso() })).json().error.code).toBe("not_approved");
+
+    const tokenFrom = () => mail.sent.filter((m) => m.to === "noord@example.nl").at(-1)!.text.match(/selfbilling-akkoord\/([\w-]+)/)![1]!;
+    const pub = (method: "GET" | "POST", url: string, payload?: unknown) =>
+      ctx.app.inject({ method, url: `/api/public/selfbilling${url}`, payload: payload as object, headers: { "user-agent": "TestBrowser/1.0" } });
+
+    const first = tokenFrom();
+    const view = (await pub("GET", `/${first}`)).json();
+    expect(view).toMatchObject({ number: inv!.number, approval: { status: "pending" } });
+    expect(view.approvalTokenHash).toBeUndefined();
+
+    // Niet akkoord: reden verplicht, Gecko krijgt een seintje
+    expect((await pub("POST", `/${first}/decision`, { decision: "dispute", name: "Jan Noord" })).statusCode).toBe(400);
+    const disputed = (await pub("POST", `/${first}/decision`, { decision: "dispute", name: "Jan Noord", reason: "Meerwerk klopt niet" })).json();
+    expect(disputed.approval).toMatchObject({ status: "disputed", disputeReason: "Meerwerk klopt niet" });
+    expect(mail.sent.some((m) => m.subject.startsWith("Niet akkoord"))).toBe(true);
+
+    // Opnieuw ter akkoord: oude link vervalt
+    await api("POST", `/selfbilling/${inv!.id}/request-approval`);
+    expect((await pub("GET", `/${first}`)).statusCode).toBe(404);
+    const second = tokenFrom();
+    const ok = await pub("POST", `/${second}/decision`, { decision: "approve", name: "Jan Noord" });
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(ok.json().approval).toMatchObject({ status: "approved", approvedByName: "Jan Noord", method: "email_link" });
+    // Link blijft bruikbaar om het akkoord terug te zien, maar nogmaals beslissen kan niet
+    expect((await pub("GET", `/${second}`)).json().approval.status).toBe("approved");
+    expect((await pub("POST", `/${second}/decision`, { decision: "dispute", name: "Jan Noord", reason: "toch niet" })).json().error.code).toBe("already_approved");
+
+    const [after] = await ctx.db.select().from(selfBillingInvoices).where(eq(selfBillingInvoices.id, inv!.id));
+    expect(after!.approvalEvidence).toMatchObject({ method: "email_link", userAgent: "TestBrowser/1.0", sentTo: "noord@example.nl", contentHash: inv!.contentHash, name: "Jan Noord" });
+    // Akkoord ligt vast in de database
+    await expect(ctx.db.update(selfBillingInvoices).set({ approvedByName: "Iemand anders" }).where(eq(selfBillingInvoices.id, inv!.id))).rejects.toThrow();
+    const actions = (await ctx.db.select().from(auditLog).where(eq(auditLog.entityId, inv!.id))).map((a) => a.action);
+    expect(actions).toEqual(expect.arrayContaining(["selfbilling.disputed", "selfbilling.approved"]));
+  });
+
+  it("partnerportaal: eigen facturen; akkoord via inloggen-als geblokkeerd buiten testmodus", async () => {
+    const u = await createUser(ctx.db, systemActor(), {
+      organizationId: partnerId, username: "noord1", name: "Jan Noord", password: PASSWORD,
+      roleIds: [await roleId(ctx.db, "installatiepartner")], mustChangePassword: false, mfaRequired: false,
+    });
+    const [inv] = await ctx.db.select().from(selfBillingInvoices).where(eq(selfBillingInvoices.partnerOrganizationId, partnerId));
+    // Als partner zelf
+    const login = await ctx.app.inject({ method: "POST", url: "/api/auth/login", payload: { email: "noord1", password: PASSWORD } });
+    const ph = { authorization: `Bearer ${login.json().token}` };
+    const list = (await ctx.app.inject({ method: "GET", url: "/api/partner/selfbilling", headers: ph })).json();
+    expect(list.map((i: { id: string }) => i.id)).toEqual([inv!.id]);
+    expect(list[0].approvalStatus).toBe("approved");
+    // Als beheerder via inloggen-als
+    const imp = await api("POST", `/users/${u.id}/impersonate`);
+    const cookie = imp.cookies.find((c) => c.name === "gecko_session")!.value;
+    const res = await ctx.app.inject({ method: "POST", url: `/api/partner/selfbilling/${inv!.id}/decision`, headers: { cookie: `gecko_session=${cookie}` }, payload: { decision: "approve", name: "Beheerder" } });
+    expect(res.json().error.code).toBe("impersonation_not_allowed");
   });
 
   it("definitief is onveranderbaar; betaald markeren; export en partnerportaal", async () => {
@@ -116,6 +178,9 @@ describe("selfbilling", () => {
 
     const paid = (await api("POST", `/selfbilling/${inv!.id}/paid`, { paidAt: todayIso() })).json();
     expect(paid.status).toBe("paid");
+    // Zonder akkoord kan ook de database niet naar "betaald"
+    const [gt] = await ctx.db.select().from(selfBillingInvoices).where(eq(selfBillingInvoices.partnerOrganizationId, greenteamId));
+    await expect(ctx.db.update(selfBillingInvoices).set({ status: "paid", paidAt: todayIso() }).where(eq(selfBillingInvoices.id, gt!.id))).rejects.toThrow();
 
     const csv = (await api("GET", `/selfbilling/export.csv?from=${todayIso()}&to=${todayIso()}`)).body;
     expect(csv).toContain(inv!.number!);

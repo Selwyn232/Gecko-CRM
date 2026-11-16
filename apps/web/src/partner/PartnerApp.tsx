@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { api, type Appointment, type AvailabilityBlock, type Penalty, type Region, type Report } from "../api";
 import { WorkArea } from "../components/WorkArea";
+import { sbStatus, SelfBillingDocument, type SelfBillingDetail } from "../components/SelfBillingDocument";
+import { ApprovalBox } from "../pages/SelfBilling";
 import { useAuth } from "../auth";
 import { AvailabilityGrid } from "../components/AvailabilityGrid";
 import { ChangePasswordModal } from "../components/ChangePassword";
@@ -40,6 +42,7 @@ export function PartnerApp() {
           <Route path="/afspraken/:id" element={<PartnerAppointment />} />
           <Route path="/beschikbaarheid" element={<PartnerAvailability />} />
           <Route path="/uitbetalingen" element={<PartnerPayouts />} />
+          <Route path="/uitbetalingen/:id" element={<PartnerPayout />} />
           <Route path="*" element={<Navigate to="/afspraken" replace />} />
         </Routes>
       </main>
@@ -48,31 +51,64 @@ export function PartnerApp() {
   );
 }
 
-/** Selfbillingfacturen die Gecko namens deze partner heeft opgemaakt. */
+/** Selfbillingfacturen die Gecko namens deze partner heeft opgemaakt; hier ook akkoord geven. */
 function PartnerPayouts() {
-  const list = useQuery({ queryKey: ["partner-selfbilling"], queryFn: () => api.get<{ id: string; number: string; invoiceDate: string; totalCents: number; status: string; paidAt: string | null }[]>("/partner/selfbilling") });
+  const navigate = useNavigate();
+  const list = useQuery({
+    queryKey: ["partner-selfbilling"],
+    queryFn: () => api.get<{ id: string; number: string; invoiceDate: string; totalCents: number; status: string; approvalStatus: "pending" | "approved" | "disputed" | null; paidAt: string | null }[]>("/partner/selfbilling"),
+  });
   if (list.isLoading) return <Loading />;
+  const waiting = (list.data ?? []).filter((i) => i.status === "final" && i.approvalStatus !== "approved").length;
   return (
     <>
-      <PageHead title="Uitbetalingen" sub="Facturen die Gecko op grond van de zelffactureringsovereenkomst namens u heeft opgemaakt. Klopt er iets niet? Laat het ons binnen 14 dagen weten." />
+      <PageHead title="Uitbetalingen" sub="Facturen die Gecko op grond van de zelffactureringsovereenkomst namens u heeft opgemaakt. Wij betalen uit nadat u akkoord heeft gegeven." />
+      {waiting > 0 && <div className="alert warning">{waiting === 1 ? "1 factuur wacht" : `${waiting} facturen wachten`} op uw akkoord.</div>}
       <div className="card flush">
         {!list.data?.length ? <div className="empty">Nog geen uitbetalingen.</div> : (
           <table>
-            <thead><tr><th>Factuur</th><th>Datum</th><th className="num">Bedrag</th><th>Status</th><th /></tr></thead>
+            <thead><tr><th>Factuur</th><th>Datum</th><th className="num">Bedrag</th><th>Status</th></tr></thead>
             <tbody>
-              {list.data.map((i) => (
-                <tr key={i.id}>
-                  <td className="mono">{i.number}</td>
-                  <td>{formatDate(i.invoiceDate)}</td>
-                  <td className="num">{formatCents(i.totalCents)}</td>
-                  <td>{i.status === "paid" ? <span className="badge green">Betaald {formatDate(i.paidAt)}</span> : <span className="badge yellow">Wordt overgemaakt</span>}</td>
-                  <td><a className="btn small" href={`/uitbetalingen/${i.id}/print`} target="_blank" rel="noreferrer">Bekijken / PDF</a></td>
-                </tr>
-              ))}
+              {list.data.map((i) => {
+                const st = sbStatus(i.status, i.approvalStatus);
+                return (
+                  <tr key={i.id} className="clickable" onClick={() => navigate(`/uitbetalingen/${i.id}`)}>
+                    <td className="mono">{i.number}</td>
+                    <td>{formatDate(i.invoiceDate)}</td>
+                    <td className="num">{formatCents(i.totalCents)}</td>
+                    <td><span className={`badge ${st.cls}`}>{st.label}</span>{i.paidAt && <span className="muted" style={{ marginLeft: 6, fontSize: 12 }}>{formatDate(i.paidAt)}</span>}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
       </div>
+    </>
+  );
+}
+
+function PartnerPayout() {
+  const { id } = useParams();
+  const { me } = useAuth();
+  const qc = useQueryClient();
+  const inv = useQuery({ queryKey: ["partner-selfbilling", id], queryFn: () => api.get<SelfBillingDetail>(`/partner/selfbilling/${id}`) });
+  if (inv.error) return <ErrorBox error={inv.error} />;
+  if (!inv.data) return <Loading />;
+  return (
+    <>
+      <div style={{ marginBottom: 8 }}><Link to="/uitbetalingen">← Uitbetalingen</Link></div>
+      <PageHead title={`Factuur ${inv.data.number}`} actions={<a className="btn" href={`/uitbetalingen/${inv.data.id}/print`} target="_blank" rel="noreferrer">Afdrukken / PDF</a>} />
+      <ApprovalBox
+        d={inv.data}
+        defaultName={me?.name ?? ""}
+        submit={(body) => api.post<SelfBillingDetail>(`/partner/selfbilling/${id}/decision`, body)}
+        onDone={async (d) => {
+          qc.setQueryData(["partner-selfbilling", id], d);
+          await qc.invalidateQueries({ queryKey: ["partner-selfbilling"] });
+        }}
+      />
+      <div className="card"><SelfBillingDocument d={inv.data} /></div>
     </>
   );
 }

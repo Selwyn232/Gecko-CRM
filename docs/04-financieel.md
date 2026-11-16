@@ -58,7 +58,8 @@ Periodiek gebundeld (bv. wekelijks), met specificatie. Fee-percentage(s) zijn co
 kanaal en worden later bepaald.
 
 **Gebouwd (B43):** menu Selfbilling → "Uit te betalen" per partner → conceptfactuur (regels weghalen,
-correctieregel) → definitief en gemaild → betaald markeren. Partners zien hun facturen in het
+correctieregel) → definitief en ter akkoord gemaild → ontvanger geeft akkoord (link of portaal, B44) →
+betaald markeren (pas mogelijk na akkoord). Partners zien hun facturen in het
 partnerportaal onder Uitbetalingen. Export voor Exact als CSV.
 
 ## Margeberekening (op de klantkaart)

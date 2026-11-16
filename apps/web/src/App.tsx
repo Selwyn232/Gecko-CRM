@@ -11,7 +11,7 @@ import { CustomerDetailPage } from "./pages/CustomerDetail";
 import { CustomersPage } from "./pages/Customers";
 import { JourneysPage } from "./pages/Journeys";
 import { MessagesPage } from "./pages/Messages";
-import { SelfBillingDetailPage, SelfBillingPage, SelfBillingPrintPage } from "./pages/SelfBilling";
+import { PublicSelfBillingPage, SelfBillingDetailPage, SelfBillingPage, SelfBillingPrintPage } from "./pages/SelfBilling";
 import { ProjectDetailPage } from "./pages/ProjectDetail";
 import { ProjectsPage } from "./pages/Projects";
 import { QuoteDetailPage } from "./pages/QuoteDetail";
@@ -40,9 +40,10 @@ export function App() {
   const [changingPassword, setChangingPassword] = useState(false);
   const location = useLocation();
   // Klantpagina's zonder login
-  if (/^\/(akkoord|factuur|testbetaling)\//.test(location.pathname)) {
+  if (/^\/(akkoord|factuur|testbetaling|selfbilling-akkoord)\//.test(location.pathname)) {
     return (
       <Routes>
+        <Route path="/selfbilling-akkoord/:token" element={<PublicSelfBillingPage />} />
         <Route path="/akkoord/:token" element={<PublicQuotePage />} />
         <Route path="/factuur/:token" element={<PublicInvoicePage />} />
         <Route path="/testbetaling/:id" element={<TestPaymentPage />} />

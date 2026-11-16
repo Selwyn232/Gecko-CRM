@@ -52,6 +52,19 @@ export const selfBillingInvoices = pgTable(
     finalizedAt: timestamp("finalized_at", { withTimezone: true }),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     paidAt: date("paid_at"),
+    /**
+     * Akkoord van de ontvanger (verplicht vóór uitbetaling). Via de link in de e-mail of het partnerportaal.
+     * pending = wacht op akkoord, approved = akkoord, disputed = niet akkoord (met reden).
+     */
+    approvalStatus: text("approval_status"),
+    approvalTokenHash: text("approval_token_hash").unique(),
+    /** Vingerafdruk van de factuur bij definitief maken; bij akkoord gecontroleerd. */
+    contentHash: text("content_hash"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvedByName: text("approved_by_name"),
+    approvalEvidence: jsonb("approval_evidence"),
+    disputedAt: timestamp("disputed_at", { withTimezone: true }),
+    disputeReason: text("dispute_reason"),
     createdBy: uuid("created_by").references(() => users.id),
     ...timestamps(),
   },

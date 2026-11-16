@@ -17,6 +17,7 @@ export interface SelfBillingDetail {
   sentAt: string | null;
   createdAt: string;
   vatBreakdown: { rateBasisPoints: number; baseCents: number; vatCents: number }[];
+  approval: Approval;
   partnerSnapshot: Party;
   companySnapshot: Party;
   lines: {
@@ -31,6 +32,44 @@ export interface SelfBillingDetail {
     vatRateBasisPoints: number;
   }[];
 }
+export interface Approval {
+  status: "pending" | "approved" | "disputed" | null;
+  approvedAt: string | null;
+  approvedByName: string | null;
+  method: string | null;
+  viaImpersonation?: boolean;
+  disputedAt: string | null;
+  disputeReason: string | null;
+}
+
+/** Eén statuslabel voor concept, akkoord en betaling. */
+export function sbStatus(status: string, approval: Approval["status"]): { label: string; cls: string } {
+  if (status === "draft") return { label: "Concept", cls: "" };
+  if (status === "paid") return { label: "Betaald", cls: "green" };
+  if (approval === "approved") return { label: "Akkoord — te betalen", cls: "yellow" };
+  if (approval === "disputed") return { label: "Niet akkoord", cls: "red" };
+  return { label: "Wacht op akkoord", cls: "" };
+}
+
+/** Wie wanneer akkoord gaf (of waarom niet). */
+export function ApprovalInfo({ a }: { a: Approval }) {
+  const dt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("nl-NL", { dateStyle: "medium", timeStyle: "short" }) : "");
+  if (a.status === "approved")
+    return (
+      <div className="alert info">
+        <strong>Geaccordeerd</strong> door {a.approvedByName} op {dt(a.approvedAt)} via {a.method === "portal" ? "het partnerportaal" : "de link in de e-mail"}
+        {a.viaImpersonation && " (testmodus: door beheerder via Inloggen als)"}.
+      </div>
+    );
+  if (a.status === "disputed")
+    return (
+      <div className="alert error">
+        <strong>Niet akkoord</strong> sinds {dt(a.disputedAt)}. Reden: {a.disputeReason}
+      </div>
+    );
+  return null;
+}
+
 interface Party {
   name: string;
   street?: string | null;
