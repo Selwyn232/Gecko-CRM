@@ -124,3 +124,26 @@ export const userRoles = pgTable(
 
 export type User = typeof users.$inferSelect;
 export type Role = typeof roles.$inferSelect;
+
+/**
+ * API-sleutels voor koppelingen (bv. Greenteam). Een sleutel hoort bij een gebruiker en heeft precies diens rechten;
+ * gebruik daarom een aparte koppelgebruiker. Alleen de hash wordt bewaard; de sleutel is één keer zichtbaar.
+ */
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: id(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    name: text("name").notNull(),
+    /** Eerste tekens van de sleutel, om hem te herkennen. */
+    prefix: text("prefix").notNull(),
+    keyHash: text("key_hash").notNull().unique(),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [index("api_keys_user_idx").on(t.userId)],
+);

@@ -9,7 +9,7 @@ import { generateTotpSecret, otpauthUrl, verifyTotp } from "../../lib/totp.js";
 import { recordAudit } from "../audit/service.js";
 import { loadPermissions } from "./access.js";
 import { assertPasswordPolicy, getDummyHash, hashPassword, verifyPassword } from "./password.js";
-import { recoveryCodes, sessions, users, type User } from "./schema.js";
+import { apiKeys, recoveryCodes, sessions, users, type User } from "./schema.js";
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
@@ -113,9 +113,25 @@ export class AuthService {
     });
   }
 
+  /** API-sleutel (koppelingen): handelt als de gekoppelde gebruiker; geen 2FA (de sleutel zelf is het geheim). */
+  private async resolveApiKey(token: string, now: Date): Promise<SessionInfo | null> {
+    const [row] = await this.db
+      .select({ key: apiKeys, user: users })
+      .from(apiKeys)
+      .innerJoin(users, eq(users.id, apiKeys.userId))
+      .where(and(eq(apiKeys.keyHash, sha256(token)), isNull(apiKeys.revokedAt)))
+      .limit(1);
+    if (!row || !row.user.isActive) return null;
+    if (!row.key.lastUsedAt || now.getTime() - row.key.lastUsedAt.getTime() > TOUCH_INTERVAL_MS) {
+      await this.db.update(apiKeys).set({ lastUsedAt: now }).where(eq(apiKeys.id, row.key.id));
+    }
+    return { sessionId: `apikey:${row.key.id}`, user: { ...row.user, mustChangePassword: false }, mfaVerified: true, impersonatorUserId: null };
+  }
+
   /** Zoekt een geldige sessie bij een token. Verlopen, ingetrokken of inactieve sessies leveren null. */
   async resolveSession(token: string): Promise<SessionInfo | null> {
     const now = new Date();
+    if (token.startsWith("gk_")) return this.resolveApiKey(token, now);
     const idleCutoff = new Date(now.getTime() - this.config.SESSION_IDLE_TIMEOUT_MINUTES * 60_000);
     const [row] = await this.db
       .select({ session: sessions, user: users })
@@ -166,6 +182,7 @@ export class AuthService {
   }
 
   async logout(sessionId: string) {
+    if (sessionId.startsWith("apikey:")) return; // een API-sleutel trek je in bij Gebruikers, niet via uitloggen
     await this.db.update(sessions).set({ revokedAt: new Date() }).where(eq(sessions.id, sessionId));
   }
 

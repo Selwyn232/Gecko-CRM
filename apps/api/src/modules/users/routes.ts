@@ -1,3 +1,8 @@
+import { and, desc, eq, isNull } from "drizzle-orm";
+import { apiKeys, users } from "../auth/schema.js";
+import { randomToken, sha256 } from "../../lib/crypto.js";
+import { recordAudit } from "../audit/service.js";
+import { notFound } from "../../lib/errors.js";
 import type { FastifyRequest } from "fastify";
 import { loadPermissions, missingPermissions, permissionsOfRoles } from "../auth/access.js";
 import type { Permission } from "../auth/permissions.js";
@@ -26,6 +31,35 @@ async function assertNoEscalation(db: Db, req: FastifyRequest, opts: { roleIds?:
   const missing = missingPermissions(req.actor.permissions, wanted);
   if (missing.length) throw forbidden("privilege_escalation", "Je kunt geen rechten geven of een account beheren met meer rechten dan je zelf hebt");
 }
+
+export const apiKeyRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
+  const manage = requirePermission("users.manage");
+  const IdP = z.object({ id: z.string().uuid() });
+  app.get("/users/:id/api-keys", { preValidation: manage, schema: { params: IdP } }, async (req) =>
+    db
+      .select({ id: apiKeys.id, name: apiKeys.name, prefix: apiKeys.prefix, createdAt: apiKeys.createdAt, lastUsedAt: apiKeys.lastUsedAt, revokedAt: apiKeys.revokedAt })
+      .from(apiKeys)
+      .where(eq(apiKeys.userId, req.params.id))
+      .orderBy(desc(apiKeys.createdAt)),
+  );
+  /** Nieuwe sleutel; alleen nu zichtbaar. Niet voor accounts met meer rechten dan jijzelf. */
+  app.post("/users/:id/api-keys", { preValidation: manage, schema: { params: IdP, body: z.object({ name: z.string().trim().min(2).max(100) }) } }, async (req, reply) => {
+    const [u] = await db.select().from(users).where(eq(users.id, req.params.id));
+    if (!u) throw notFound("Gebruiker");
+    await assertNoEscalation(db, req, { targetUserId: u.id });
+    const key = `gk_${randomToken(24)}`;
+    const [row] = await db.insert(apiKeys).values({ userId: u.id, name: req.body.name, prefix: key.slice(0, 10), keyHash: sha256(key), createdBy: req.actor.userId }).returning();
+    await recordAudit(db, req.actor, { action: "api_key.created", entityType: "user", entityId: u.id, metadata: { keyId: row!.id, name: req.body.name } });
+    reply.code(201);
+    return { id: row!.id, name: row!.name, prefix: row!.prefix, key };
+  });
+  app.post("/api-keys/:id/revoke", { preValidation: manage, schema: { params: IdP } }, async (req) => {
+    const [row] = await db.update(apiKeys).set({ revokedAt: new Date() }).where(and(eq(apiKeys.id, req.params.id), isNull(apiKeys.revokedAt))).returning();
+    if (!row) throw notFound("API-sleutel");
+    await recordAudit(db, req.actor, { action: "api_key.revoked", entityType: "user", entityId: row.userId, metadata: { keyId: row.id } });
+    return { ok: true };
+  });
+};
 
 export const userRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
   const read = requirePermission("users.read");

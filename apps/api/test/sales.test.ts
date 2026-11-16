@@ -87,4 +87,23 @@ describe("verkooppartnerportaal", () => {
     expect((await call("GET", "/sales/me")).statusCode).toBe(403);
     expect((await call("GET", "/customers", undefined, b)).statusCode).toBe(403);
   });
+
+  it("koppeling met API-sleutel: werkt als de koppelgebruiker; intrekken blokkeert", async () => {
+    const u = await createUser(ctx.db, systemActor(), { organizationId: gt, username: "greenteam.api", name: "Greenteam koppeling", password: PASSWORD, roleIds: [await roleId(ctx.db, "verkooppartner")], mustChangePassword: false, mfaRequired: true });
+    const created = await call("POST", `/users/${u.id}/api-keys`, { name: "Greenteam CRM" });
+    expect(created.statusCode, created.body).toBe(201);
+    const { key, id } = created.json();
+    expect(key).toMatch(/^gk_/);
+    const kh = { authorization: `Bearer ${key}` };
+    const me = await call("GET", "/sales/me", undefined, kh);
+    expect(me.statusCode, me.body).toBe(200);
+    expect(me.json().organization.id).toBe(gt);
+    // Alleen wat de gebruiker mag
+    expect((await call("GET", "/customers", undefined, kh)).statusCode).toBe(403);
+    const list = (await call("GET", `/users/${u.id}/api-keys`)).json();
+    expect(list[0]).toMatchObject({ name: "Greenteam CRM" });
+    expect(list[0].key).toBeUndefined();
+    await call("POST", `/api-keys/${id}/revoke`);
+    expect((await call("GET", "/sales/me", undefined, kh)).statusCode).toBe(401);
+  });
 });

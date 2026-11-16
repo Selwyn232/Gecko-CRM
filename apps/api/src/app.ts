@@ -43,7 +43,7 @@ import { privacyRoutes } from "./modules/privacy/routes.js";
 import { portalRoutes } from "./modules/portal/routes.js";
 import { organizationRoutes } from "./modules/organizations/routes.js";
 import { roleRoutes } from "./modules/roles/routes.js";
-import { userRoutes } from "./modules/users/routes.js";
+import { apiKeyRoutes, userRoutes } from "./modules/users/routes.js";
 
 /** PostgreSQL-foutcodes die we naar nette meldingen vertalen. */
 const PG_UNIQUE_VIOLATION = "23505";
@@ -157,6 +157,7 @@ export async function buildApp({
     async (api) => {
       await api.register(authRoutes, { authService, config, db });
       await api.register(userRoutes, { db });
+      await api.register(apiKeyRoutes, { db });
       await api.register(roleRoutes, { db });
       await api.register(organizationRoutes, { db });
       await api.register(auditRoutes, { db });

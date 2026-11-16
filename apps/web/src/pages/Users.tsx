@@ -153,6 +153,7 @@ function UserForm({ user, onClose }: { user?: User; onClose: () => void }) {
       <Field label={user ? "Nieuw startwachtwoord (alleen bij resetten)" : "Startwachtwoord (gebruiker kiest bij eerste login een eigen wachtwoord)"}>
         <input type="password" autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
       </Field>
+      {user && <ApiKeys userId={user.id} />}
       <div className="field">Rollen</div>
       {roles.data?.map((r) => (
         <label key={r.id} className="checkbox"><input type="checkbox" checked={form.roleIds.includes(r.id)} onChange={() => toggle(r.id)} /> {r.name}</label>
@@ -174,5 +175,45 @@ function UserForm({ user, onClose }: { user?: User; onClose: () => void }) {
         <button className="btn primary" onClick={() => save.mutate()} disabled={save.isPending}>Opslaan</button>
       </div>
     </Modal>
+  );
+}
+
+/** API-sleutels voor een koppelgebruiker (bv. Greenteam). De sleutel is alleen direct na aanmaken zichtbaar. */
+function ApiKeys({ userId }: { userId: string }) {
+  const qc = useQueryClient();
+  const keys = useQuery({ queryKey: ["api-keys", userId], queryFn: () => api.get<{ id: string; name: string; prefix: string; createdAt: string; lastUsedAt: string | null; revokedAt: string | null }[]>(`/users/${userId}/api-keys`) });
+  const [name, setName] = useState("");
+  const [created, setCreated] = useState<string | null>(null);
+  const add = useMutation({
+    mutationFn: () => api.post<{ key: string }>(`/users/${userId}/api-keys`, { name }),
+    onSuccess: async (r) => {
+      setCreated(r.key);
+      setName("");
+      await qc.invalidateQueries({ queryKey: ["api-keys", userId] });
+    },
+  });
+  const revoke = useMutation({ mutationFn: (id: string) => api.post(`/api-keys/${id}/revoke`), onSuccess: () => qc.invalidateQueries({ queryKey: ["api-keys", userId] }) });
+  return (
+    <details style={{ marginBottom: 12 }}>
+      <summary style={{ cursor: "pointer", fontWeight: 500 }}>API-sleutels (koppelingen)</summary>
+      <p className="muted" style={{ fontSize: 13 }}>Een sleutel handelt als deze gebruiker, met precies dezelfde rechten. Gebruik een aparte koppelgebruiker (bv. "Greenteam koppeling" met rol Verkooppartner).</p>
+      <ErrorBox error={add.error ?? revoke.error} />
+      {created && (
+        <div className="alert warning">
+          Kopieer de sleutel nu; hij wordt niet meer getoond:
+          <div className="mono" style={{ wordBreak: "break-all", marginTop: 6, userSelect: "all" }}>{created}</div>
+        </div>
+      )}
+      {keys.data?.map((k) => (
+        <div key={k.id} className="row" style={{ justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
+          <span><strong>{k.name}</strong> <span className="mono muted">{k.prefix}…</span> {k.lastUsedAt ? <span className="muted">· laatst gebruikt {new Date(k.lastUsedAt).toLocaleString("nl-NL")}</span> : <span className="muted">· nog niet gebruikt</span>}</span>
+          {k.revokedAt ? <span className="badge">Ingetrokken</span> : <button className="btn small danger" onClick={() => confirm("Sleutel intrekken? Koppelingen met deze sleutel werken direct niet meer.") && revoke.mutate(k.id)}>Intrekken</button>}
+        </div>
+      ))}
+      <div className="row" style={{ marginTop: 6 }}>
+        <input placeholder="Naam, bv. Greenteam CRM" value={name} onChange={(e) => setName(e.target.value)} />
+        <button className="btn small" disabled={name.trim().length < 2 || add.isPending} onClick={() => add.mutate()}>Sleutel maken</button>
+      </div>
+    </details>
   );
 }
