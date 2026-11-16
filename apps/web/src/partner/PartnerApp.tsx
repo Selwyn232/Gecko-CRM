@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
-import { api, type Appointment, type AvailabilityRow, type Penalty, type Region, type Report } from "../api";
+import { api, type Appointment, type AvailabilityBlock, type Penalty, type Region, type Report } from "../api";
+import { WorkArea } from "../components/WorkArea";
 import { useAuth } from "../auth";
 import { AvailabilityGrid } from "../components/AvailabilityGrid";
 import { ChangePasswordModal } from "../components/ChangePassword";
@@ -242,19 +243,28 @@ function PartnerAvailability() {
   const qc = useQueryClient();
   const weeks = 8;
   const from = todayIso();
-  const to = addDaysIso(from, weeks * 7);
-  const regions = useQuery({ queryKey: ["partner-regions"], queryFn: () => api.get<Region[]>("/partner/regions") });
-  const rows = useQuery({ queryKey: ["partner-availability", from], queryFn: () => api.get<AvailabilityRow[]>(`/partner/availability?from=${from}&to=${to}`) });
+  const to = addDaysIso(from, weeks * 7 + 7);
+  const regions = useQuery({ queryKey: ["partner-regions"], queryFn: () => api.get<(Region & { selected: boolean })[]>("/partner/regions") });
+  const blocks = useQuery({ queryKey: ["partner-availability", from], queryFn: () => api.get<AvailabilityBlock[]>(`/partner/availability?from=${addDaysIso(from, -7)}&to=${to}`) });
   return (
     <>
-      <PageHead title="Beschikbaarheid" sub="Geef per dag en regio aan hoeveel schouwen en installaties u kunt uitvoeren. Gecko plant hierop; u wordt aan deze capaciteit gehouden." />
-      {regions.isLoading || rows.isLoading ? <Loading /> : (
+      <PageHead title="Beschikbaarheid" sub="Klik per dag de ochtend en middag aan waarop u beschikbaar bent. Een schouw neemt één dagdeel in, een installatie de hele dag. U wordt aan deze beschikbaarheid gehouden." />
+      {regions.data && (
+        <WorkArea
+          regions={regions.data}
+          selected={regions.data.filter((r) => r.selected).map((r) => r.id)}
+          onSave={async (regionIds) => {
+            await api.put("/partner/regions", { regionIds });
+            await qc.invalidateQueries({ queryKey: ["partner-regions"] });
+          }}
+        />
+      )}
+      {blocks.isLoading ? <Loading /> : (
         <AvailabilityGrid
-          regions={(regions.data ?? []).map((r) => ({ ...r, isActive: true }))}
-          rows={rows.data ?? []}
+          blocks={blocks.data ?? []}
           weeks={weeks}
-          onSave={async (entries) => {
-            await api.put("/partner/availability", { entries });
+          onSave={async (changes) => {
+            await api.put("/partner/availability", { changes });
             await qc.invalidateQueries({ queryKey: ["partner-availability"] });
           }}
         />

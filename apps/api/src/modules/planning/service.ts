@@ -20,7 +20,7 @@ import { quotes } from "../quotes/schema.js";
 import { addLineInTx } from "../quotes/service.js";
 import { getSetting } from "../settings/service.js";
 import { invoices } from "../invoices/schema.js";
-import { appointments, availability, partnerPenalties, regions, reports, type ReportData } from "./schema.js";
+import { appointments, availabilityBlocks, partnerPenalties, partnerRegions, regions, reports, type ReportData } from "./schema.js";
 
 type AppointmentType = "survey" | "installation";
 const TYPE_LABEL: Record<AppointmentType, string> = { survey: "schouw", installation: "installatie" };
@@ -73,65 +73,89 @@ async function regionsForPostal(db: DbOrTx, postalCode: string) {
   return all.filter((r) => regionContains(r.postalRanges, postalCode));
 }
 
-// ---------------------------------------------------------------- Beschikbaarheid
+// ---------------------------------------------------------------- Werkgebied en beschikbaarheid (blokken)
 
-export interface AvailabilityEntry {
-  regionId: string;
-  date: string;
-  surveySlots: number;
-  installationSlots: number;
+export type DayPart = "morning" | "afternoon";
+const PARTS: DayPart[] = ["morning", "afternoon"];
+
+export async function getPartnerRegions(db: DbOrTx, partnerId: string) {
+  const rows = await db.select({ regionId: partnerRegions.regionId }).from(partnerRegions).where(eq(partnerRegions.partnerOrganizationId, partnerId));
+  return rows.map((r) => r.regionId);
 }
 
-export async function listAvailability(db: DbOrTx, q: { from: string; to: string; partnerId?: string }) {
-  const filters: SQL[] = [gte(availability.date, q.from), lte(availability.date, q.to)];
-  if (q.partnerId) filters.push(eq(availability.partnerOrganizationId, q.partnerId));
-  const rows = await db.select().from(availability).where(and(...filters)).orderBy(asc(availability.date));
-  const used = await usedCapacity(db, q.from, q.to, q.partnerId);
-  return rows.map((r) => {
-    const u = used.get(`${r.partnerOrganizationId}|${r.regionId}|${r.date}`) ?? { survey: 0, installation: 0 };
-    return { ...r, surveyUsed: u.survey, installationUsed: u.installation };
-  });
-}
-
-/** Zet beschikbaarheid (upsert). Verlagen onder het aantal al geplande afspraken mag niet. */
-export async function setAvailability(db: Db, actor: ActorContext, partnerId: string, entries: AvailabilityEntry[]) {
+async function assertPartner(db: DbOrTx, partnerId: string) {
   const [partner] = await db.select().from(organizations).where(eq(organizations.id, partnerId));
   if (!partner || partner.type !== "installation_partner") throw badRequest("invalid_partner", "Organisatie is geen installatiepartner");
-  const today = todayIso();
-  await db.transaction(async (tx) => {
-    for (const e of entries) {
-      if (e.date < today) throw badRequest("date_in_past", "Beschikbaarheid in het verleden kan niet worden gewijzigd");
-      const used = (await usedCapacity(tx, e.date, e.date, partnerId)).get(`${partnerId}|${e.regionId}|${e.date}`);
-      if (used && (e.surveySlots < used.survey || e.installationSlots < used.installation)) {
-        throw conflict("capacity_in_use", `Op ${e.date} zijn al afspraken gepland; capaciteit kan niet lager dan ${used.survey} schouw(en) / ${used.installation} installatie(s)`);
-      }
-      await tx
-        .insert(availability)
-        .values({ partnerOrganizationId: partnerId, regionId: e.regionId, date: e.date, surveySlots: e.surveySlots, installationSlots: e.installationSlots })
-        .onConflictDoUpdate({
-          target: [availability.partnerOrganizationId, availability.regionId, availability.date],
-          set: { surveySlots: e.surveySlots, installationSlots: e.installationSlots, updatedAt: new Date() },
-        });
-    }
-    await recordAudit(tx, actor, { action: "availability.updated", entityType: "organization", entityId: partnerId, metadata: { entries: entries.length } });
-  });
+  return partner;
 }
 
-/** Bezette capaciteit per partner|regio|datum. Een installatie van N dagen bezet N dagen. */
-async function usedCapacity(db: DbOrTx, from: string, to: string, partnerId?: string) {
+export async function setPartnerRegions(db: Db, actor: ActorContext, partnerId: string, regionIds: string[]) {
+  await assertPartner(db, partnerId);
+  const unique = [...new Set(regionIds)];
+  await db.transaction(async (tx) => {
+    const before = await getPartnerRegions(tx, partnerId);
+    await tx.delete(partnerRegions).where(eq(partnerRegions.partnerOrganizationId, partnerId));
+    if (unique.length) await tx.insert(partnerRegions).values(unique.map((regionId) => ({ partnerOrganizationId: partnerId, regionId })));
+    await recordAudit(tx, actor, { action: "partner_regions.updated", entityType: "organization", entityId: partnerId, before: { regions: before.sort() }, after: { regions: unique.sort() } });
+  });
+  return getPartnerRegions(db, partnerId);
+}
+
+/** Welke blokken bezet zijn door afspraken: sleutel partner|datum|dagdeel → afspraak-id. */
+async function occupiedBlocks(db: DbOrTx, from: string, to: string, partnerId?: string) {
   const filters: SQL[] = [inArray(appointments.status, ["planned", "completed"]), lte(appointments.date, to), gte(sql`${appointments.date} + (${appointments.days} - 1)`, from)];
   if (partnerId) filters.push(eq(appointments.partnerOrganizationId, partnerId));
   const rows = await db.select().from(appointments).where(and(...filters));
-  const map = new Map<string, { survey: number; installation: number }>();
+  const map = new Map<string, string>();
   for (const a of rows) {
     for (let i = 0; i < a.days; i++) {
-      const key = `${a.partnerOrganizationId}|${a.regionId}|${addDays(a.date, i)}`;
-      const cur = map.get(key) ?? { survey: 0, installation: 0 };
-      cur[a.type]++;
-      map.set(key, cur);
+      const date = addDays(a.date, i);
+      // Schouw: het gekozen dagdeel. Installatie (of "hele dag"): beide dagdelen.
+      const parts: DayPart[] = a.timeWindow === "morning" || a.timeWindow === "afternoon" ? [a.timeWindow] : PARTS;
+      for (const p of parts) map.set(`${a.partnerOrganizationId}|${date}|${p}`, a.id);
     }
   }
   return map;
+}
+
+export async function listAvailability(db: DbOrTx, q: { from: string; to: string; partnerId?: string }) {
+  const filters: SQL[] = [gte(availabilityBlocks.date, q.from), lte(availabilityBlocks.date, q.to)];
+  if (q.partnerId) filters.push(eq(availabilityBlocks.partnerOrganizationId, q.partnerId));
+  const rows = await db.select().from(availabilityBlocks).where(and(...filters)).orderBy(asc(availabilityBlocks.date));
+  const occupied = await occupiedBlocks(db, q.from, q.to, q.partnerId);
+  return rows.map((r) => ({
+    partnerOrganizationId: r.partnerOrganizationId,
+    date: r.date,
+    part: r.part,
+    appointmentId: occupied.get(`${r.partnerOrganizationId}|${r.date}|${r.part}`) ?? null,
+  }));
+}
+
+export interface BlockChange {
+  date: string;
+  part: DayPart;
+  available: boolean;
+}
+
+/** Blokken aan- of uitzetten. Een blok met een afspraak kan niet worden uitgezet. */
+export async function setAvailability(db: Db, actor: ActorContext, partnerId: string, changes: BlockChange[]) {
+  await assertPartner(db, partnerId);
+  const today = todayIso();
+  await db.transaction(async (tx) => {
+    for (const c of changes) {
+      if (c.date < today) throw badRequest("date_in_past", "Beschikbaarheid in het verleden kan niet worden gewijzigd");
+      if (c.available) {
+        await tx.insert(availabilityBlocks).values({ partnerOrganizationId: partnerId, date: c.date, part: c.part }).onConflictDoNothing();
+      } else {
+        const occupied = (await occupiedBlocks(tx, c.date, c.date, partnerId)).get(`${partnerId}|${c.date}|${c.part}`);
+        if (occupied) throw conflict("block_in_use", `Op ${c.date} (${c.part === "morning" ? "ochtend" : "middag"}) staat al een afspraak; dit blok kan niet worden uitgezet`);
+        await tx
+          .delete(availabilityBlocks)
+          .where(and(eq(availabilityBlocks.partnerOrganizationId, partnerId), eq(availabilityBlocks.date, c.date), eq(availabilityBlocks.part, c.part)));
+      }
+    }
+    await recordAudit(tx, actor, { action: "availability.updated", entityType: "organization", entityId: partnerId, metadata: { changes: changes.length } });
+  });
 }
 
 // ---------------------------------------------------------------- Vrije momenten
@@ -148,43 +172,74 @@ async function projectContext(db: DbOrTx, projectId: string) {
   return row;
 }
 
+/** Partners die in (een van) deze regio's werken. */
+async function partnersForRegions(db: DbOrTx, regionIds: string[]) {
+  if (!regionIds.length) return [];
+  return db
+    .selectDistinct({ id: organizations.id, name: organizations.name, regionId: partnerRegions.regionId })
+    .from(partnerRegions)
+    .innerJoin(organizations, eq(organizations.id, partnerRegions.partnerOrganizationId))
+    .where(and(inArray(partnerRegions.regionId, regionIds), eq(organizations.isActive, true), eq(organizations.type, "installation_partner")));
+}
+
+export interface Slot {
+  date: string;
+  part: DayPart | null;
+  partnerId: string;
+  partnerName: string;
+  regionId: string;
+  days: number;
+}
+
 export async function findSlots(db: DbOrTx, projectId: string, type: AppointmentType) {
   const ctx = await projectContext(db, projectId);
   const regs = await regionsForPostal(db, ctx.property.postalCode);
-  if (!regs.length) return { regions: [], slots: [], message: `Postcode ${ctx.property.postalCode} valt in geen enkele regio. Voeg hem toe bij Regio's.` };
+  if (!regs.length) return { regions: [], slots: [] as Slot[], message: `Postcode ${ctx.property.postalCode} valt in geen enkele regio. Voeg hem toe bij Regio's.` };
+  let partners = await partnersForRegions(db, regs.map((r) => r.id));
+  // Installatie bij dezelfde partner als de schouw (die kent de situatie en is verantwoordelijk voor gemist meerwerk).
+  if (type === "installation" && ctx.project.installationPartnerId) partners = partners.filter((p) => p.id === ctx.project.installationPartnerId);
+  if (!partners.length) return { regions: regs.map((r) => ({ id: r.id, name: r.name })), slots: [], message: "Geen installatiepartner werkt in deze regio. Stel het werkgebied in bij Beschikbaarheid." };
+
   const lead = await getSetting(db, type === "survey" ? "planning.survey_lead_days" : "planning.installation_lead_days");
   const horizon = await getSetting(db, "planning.horizon_days");
   const from = addDays(todayIso(), lead);
   const to = addDays(todayIso(), horizon);
   const days = type === "installation" ? ctx.group.installationDays : 1;
+  const partnerIds = [...new Set(partners.map((p) => p.id))];
 
-  const filters: SQL[] = [inArray(availability.regionId, regs.map((r) => r.id)), gte(availability.date, from), lte(availability.date, addDays(to, days))];
-  // Installatie bij dezelfde partner als de schouw (die partner kent de situatie en is verantwoordelijk voor gemist meerwerk).
-  if (type === "installation" && ctx.project.installationPartnerId) filters.push(eq(availability.partnerOrganizationId, ctx.project.installationPartnerId));
-  const avail = await db
-    .select({ a: availability, partnerName: organizations.name })
-    .from(availability)
-    .innerJoin(organizations, eq(organizations.id, availability.partnerOrganizationId))
-    .where(and(...filters, eq(organizations.isActive, true)));
-  const used = await usedCapacity(db, from, addDays(to, days));
-  const cap = (a: (typeof avail)[number]["a"]) => (type === "survey" ? a.surveySlots : a.installationSlots);
-  const free = (partnerId: string, regionId: string, date: string) => {
-    const a = avail.find((x) => x.a.partnerOrganizationId === partnerId && x.a.regionId === regionId && x.a.date === date);
-    if (!a) return 0;
-    return cap(a.a) - (used.get(`${partnerId}|${regionId}|${date}`)?.[type] ?? 0);
+  const blocks = await db
+    .select()
+    .from(availabilityBlocks)
+    .where(and(inArray(availabilityBlocks.partnerOrganizationId, partnerIds), gte(availabilityBlocks.date, from), lte(availabilityBlocks.date, addDays(to, days + 14))));
+  const occupied = await occupiedBlocks(db, from, addDays(to, days + 14));
+  const free = new Set(blocks.filter((b) => !occupied.has(`${b.partnerOrganizationId}|${b.date}|${b.part}`)).map((b) => `${b.partnerOrganizationId}|${b.date}|${b.part}`));
+  const isFree = (pid: string, date: string, part: DayPart) => free.has(`${pid}|${date}|${part}`);
+  /** Volgende dag waarop de partner beschikbaar is (een meerdaagse installatie loopt over werkdagen door). */
+  const workDays = (pid: string, start: string) => {
+    const dates = [...new Set(blocks.filter((b) => b.partnerOrganizationId === pid && b.date >= start).map((b) => b.date))].sort();
+    return dates.slice(0, days);
   };
 
-  const slots = avail
-    .filter((x) => x.a.date <= to && cap(x.a) > 0)
-    .map((x) => {
-      // Meerdaagse installatie: elke dag moet capaciteit hebben.
-      let f = Infinity;
-      for (let i = 0; i < days; i++) f = Math.min(f, free(x.a.partnerOrganizationId, x.a.regionId, addDays(x.a.date, i)));
-      return { date: x.a.date, partnerId: x.a.partnerOrganizationId, partnerName: x.partnerName, regionId: x.a.regionId, free: f, days };
-    })
-    .filter((s) => s.free > 0)
-    .sort((a, b) => a.date.localeCompare(b.date) || a.partnerName.localeCompare(b.partnerName));
-  return { regions: regs.map((r) => ({ id: r.id, name: r.name })), slots, message: slots.length ? null : "Geen vrije capaciteit gevonden in deze periode." };
+  const slots: Slot[] = [];
+  for (const pid of partnerIds) {
+    const partner = partners.find((p) => p.id === pid)!;
+    const regionId = partners.find((p) => p.id === pid && regs.some((r) => r.id === p.regionId))!.regionId;
+    const dates = [...new Set(blocks.filter((b) => b.partnerOrganizationId === pid && b.date <= to).map((b) => b.date))].sort();
+    for (const date of dates) {
+      if (type === "survey") {
+        for (const part of PARTS) if (isFree(pid, date, part)) slots.push({ date, part, partnerId: pid, partnerName: partner.name, regionId, days: 1 });
+      } else {
+        // Installatie: beide dagdelen vrij op deze dag én de volgende beschikbare dagen.
+        const span = workDays(pid, date);
+        if (span.length === days && span[0] === date && span.every((d) => isFree(pid, d, "morning") && isFree(pid, d, "afternoon"))) {
+          slots.push({ date, part: null, partnerId: pid, partnerName: partner.name, regionId, days });
+        }
+      }
+    }
+  }
+  const partOrder = (p: DayPart | null) => (p === "afternoon" ? 1 : 0);
+  slots.sort((a, b) => a.date.localeCompare(b.date) || partOrder(a.part) - partOrder(b.part) || a.partnerName.localeCompare(b.partnerName));
+  return { regions: regs.map((r) => ({ id: r.id, name: r.name })), slots, message: slots.length ? null : "Geen vrije blokken gevonden in deze periode." };
 }
 
 // ---------------------------------------------------------------- Afspraken
@@ -194,7 +249,7 @@ export async function scheduleAppointment(
   transport: EmailTransport | null,
   actor: ActorContext,
   projectId: string,
-  input: { type: AppointmentType; date: string; partnerId: string; regionId: string; timeWindow: "morning" | "afternoon" | "day"; notes?: string | null },
+  input: { type: AppointmentType; date: string; partnerId: string; part?: DayPart | null; notes?: string | null },
 ) {
   const appointment = await db.transaction(async (tx) => {
     const ctx = await projectContext(tx, projectId);
@@ -202,34 +257,63 @@ export async function scheduleAppointment(
     if (input.type === "installation" && project!.installationPartnerId && project!.installationPartnerId !== input.partnerId) {
       throw badRequest("partner_mismatch", "De installatie moet bij dezelfde partner als de schouw");
     }
+    if (input.type === "survey" && !input.part) throw badRequest("part_required", "Kies ochtend of middag voor de schouw");
     const [existing] = await tx
       .select()
       .from(appointments)
       .where(and(eq(appointments.projectId, projectId), eq(appointments.type, input.type), eq(appointments.status, "planned")));
     if (existing) throw conflict("already_planned", `Er staat al een ${TYPE_LABEL[input.type]} gepland; verzet of annuleer die eerst`);
     const regs = await regionsForPostal(tx, ctx.property.postalCode);
-    if (!regs.some((r) => r.id === input.regionId)) throw badRequest("region_mismatch", "Adres ligt niet in deze regio");
+    const partnerRegs = await getPartnerRegions(tx, input.partnerId);
+    const region = regs.find((r) => partnerRegs.includes(r.id));
+    if (!region) throw badRequest("region_mismatch", "Deze partner werkt niet in de regio van dit adres");
 
+    // Benodigde blokken bepalen en vergrendelen (voorkomt dubbel boeken bij gelijktijdig plannen).
     const days = input.type === "installation" ? ctx.group.installationDays : 1;
-    // Capaciteit vergrendelen en opnieuw controleren (voorkomt dubbel boeken bij gelijktijdig plannen).
-    for (let i = 0; i < days; i++) {
-      const date = addDays(input.date, i);
-      const [a] = await tx
-        .select()
-        .from(availability)
-        .where(and(eq(availability.partnerOrganizationId, input.partnerId), eq(availability.regionId, input.regionId), eq(availability.date, date)))
-        .for("update");
-      const cap = a ? (input.type === "survey" ? a.surveySlots : a.installationSlots) : 0;
-      const used = (await usedCapacity(tx, date, date, input.partnerId)).get(`${input.partnerId}|${input.regionId}|${date}`)?.[input.type] ?? 0;
-      if (cap - used <= 0) throw conflict("no_capacity", `Geen capaciteit meer op ${date}`);
+    let dates = [input.date];
+    if (days > 1) {
+      const avail = await tx
+        .selectDistinct({ date: availabilityBlocks.date })
+        .from(availabilityBlocks)
+        .where(and(eq(availabilityBlocks.partnerOrganizationId, input.partnerId), gte(availabilityBlocks.date, input.date)))
+        .orderBy(asc(availabilityBlocks.date))
+        .limit(days);
+      dates = avail.map((d) => d.date);
+      if (dates.length < days || dates[0] !== input.date) throw conflict("no_capacity", "Niet genoeg beschikbare dagen voor deze installatie");
     }
+    const parts: DayPart[] = input.type === "survey" ? [input.part!] : PARTS;
+    for (const date of dates) {
+      for (const part of parts) {
+        const [block] = await tx
+          .select()
+          .from(availabilityBlocks)
+          .where(and(eq(availabilityBlocks.partnerOrganizationId, input.partnerId), eq(availabilityBlocks.date, date), eq(availabilityBlocks.part, part)))
+          .for("update");
+        if (!block) throw conflict("no_capacity", `Partner is niet beschikbaar op ${date} (${part === "morning" ? "ochtend" : "middag"})`);
+        if ((await occupiedBlocks(tx, date, date, input.partnerId)).has(`${input.partnerId}|${date}|${part}`)) {
+          throw conflict("no_capacity", `Blok op ${date} (${part === "morning" ? "ochtend" : "middag"}) is al bezet`);
+        }
+      }
+    }
+    // Meerdaagse installatie: aantal kalenderdagen tot en met de laatste werkdag.
+    const spanDays = days > 1 ? Math.round((Date.parse(dates.at(-1)!) - Date.parse(dates[0]!)) / 86_400_000) + 1 : 1;
 
     const [row] = await tx
       .insert(appointments)
-      .values({ projectId, partnerOrganizationId: input.partnerId, regionId: input.regionId, type: input.type, date: input.date, days, timeWindow: input.timeWindow, notes: input.notes ?? null, createdBy: actor.userId })
+      .values({
+        projectId,
+        partnerOrganizationId: input.partnerId,
+        regionId: region.id,
+        type: input.type,
+        date: input.date,
+        days: spanDays,
+        timeWindow: input.type === "survey" ? input.part! : "day",
+        notes: input.notes ?? null,
+        createdBy: actor.userId,
+      })
       .returning();
     if (!project!.installationPartnerId) await tx.update(projects).set({ installationPartnerId: input.partnerId }).where(eq(projects.id, projectId));
-    await recordAudit(tx, actor, { action: "appointment.scheduled", entityType: "project", entityId: projectId, after: { type: input.type, date: input.date, partnerId: input.partnerId } });
+    await recordAudit(tx, actor, { action: "appointment.scheduled", entityType: "project", entityId: projectId, after: { type: input.type, date: input.date, part: input.part ?? "day", partnerId: input.partnerId } });
     await emitEvent(tx, "appointment.scheduled", { type: "appointment", id: row!.id }, { projectId, type: input.type, date: input.date });
     await emitJourneyEvent(tx, projectId, `${input.type}.scheduled`);
     return row!;

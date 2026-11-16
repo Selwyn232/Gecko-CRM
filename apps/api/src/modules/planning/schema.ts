@@ -1,4 +1,4 @@
-import { boolean, date, index, integer, jsonb, pgEnum, pgTable, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, date, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { id, timestamps } from "../../db/columns.js";
 import { users } from "../auth/schema.js";
 import { files } from "../files/schema.js";
@@ -14,19 +14,31 @@ export const regions = pgTable("regions", {
   ...timestamps(),
 });
 
-/** Capaciteit die een installatiepartner per dag per regio opgeeft. De partner wordt hieraan gehouden. */
-export const availability = pgTable(
-  "availability",
+/** Werkgebied: in welke regio's een installatiepartner werkt. */
+export const partnerRegions = pgTable(
+  "partner_regions",
+  {
+    partnerOrganizationId: uuid("partner_organization_id").notNull().references(() => organizations.id),
+    regionId: uuid("region_id").notNull().references(() => regions.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.partnerOrganizationId, t.regionId] })],
+);
+
+/**
+ * Beschikbaarheid in blokken: per partner per dag een ochtend- en/of middagblok (één blok = één ploeg).
+ * Een schouw neemt één blok in, een installatie beide blokken van elke dag. De partner wordt hieraan gehouden.
+ */
+export const dayPart = pgEnum("day_part", ["morning", "afternoon"]);
+export const availabilityBlocks = pgTable(
+  "availability_blocks",
   {
     id: id(),
     partnerOrganizationId: uuid("partner_organization_id").notNull().references(() => organizations.id),
-    regionId: uuid("region_id").notNull().references(() => regions.id),
     date: date("date").notNull(),
-    surveySlots: integer("survey_slots").notNull().default(0),
-    installationSlots: integer("installation_slots").notNull().default(0),
-    ...timestamps(),
+    part: dayPart("part").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [unique("availability_unique").on(t.partnerOrganizationId, t.regionId, t.date), index("availability_date_idx").on(t.date)],
+  (t) => [unique("availability_blocks_unique").on(t.partnerOrganizationId, t.date, t.part), index("availability_blocks_date_idx").on(t.date)],
 );
 
 export const appointmentType = pgEnum("appointment_type", ["survey", "installation"]);

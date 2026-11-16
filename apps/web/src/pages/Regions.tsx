@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, type AvailabilityRow, type Region } from "../api";
+import { api, type AvailabilityBlock, type Region } from "../api";
+import { WorkArea } from "../components/WorkArea";
 import { useAuth } from "../auth";
 import { AvailabilityGrid } from "../components/AvailabilityGrid";
 import { ActiveBadge, ErrorBox, Field, Loading, Modal, PageHead } from "../components/ui";
@@ -82,25 +83,25 @@ function RegionForm({ region, onClose }: { region?: Region; onClose: () => void 
   );
 }
 
-/** Beschikbaarheid van partners bekijken en (namens hen) invullen. */
+/** Werkgebied en beschikbaarheid van partners bekijken en (namens hen) aanpassen. */
 export function AvailabilityPage() {
   const orgs = useOrganizations();
   const partners = (orgs.data ?? []).filter((o) => o.type === "installation_partner" && o.isActive);
   const [partnerId, setPartnerId] = useState("");
   const pid = partnerId || partners[0]?.id || "";
   const regions = useQuery({ queryKey: ["regions"], queryFn: () => api.get<Region[]>("/regions") });
+  const partnerRegions = useQuery({ queryKey: ["partner-regions", pid], queryFn: () => api.get<string[]>(`/planning/partner-regions/${pid}`), enabled: !!pid });
   const weeks = 8;
   const from = todayIso();
-  const to = addDaysIso(from, weeks * 7);
   const qc = useQueryClient();
-  const rows = useQuery({
+  const blocks = useQuery({
     queryKey: ["availability", pid, from],
-    queryFn: () => api.get<AvailabilityRow[]>(`/planning/availability?from=${from}&to=${to}&partnerId=${pid}`),
+    queryFn: () => api.get<AvailabilityBlock[]>(`/planning/availability?from=${addDaysIso(from, -7)}&to=${addDaysIso(from, weeks * 7 + 7)}&partnerId=${pid}`),
     enabled: !!pid,
   });
   return (
     <>
-      <PageHead title="Beschikbaarheid" sub="Per partner, per dag en regio: aantal schouwen en installaties. Partners vullen dit normaal zelf in via hun portaal." />
+      <PageHead title="Beschikbaarheid" sub="Werkgebied en beschikbare dagdelen per partner. Partners vullen dit normaal zelf in via hun portaal." />
       {!partners.length ? <div className="empty">Nog geen installatiepartners.</div> : (
         <>
           <div className="row" style={{ marginBottom: 12 }}>
@@ -108,14 +109,24 @@ export function AvailabilityPage() {
               {partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
-          {rows.isLoading || regions.isLoading ? <Loading /> : (
+          {regions.data && partnerRegions.data && (
+            <WorkArea
+              key={pid}
+              regions={regions.data.filter((r) => r.isActive)}
+              selected={partnerRegions.data}
+              onSave={async (regionIds) => {
+                await api.put(`/planning/partner-regions/${pid}`, { regionIds });
+                await qc.invalidateQueries({ queryKey: ["partner-regions", pid] });
+              }}
+            />
+          )}
+          {blocks.isLoading ? <Loading /> : (
             <AvailabilityGrid
               key={pid}
-              regions={(regions.data ?? []).filter((r) => r.isActive)}
-              rows={rows.data ?? []}
+              blocks={blocks.data ?? []}
               weeks={weeks}
-              onSave={async (entries) => {
-                await api.put("/planning/availability", { partnerId: pid, entries });
+              onSave={async (changes) => {
+                await api.put("/planning/availability", { partnerId: pid, changes });
                 await qc.invalidateQueries({ queryKey: ["availability"] });
               }}
             />

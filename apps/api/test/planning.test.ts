@@ -4,6 +4,7 @@ import { todayIso } from "../src/lib/dates.js";
 import { productGroups, salesChannels } from "../src/modules/catalog/schema.js";
 import { MemoryTransport } from "../src/modules/email/transport.js";
 import { processOutbox } from "../src/modules/jobs/outbox.js";
+import { appointments } from "../src/modules/planning/schema.js";
 import { regionContains } from "../src/modules/planning/service.js";
 import { adminSession, createTestContext, loginWithMfa, makeUser, PASSWORD, roleId, type TestContext } from "./helpers.js";
 import { createUser } from "../src/modules/users/service.js";
@@ -95,12 +96,15 @@ describe("regio's", () => {
 });
 
 describe("planning en partnerportaal", () => {
-  it("partner geeft beschikbaarheid op; alleen voor zichzelf", async () => {
+  it("partner kiest werkgebied en klikt blokken aan; alleen voor zichzelf", async () => {
     const today = todayIso();
-    const entries = [0, 1, 2, 3].map((d) => ({ regionId, date: addDays(today, d), surveySlots: 1, installationSlots: 1 }));
-    expect((await call("PUT", "/partner/availability", { entries }, partnerAHeaders)).statusCode).toBe(200);
+    expect((await call("PUT", "/partner/regions", { regionIds: [regionId] }, partnerAHeaders)).statusCode).toBe(200);
+    const regs = (await call("GET", "/partner/regions", undefined, partnerAHeaders)).json();
+    expect(regs.find((r: { id: string }) => r.id === regionId).selected).toBe(true);
+    const changes = [0, 1, 2, 3, 4].flatMap((d) => (["morning", "afternoon"] as const).map((part) => ({ date: addDays(today, d), part, available: true })));
+    expect((await call("PUT", "/partner/availability", { changes }, partnerAHeaders)).statusCode).toBe(200);
     const mine = (await call("GET", `/partner/availability?from=${today}&to=${addDays(today, 7)}`, undefined, partnerAHeaders)).json();
-    expect(mine).toHaveLength(4);
+    expect(mine).toHaveLength(10);
     const other = (await call("GET", `/partner/availability?from=${today}&to=${addDays(today, 7)}`, undefined, partnerBHeaders)).json();
     expect(other).toHaveLength(0);
     // Partner kan niet bij interne routes
@@ -115,14 +119,20 @@ describe("planning en partnerportaal", () => {
 
     // Vrije momenten: alleen partner A heeft beschikbaarheid
     const slots = (await call("GET", `/planning/slots?projectId=${projectId}&type=survey`)).json();
-    expect(slots.slots[0]).toMatchObject({ date: todayIso(), partnerId: partnerA });
+    expect(slots.slots[0]).toMatchObject({ date: todayIso(), part: "morning", partnerId: partnerA });
+    expect(slots.slots[1]).toMatchObject({ date: todayIso(), part: "afternoon" });
 
-    const appt = await call("POST", `/projects/${projectId}/appointments`, { type: "survey", date: addDays(todayIso(), 3), partnerId: partnerA, regionId, timeWindow: "morning" });
+    const appt = await call("POST", `/projects/${projectId}/appointments`, { type: "survey", date: addDays(todayIso(), 3), partnerId: partnerA, part: "morning" });
     expect(appt.statusCode, appt.body).toBe(201);
     expect(mail.sent.at(-1)!.subject).toContain("schouw is ingepland");
-    // Capaciteit op die dag is nu op
+    // Dat ochtendblok is nu bezet; het middagblok niet
     const other = await projectReadyForSurvey("Vol");
-    expect((await call("POST", `/projects/${other}/appointments`, { type: "survey", date: addDays(todayIso(), 3), partnerId: partnerA, regionId })).json().error.code).toBe("no_capacity");
+    expect((await call("POST", `/projects/${other}/appointments`, { type: "survey", date: addDays(todayIso(), 3), partnerId: partnerA, part: "morning" })).json().error.code).toBe("no_capacity");
+    const otherSlots = (await call("GET", `/planning/slots?projectId=${other}&type=survey`)).json().slots;
+    expect(otherSlots.some((x: { date: string; part: string }) => x.date === addDays(todayIso(), 3) && x.part === "morning")).toBe(false);
+    expect(otherSlots.some((x: { date: string; part: string }) => x.date === addDays(todayIso(), 3) && x.part === "afternoon")).toBe(true);
+    // Bezet blok kan niet worden uitgezet
+    expect((await call("PUT", "/partner/availability", { changes: [{ date: addDays(todayIso(), 3), part: "morning", available: false }] }, partnerAHeaders)).json().error.code).toBe("block_in_use");
 
     // Automatisch: status → schouw ingepland → aanbetalingsfactuur met vervaldatum 2 dagen vóór de schouw
     await flush();
@@ -145,7 +155,7 @@ describe("planning en partnerportaal", () => {
     // Rapport kan pas op de dag zelf; voor de test verzetten we de schouw naar vandaag
     expect((await call("POST", `/partner/appointments/${appt.json().id}/report`, { positive: true, data: {} }, partnerAHeaders)).json().error.code).toBe("too_early");
     await call("POST", `/appointments/${appt.json().id}/cancel`, { reason: "Verzet naar vandaag", notifyCustomer: false });
-    const today = (await call("POST", `/projects/${projectId}/appointments`, { type: "survey", date: todayIso(), partnerId: partnerA, regionId })).json();
+    const today = (await call("POST", `/projects/${projectId}/appointments`, { type: "survey", date: todayIso(), partnerId: partnerA, part: "afternoon" })).json();
 
     // Foto uploaden: alleen echte afbeeldingen
     expect((await call("POST", `/partner/appointments/${today.id}/files`, { filename: "x.txt", dataBase64: Buffer.from("hallo wereld").toString("base64") }, partnerAHeaders)).json().error.code).toBe("file_type");
@@ -174,11 +184,17 @@ describe("planning en partnerportaal", () => {
     expect(await statusKey(projectId)).toBe("installatie_inplannen");
 
     // Installatie: zelfde partner verplicht, 2 dagen
-    expect((await call("POST", `/projects/${projectId}/appointments`, { type: "installation", date: addDays(todayIso(), 1), partnerId: partnerB, regionId })).json().error.code).toBe("partner_mismatch");
-    const inst = (await call("POST", `/projects/${projectId}/appointments`, { type: "installation", date: todayIso(), partnerId: partnerA, regionId })).json();
+    expect((await call("POST", `/projects/${projectId}/appointments`, { type: "installation", date: addDays(todayIso(), 1), partnerId: partnerB })).json().error.code).toBe("partner_mismatch");
+    // Vandaag is de middag bezet door de schouw → installatie (2 hele dagen) kan pas vanaf morgen
+    const instSlots = (await call("GET", `/planning/slots?projectId=${projectId}&type=installation`)).json().slots;
+    expect(instSlots[0]).toMatchObject({ date: addDays(todayIso(), 1), part: null, days: 2 });
+    const inst = (await call("POST", `/projects/${projectId}/appointments`, { type: "installation", date: addDays(todayIso(), 1), partnerId: partnerA })).json();
     expect(inst.days).toBe(2);
     await flush();
     expect(await statusKey(projectId)).toBe("installatie_ingepland");
+
+    // "Tijd vooruit": de installatie heeft plaatsgevonden (rapport kan pas op/na de afspraakdatum)
+    await ctx.db.update(appointments).set({ date: todayIso() }).where(eq(appointments.id, inst.id));
 
     // Oplevering zonder handtekening: geweigerd
     expect((await call("POST", `/partner/appointments/${inst.id}/report`, { positive: true, data: { serialNumbers: ["SN1"] } }, partnerAHeaders)).json().error.code).toBe("signature_required");
@@ -206,19 +222,20 @@ describe("planning en partnerportaal", () => {
 
   it("afgekeurd rapport moet opnieuw worden ingediend", async () => {
     const projectId = await projectReadyForSurvey("Afkeur");
-    await call("PUT", "/planning/availability", { partnerId: partnerA, entries: [{ regionId, date: todayIso(), surveySlots: 3, installationSlots: 1 }] });
-    const a = (await call("POST", `/projects/${projectId}/appointments`, { type: "survey", date: todayIso(), partnerId: partnerA, regionId })).json();
-    await call("POST", `/partner/appointments/${a.id}/report`, { positive: true, data: { remarks: "kort" } }, partnerAHeaders);
+    await call("PUT", `/planning/partner-regions/${partnerB}`, { regionIds: [regionId] });
+    await call("PUT", "/planning/availability", { partnerId: partnerB, changes: [{ date: todayIso(), part: "morning", available: true }] });
+    const a = (await call("POST", `/projects/${projectId}/appointments`, { type: "survey", date: todayIso(), partnerId: partnerB, part: "morning" })).json();
+    await call("POST", `/partner/appointments/${a.id}/report`, { positive: true, data: { remarks: "kort" } }, partnerBHeaders);
     const [r] = (await call("GET", `/reports?review=pending&projectId=${projectId}`)).json();
     await call("POST", `/reports/${r.id}/review`, { approve: false, note: "Foto's van de meterkast ontbreken" });
-    const again = await call("POST", `/partner/appointments/${a.id}/report`, { positive: true, data: { remarks: "met foto's" } }, partnerAHeaders);
+    const again = await call("POST", `/partner/appointments/${a.id}/report`, { positive: true, data: { remarks: "met foto's" } }, partnerBHeaders);
     expect(again.statusCode, again.body).toBe(200);
   });
 
   it("signaleert onbetaalde aanbetaling bij geplande schouw; no-show geeft €250 boete", async () => {
     const projectId = await projectReadyForSurvey("Signaal");
-    await call("PUT", "/planning/availability", { partnerId: partnerB, entries: [{ regionId, date: addDays(todayIso(), 2), surveySlots: 1, installationSlots: 0 }] });
-    const a = (await call("POST", `/projects/${projectId}/appointments`, { type: "survey", date: addDays(todayIso(), 2), partnerId: partnerB, regionId })).json();
+    await call("PUT", "/planning/availability", { partnerId: partnerB, changes: [{ date: addDays(todayIso(), 2), part: "morning", available: true }] });
+    const a = (await call("POST", `/projects/${projectId}/appointments`, { type: "survey", date: addDays(todayIso(), 2), partnerId: partnerB, part: "morning" })).json();
     await flush();
     const listed = (await call("GET", `/appointments?projectId=${projectId}`)).json();
     expect(listed[0].depositUnpaid).toBe(true);
@@ -237,9 +254,9 @@ describe("planning en partnerportaal", () => {
     expect(waived.status).toBe("waived");
   });
 
-  it("capaciteit kan niet lager dan geplande afspraken; postcode buiten regio geeft melding", async () => {
-    const res = await call("PUT", "/partner/availability", { entries: [{ regionId, date: todayIso(), surveySlots: 0, installationSlots: 0 }] }, partnerAHeaders);
-    expect(res.json().error.code).toBe("capacity_in_use");
+  it("bezet blok kan niet uit; postcode buiten regio geeft melding", async () => {
+    const res = await call("PUT", "/partner/availability", { changes: [{ date: todayIso(), part: "afternoon", available: false }] }, partnerAHeaders);
+    expect(res.json().error?.code, res.body).toBe("block_in_use");
     const outside = await projectReadyForSurvey("Buiten", "9999ZZ");
     expect((await call("GET", `/planning/slots?projectId=${outside}&type=survey`)).json().message).toContain("geen enkele regio");
   });

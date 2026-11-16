@@ -34,7 +34,7 @@
 | B29 | Aanbetaling (standaard 70%) per offerteregel; eindfactuur = volledige offerte minus aanbetaling per btw-tarief. Factuurmomenten per status in de klantreis instelbaar | 2026-11-16 |
 | B30 | Aanmaanflow: herinnering → 14-dagenbrief met WIK-kosten → overdracht incasso; termijnen instelbaar, pauze per factuur | 2026-11-16 |
 | B31 | Betalen via Mollie; zonder Mollie-sleutel testmodus met gesimuleerde betaalpagina. Exact voorlopig via CSV-export | 2026-11-16 |
-| B32 | Regio = set postcodegebieden (4 cijfers); capaciteit per partner per dag per regio, apart voor schouw en installatie; installatieduur per productgroep (dagen) | 2026-11-16 |
+| B32 | Regio = set postcodegebieden (4 cijfers). Partner kiest werkgebied (regio's) en klikt per dag ochtend-/middagblokken aan (één blok = één ploeg). Schouw = één dagdeel, installatie = hele dag(en); installatieduur per productgroep | 2026-11-16 |
 | B33 | Installatie bij dezelfde partner als de schouw. Capaciteit kan niet lager dan geplande afspraken; dubbel boeken voorkomen met vergrendeling | 2026-11-16 |
 | B34 | Automatische statuswissels per gebeurtenis (schouw ingepland, rapport ingediend/goedgekeurd, meerwerk, betaald) instelbaar per status in de klantreis | 2026-11-16 |
 | B35 | Partnerportaal: partner ziet alleen eigen afspraken; rapport met foto's; oplevering met handtekening klant; meerwerk alleen bij de schouw, via meerwerk-offerte ter akkoord bij klant | 2026-11-16 |
@@ -64,4 +64,5 @@
 | O19 | Exact Online: administratie, grootboekrekeningen per productgroep, daarna API-koppeling | Gecko / finance |
 | O21 | Foto's staan nu in de database; bij volume naar object storage (S3/R2, EU) | Techniek |
 | O23 | Checklists schouw/oplevering per productgroep inhoudelijk vaststellen (nu generiek) — definitieve lijst volgt | Gecko + partners |
+| O24 | Partners met meerdere ploegen tegelijk: instelling "aantal ploegen" per partner (nu één ploeg per blok) | Gecko |
 | O13 | Verkoopprijs vast bij ondertekening, ook als inkoop stijgt tijdens lange wachttijd? | Gecko |

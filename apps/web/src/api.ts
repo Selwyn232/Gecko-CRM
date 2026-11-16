@@ -368,15 +368,13 @@ export interface Region {
   postalRanges: [number, number][];
   isActive: boolean;
 }
-export interface AvailabilityRow {
-  id: string;
+export type DayPart = "morning" | "afternoon";
+export interface AvailabilityBlock {
   partnerOrganizationId: string;
-  regionId: string;
   date: string;
-  surveySlots: number;
-  installationSlots: number;
-  surveyUsed: number;
-  installationUsed: number;
+  part: DayPart;
+  /** Gevuld als er een afspraak in dit blok staat. */
+  appointmentId: string | null;
 }
 export interface Appointment {
   id: string;

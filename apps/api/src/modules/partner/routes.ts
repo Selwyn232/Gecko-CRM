@@ -11,8 +11,19 @@ import { files } from "../files/schema.js";
 import { listFiles, loadFile, saveFile } from "../files/storage.js";
 import { organizations } from "../organizations/schema.js";
 import { appointments, reports } from "../planning/schema.js";
-import { AvailabilityEntries } from "../planning/routes.js";
-import { getAppointment, getReport, listAppointments, listAvailability, listPenalties, listRegions, setAvailability, submitReport } from "../planning/service.js";
+import { BlockChanges } from "../planning/routes.js";
+import {
+  getAppointment,
+  getPartnerRegions,
+  getReport,
+  listAppointments,
+  listAvailability,
+  listPenalties,
+  listRegions,
+  setAvailability,
+  setPartnerRegions,
+  submitReport,
+} from "../planning/service.js";
 import { projects } from "../projects/schema.js";
 import { quoteLines, quotes } from "../quotes/schema.js";
 
@@ -129,14 +140,21 @@ export const partnerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db
 
   app.get("/partner/penalties", { preValidation: portal }, async (req) => listPenalties(db, { partnerId: await partnerId(req) }));
 
-  app.get("/partner/regions", { preValidation: portal }, async () => (await listRegions(db)).filter((r) => r.isActive).map((r) => ({ id: r.id, name: r.name, postalRanges: r.postalRanges })));
+  /** Alle actieve regio's, met welke tot het werkgebied van deze partner horen. */
+  app.get("/partner/regions", { preValidation: portal }, async (req) => {
+    const mine = await getPartnerRegions(db, await partnerId(req));
+    return (await listRegions(db)).filter((r) => r.isActive).map((r) => ({ id: r.id, name: r.name, postalRanges: r.postalRanges, selected: mine.includes(r.id) }));
+  });
+  app.put("/partner/regions", { preValidation: portal, schema: { body: z.object({ regionIds: z.array(z.string().uuid()).max(200) }) } }, async (req) =>
+    setPartnerRegions(db, req.actor, await partnerId(req), req.body.regionIds),
+  );
   app.get(
     "/partner/availability",
     { preValidation: portal, schema: { querystring: z.object({ from: IsoDate, to: IsoDate }) } },
     async (req) => listAvailability(db, { ...req.query, partnerId: await partnerId(req) }),
   );
-  app.put("/partner/availability", { preValidation: portal, schema: { body: z.object({ entries: AvailabilityEntries }) } }, async (req) => {
-    await setAvailability(db, req.actor, await partnerId(req), req.body.entries);
+  app.put("/partner/availability", { preValidation: portal, schema: { body: z.object({ changes: BlockChanges }) } }, async (req) => {
+    await setAvailability(db, req.actor, await partnerId(req), req.body.changes);
     return { ok: true };
   });
 

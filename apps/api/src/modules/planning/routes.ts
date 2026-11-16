@@ -9,6 +9,7 @@ import {
   cancelAppointment,
   findSlots,
   getAppointment,
+  getPartnerRegions,
   getReport,
   listAppointments,
   listAvailability,
@@ -19,6 +20,7 @@ import {
   saveRegion,
   scheduleAppointment,
   setAvailability,
+  setPartnerRegions,
   toPlan,
   waivePenalty,
 } from "./service.js";
@@ -26,9 +28,7 @@ import {
 const IdParams = z.object({ id: z.string().uuid() });
 const IsoDate = z.string().refine(isIsoDate, "Datum moet YYYY-MM-DD zijn");
 const Type = z.enum(["survey", "installation"]);
-export const AvailabilityEntries = z.array(
-  z.object({ regionId: z.string().uuid(), date: IsoDate, surveySlots: z.number().int().min(0).max(50), installationSlots: z.number().int().min(0).max(50) }),
-).max(1000);
+export const BlockChanges = z.array(z.object({ date: IsoDate, part: z.enum(["morning", "afternoon"]), available: z.boolean() })).max(1000);
 const RegionBody = z.object({
   name: z.string().min(1).max(100),
   postalRanges: z.array(z.tuple([z.number().int(), z.number().int()])).min(1).max(100),
@@ -53,11 +53,17 @@ export const planningRoutes: FastifyPluginAsyncZod<{ db: Db; emailTransport: Ema
   );
   app.put(
     "/planning/availability",
-    { preValidation: manage, schema: { body: z.object({ partnerId: z.string().uuid(), entries: AvailabilityEntries }) } },
+    { preValidation: manage, schema: { body: z.object({ partnerId: z.string().uuid(), changes: BlockChanges }) } },
     async (req) => {
-      await setAvailability(db, req.actor, req.body.partnerId, req.body.entries);
+      await setAvailability(db, req.actor, req.body.partnerId, req.body.changes);
       return { ok: true };
     },
+  );
+  app.get("/planning/partner-regions/:id", { preValidation: read, schema: { params: IdParams } }, async (req) => getPartnerRegions(db, req.params.id));
+  app.put(
+    "/planning/partner-regions/:id",
+    { preValidation: manage, schema: { params: IdParams, body: z.object({ regionIds: z.array(z.string().uuid()).max(200) }) } },
+    async (req) => setPartnerRegions(db, req.actor, req.params.id, req.body.regionIds),
   );
 
   app.get("/planning/to-plan", { preValidation: read, schema: { querystring: z.object({ type: Type }) } }, async (req) => toPlan(db, req.query.type));
@@ -94,8 +100,7 @@ export const planningRoutes: FastifyPluginAsyncZod<{ db: Db; emailTransport: Ema
           type: Type,
           date: IsoDate,
           partnerId: z.string().uuid(),
-          regionId: z.string().uuid(),
-          timeWindow: z.enum(["morning", "afternoon", "day"]).default("day"),
+          part: z.enum(["morning", "afternoon"]).nullish(),
           notes: z.string().max(2000).nullish(),
         }),
       },

@@ -73,10 +73,10 @@ function ToPlan({ type }: { type: "survey" | "installation" }) {
 
 interface Slot {
   date: string;
+  part: "morning" | "afternoon" | null;
   partnerId: string;
   partnerName: string;
   regionId: string;
-  free: number;
   days: number;
 }
 
@@ -84,10 +84,9 @@ export function PlanModal({ projectId, type, title, onClose }: { projectId: stri
   const qc = useQueryClient();
   const slots = useQuery({ queryKey: ["slots", projectId, type], queryFn: () => api.get<{ slots: Slot[]; message: string | null }>(`/planning/slots?projectId=${projectId}&type=${type}`) });
   const [chosen, setChosen] = useState<Slot | null>(null);
-  const [timeWindow, setTimeWindow] = useState("day");
   const [notes, setNotes] = useState("");
   const save = useMutation({
-    mutationFn: () => api.post(`/projects/${projectId}/appointments`, { type, date: chosen!.date, partnerId: chosen!.partnerId, regionId: chosen!.regionId, timeWindow, notes: notes || null }),
+    mutationFn: () => api.post(`/projects/${projectId}/appointments`, { type, date: chosen!.date, partnerId: chosen!.partnerId, part: chosen!.part, notes: notes || null }),
     onSuccess: async () => {
       await qc.invalidateQueries();
       onClose();
@@ -101,35 +100,30 @@ export function PlanModal({ projectId, type, title, onClose }: { projectId: stri
       <ErrorBox error={slots.error ?? save.error} />
       {slots.isLoading ? <Loading /> : slots.data?.message ? <div className="alert warning">{slots.data.message}</div> : (
         <>
-          <p className="muted" style={{ fontSize: 13 }}>Kies een dag en partner met vrije capaciteit{slots.data?.slots[0]?.days && slots.data.slots[0].days > 1 ? ` (installatie duurt ${slots.data.slots[0].days} dagen)` : ""}. De klant krijgt automatisch een bevestiging per e-mail.</p>
+          <p className="muted" style={{ fontSize: 13 }}>
+            {type === "survey" ? "Kies een vrij dagdeel van een partner in deze regio." : `Kies een startdag; de installatie neemt ${slots.data?.slots[0]?.days ?? 1} hele dag(en) in.`} De klant krijgt automatisch een bevestiging per e-mail.
+          </p>
           <div style={{ maxHeight: 280, overflow: "auto", border: "1px solid var(--border)", borderRadius: 6, marginBottom: 12 }}>
             {[...byDate.entries()].map(([date, list]) => (
               <div key={date} style={{ padding: "6px 12px", borderBottom: "1px solid var(--border)" }}>
                 <strong style={{ fontSize: 13 }}>{weekday(date)}</strong>
                 <div className="row" style={{ marginTop: 4 }}>
                   {list.map((s) => (
-                    <button key={s.partnerId + s.regionId} className={`btn small ${chosen === s ? "primary" : ""}`} onClick={() => setChosen(s)}>
-                      {s.partnerName} <span className="muted">({s.free} vrij)</span>
+                    <button key={s.partnerId + (s.part ?? "")} className={`btn small ${chosen === s ? "primary" : ""}`} onClick={() => setChosen(s)}>
+                      {s.part ? `${TIME_WINDOW[s.part]} · ` : ""}{s.partnerName}{s.days > 1 && <span className="muted"> ({s.days} dagen)</span>}
                     </button>
                   ))}
                 </div>
               </div>
             ))}
           </div>
-          <div className="grid-2">
-            <Field label="Tijdvak">
-              <select value={timeWindow} onChange={(e) => setTimeWindow(e.target.value)}>
-                {Object.entries(TIME_WINDOW).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-            </Field>
-            <Field label="Notitie voor partner"><input value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
-          </div>
+          <Field label="Notitie voor partner"><input value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
         </>
       )}
       <div className="modal-actions">
         <button className="btn" onClick={onClose}>Annuleren</button>
         <button className="btn primary" disabled={!chosen || save.isPending} onClick={() => save.mutate()}>
-          {chosen ? `Inplannen op ${weekday(chosen.date)}` : "Kies een moment"}
+          {chosen ? `Inplannen op ${weekday(chosen.date)}${chosen.part ? ` (${TIME_WINDOW[chosen.part]!.toLowerCase()})` : ""}` : "Kies een moment"}
         </button>
       </div>
     </Modal>

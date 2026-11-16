@@ -113,6 +113,20 @@
       "when": 1794814587693,
       "tag": "0015_partner_penalties",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794815440372,
+      "tag": "0016_availability_blocks",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794815441128,
+      "tag": "0017_drop_old_availability",
+      "breakpoints": true
     }
   ]
 }
