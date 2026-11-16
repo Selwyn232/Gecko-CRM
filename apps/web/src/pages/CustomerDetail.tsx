@@ -45,7 +45,10 @@ export function CustomerDetailPage() {
           <h1>{customerName(c)}</h1>
           <p className="row"><span className="mono">{c.displayNumber}</span>{c.salesChannelId && <span className="badge">{nameById(channels.data, c.salesChannelId)}</span>}</p>
         </div>
-        {can("customers.manage") && <button className="btn" onClick={() => setEditing(true)}>Wijzigen</button>}
+        <div className="row">
+          {can("customers.manage") && c.email && <PortalInvite customerId={c.id} />}
+          {can("customers.manage") && <button className="btn" onClick={() => setEditing(true)}>Wijzigen</button>}
+        </div>
       </div>
 
       <div className="grid-2">
@@ -123,6 +126,7 @@ const EMAIL_KINDS: Record<string, string> = {
   "invoice.deposit": "Aanbetalingsfactuur",
   "invoice.final": "Eindfactuur",
   "invoice.credit": "Creditnota",
+  "portal.login": "Inloglink Mijn Gecko",
   "project.status": "Statusbericht",
   "appointment.scheduled": "Afspraak ingepland",
   "appointment.scheduled.survey": "Schouw ingepland",
@@ -138,6 +142,22 @@ const EMAIL_STATUS: Record<string, { label: string; cls: string }> = {
   not_sent: { label: "Niet verstuurd", cls: "" },
 };
 interface CustomerEmail { id: string; toAddress: string; subject: string; text: string; template: string; status: string; error: string | null; createdAt: string }
+
+/** Inloglink voor Mijn Gecko naar de klant sturen. */
+function PortalInvite({ customerId }: { customerId: string }) {
+  const qc = useQueryClient();
+  const invite = useMutation({
+    mutationFn: () => api.post<{ sentTo: string }>(`/customers/${customerId}/portal-invite`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["customer-emails", customerId] }),
+  });
+  return invite.isSuccess ? (
+    <span className="badge green">Uitnodiging Mijn Gecko verstuurd</span>
+  ) : (
+    <button className="btn" disabled={invite.isPending} title={invite.error ? String((invite.error as Error).message) : "Klant krijgt een inloglink voor Mijn Gecko"} onClick={() => invite.mutate()}>
+      Uitnodigen voor Mijn Gecko
+    </button>
+  );
+}
 
 /** Alle e-mails aan deze klant; klik op een regel voor de tekst. */
 function CustomerEmails({ customerId }: { customerId: string }) {

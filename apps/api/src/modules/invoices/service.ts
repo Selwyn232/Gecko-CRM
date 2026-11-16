@@ -366,7 +366,12 @@ async function findByToken(db: DbOrTx, token: string) {
 
 export async function publicInvoice(db: DbOrTx, token: string) {
   const inv = await findByToken(db, token);
-  const full = await getInvoice(db, inv.id);
+  return publicInvoiceById(db, inv.id);
+}
+
+/** Klantweergave van een factuur (ook gebruikt door het klantportaal). */
+export async function publicInvoiceById(db: DbOrTx, invoiceId: string) {
+  const full = await getInvoice(db, invoiceId);
   return {
     number: full.number,
     type: full.type,
@@ -388,6 +393,13 @@ export async function publicInvoice(db: DbOrTx, token: string) {
 /** Klant klikt op "Betalen": betaalverzoek voor het openstaande bedrag bij de provider. */
 export async function startOnlinePayment(db: Db, deps: BillingDeps, token: string) {
   const inv = await findByToken(db, token);
+  return startPaymentForInvoice(db, deps, inv.id, `${baseUrl(deps.config)}/factuur/${token}?betaald=1`);
+}
+
+/** Betaalverzoek voor een factuur; `redirectUrl` = waar de klant na betalen terugkomt. */
+export async function startPaymentForInvoice(db: Db, deps: BillingDeps, invoiceId: string, redirectUrl: string) {
+  const [inv] = await db.select().from(invoices).where(eq(invoices.id, invoiceId));
+  if (!inv) throw notFound("Factuur");
   if (inv.status !== "open") throw conflict("invoice_not_open", "Deze factuur staat niet meer open");
   const outstanding = inv.totalCents - inv.paidCents;
   if (outstanding <= 0) throw conflict("nothing_to_pay", "Er staat niets meer open");
@@ -398,7 +410,7 @@ export async function startOnlinePayment(db: Db, deps: BillingDeps, token: strin
       {
         amountCents: outstanding,
         description: `Factuur ${inv.number}`,
-        redirectUrl: `${base}/factuur/${token}?betaald=1`,
+        redirectUrl,
         webhookUrl: `${base}/api/public/payments/${deps.paymentProvider.name}/webhook`,
         metadata: { invoiceId: inv.id, paymentId: p!.id },
       },

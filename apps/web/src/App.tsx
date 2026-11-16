@@ -11,6 +11,7 @@ import { CustomerDetailPage } from "./pages/CustomerDetail";
 import { CustomersPage } from "./pages/Customers";
 import { JourneysPage } from "./pages/Journeys";
 import { MessagesPage } from "./pages/Messages";
+import { CustomerPortalPage, PortalRedeemPage } from "./pages/CustomerPortal";
 import { ChecklistsPage } from "./pages/Checklists";
 import { ReportsPage } from "./pages/Reports";
 import { PublicSelfBillingPage, SelfBillingDetailPage, SelfBillingPage, SelfBillingPrintPage } from "./pages/SelfBilling";
@@ -42,9 +43,11 @@ export function App() {
   const [changingPassword, setChangingPassword] = useState(false);
   const location = useLocation();
   // Klantpagina's zonder login
-  if (/^\/(akkoord|factuur|testbetaling|selfbilling-akkoord)\//.test(location.pathname)) {
+  if (/^\/(akkoord|factuur|testbetaling|selfbilling-akkoord)\//.test(location.pathname) || /^\/mijn(\/|$)/.test(location.pathname)) {
     return (
       <Routes>
+        <Route path="/mijn" element={<CustomerPortalPage />} />
+        <Route path="/mijn/inloggen/:token" element={<PortalRedeemPage />} />
         <Route path="/selfbilling-akkoord/:token" element={<PublicSelfBillingPage />} />
         <Route path="/akkoord/:token" element={<PublicQuotePage />} />
         <Route path="/factuur/:token" element={<PublicInvoicePage />} />

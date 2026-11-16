@@ -130,6 +130,19 @@ ${button(url, "Offerte bekijken en accepteren")}
   return { linkId: result.id, email, emailStatus: mail.status, emailError: mail.error, url: mail.status === "sent" ? null : url };
 }
 
+/**
+ * Akkoordlink voor het klantportaal: de klant is daar al via een e-maillink ingelogd en gaat direct naar de
+ * akkoordpagina (die voor het akkoord nog steeds een code per e-mail vraagt). Bestaande links blijven geldig.
+ */
+export async function issuePortalQuoteLink(db: Db, quoteId: string, email: string) {
+  const q = await getQuote(db, quoteId);
+  if (q.effectiveStatus !== "sent") throw conflict("quote_not_sent", "Deze offerte kan niet (meer) worden geaccepteerd");
+  const token = randomToken();
+  await db.insert(quoteLinks).values({ quoteId, tokenHash: sha256(token), email, createdBy: null, expiresAt: new Date(`${q.validUntil}T23:59:59+01:00`) });
+  await recordAudit(db, { userId: null, organizationId: null, permissions: new Set() }, { action: "quote.link_portal", entityType: "quote", entityId: quoteId, metadata: { email } });
+  return token;
+}
+
 // ---------------------------------------------------------------- Publiek: bekijken, code, akkoord
 
 async function resolveLink(db: DbOrTx, token: string) {

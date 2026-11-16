@@ -169,6 +169,13 @@
       "when": 1794841069025,
       "tag": "0023_checklists",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794841406691,
+      "tag": "0024_portal",
+      "breakpoints": true
     }
   ]
 }
