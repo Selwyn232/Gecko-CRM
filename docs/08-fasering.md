@@ -17,17 +17,17 @@
 
 ## Versie 2 — communicatie en zelfservice
 
-- Eén inbox: e-mail + WhatsApp
+- Eén inbox: e-mail (gebouwd, B60; aan te zetten via O28) + WhatsApp (nog te kiezen aanbieder)
 - AI-voorstellen (classificatie, conceptantwoord, samenvatting)
-- Klantportaal (status, documenten, betalen, meerwerk akkoorderen)
-- Automatisch plannen op beschikbaarheid + sancties
+- Klantportaal (gebouwd, B48: status, documenten, betalen, meerwerk akkoorderen, afspraak verzetten)
+- Automatisch plannen op beschikbaarheid + sancties (planvoorstel en ploegen gebouwd, B50)
 
 ## Versie 3 — verdieping
 
 - Telefonie met transcriptie en samenvatting
-- Klant plant zelf om
+- Klant plant zelf om (gebouwd in Mijn Gecko, B48)
 - AI-controle opleverrapporten
-- Partner-API
+- Partner-API (API-sleutels gebouwd voor verkooppartners, B59)
 - Nazorg/servicemodule, serienummerbeheer uitgebreid
 - Warmtefonds-flow (zodra proces bekend)
 - Uitgebreide rapportages, NPS
