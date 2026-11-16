@@ -49,6 +49,7 @@ export function CustomerDetailPage() {
         </div>
         <div className="row">
           {can("customers.manage") && c.email && <PortalInvite customerId={c.id} />}
+          {can("customers.manage") && <PrivacyMenu customerId={c.id} />}
           {can("customers.manage") && <button className="btn" onClick={() => setEditing(true)}>Wijzigen</button>}
         </div>
       </div>
@@ -146,6 +147,46 @@ const EMAIL_STATUS: Record<string, { label: string; cls: string }> = {
   not_sent: { label: "Niet verstuurd", cls: "" },
 };
 interface CustomerEmail { id: string; toAddress: string; subject: string; text: string; template: string; status: string; error: string | null; createdAt: string }
+
+/** AVG: inzage-export downloaden en klant anonimiseren. */
+function PrivacyMenu({ customerId }: { customerId: string }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const anon = useMutation({
+    mutationFn: () => api.post(`/customers/${customerId}/anonymize`, { reason, confirm }),
+    onSuccess: async () => {
+      await qc.invalidateQueries();
+      setOpen(false);
+    },
+  });
+  return (
+    <>
+      <button className="btn" onClick={() => setOpen(true)}>Privacy (AVG)</button>
+      {open && (
+        <Modal title="Privacyverzoek (AVG)" onClose={() => setOpen(false)}>
+          <h3 style={{ marginTop: 0 }}>Inzage</h3>
+          <p>Alle gegevens die we over deze klant hebben vastgelegd, als bestand om aan de klant te sturen.</p>
+          <a className="btn" href={`/api/customers/${customerId}/privacy-export`}>Inzage-export downloaden</a>
+          <h3>Verwijderen</h3>
+          <p>
+            Naam, contactgegevens, adres (behalve de 4 cijfers van de postcode), notities, e-mailinhoud en foto's worden gewist.
+            Facturen blijven 7 jaar bewaard (fiscale bewaarplicht) en offertes als bewijs van de overeenkomst. Kan niet ongedaan worden gemaakt.
+            Alleen mogelijk zonder lopend project of openstaande factuur.
+          </p>
+          <ErrorBox error={anon.error} />
+          <Field label="Reden (bv. verzoek klant per e-mail van …)"><input value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
+          <Field label='Typ ANONIMISEREN om te bevestigen'><input value={confirm} onChange={(e) => setConfirm(e.target.value)} /></Field>
+          <div className="modal-actions">
+            <button className="btn" onClick={() => setOpen(false)}>Annuleren</button>
+            <button className="btn danger" disabled={confirm !== "ANONIMISEREN" || reason.trim().length < 3 || anon.isPending} onClick={() => anon.mutate()}>Klant anonimiseren</button>
+          </div>
+        </Modal>
+      )}
+    </>
+  );
+}
 
 /** Inloglink voor Mijn Gecko naar de klant sturen. */
 function PortalInvite({ customerId }: { customerId: string }) {

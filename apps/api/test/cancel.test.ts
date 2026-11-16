@@ -73,4 +73,27 @@ describe("project annuleren", () => {
     expect((await find("F2026")).length).toBeGreaterThan(0);
     expect(await find("x")).toEqual([]);
   });
+
+  it("AVG: inzage-export en anonimiseren (facturen blijven bewaard)", async () => {
+    const c = (await call("POST", "/customers", { firstName: "Priva", lastName: "Cy", email: "privacy@example.nl", phone: "0612345678", property: { street: "Geheimstraat", houseNumber: "9", postalCode: "1234AB", city: "Ede" } })).json();
+    await call("POST", `/customers/${c.id}/notes`, { kind: "note", body: "Gevoelige notitie" });
+    const exp = await call("GET", `/customers/${c.id}/privacy-export`);
+    expect(exp.statusCode).toBe(200);
+    expect(exp.json().customer.email).toBe("privacy@example.nl");
+    expect(exp.headers["content-disposition"]).toMatch(/inzage-/);
+
+    expect((await call("POST", `/customers/${c.id}/anonymize`, { reason: "Verzoek klant", confirm: "nee" })).statusCode).toBe(400);
+    const res = await call("POST", `/customers/${c.id}/anonymize`, { reason: "Verzoek klant", confirm: "ANONIMISEREN" });
+    expect(res.statusCode, res.body).toBe(200);
+    const after = (await call("GET", `/customers/${c.id}`)).json();
+    expect(after).toMatchObject({ firstName: null, lastName: "Geanonimiseerd", email: null, phone: null });
+    expect(after.properties[0]).toMatchObject({ street: "[verwijderd]", postalCode: "1234" });
+    expect((await call("GET", `/customers/${c.id}/timeline`)).json().some((e: { kind: string }) => e.kind === "note")).toBe(false);
+  });
+
+  it("AVG: anonimiseren kan niet met een lopend project", async () => {
+    const groupId = (await ctx.db.select().from(productGroups).where(eq(productGroups.key, "thuisbatterij")))[0]!.id;
+    const s = (await call("POST", "/testing/scenario", { productGroupId: groupId, email: "lopend@example.nl", postalCode: "3511 AB" })).json();
+    expect((await call("POST", `/customers/${s.customerId}/anonymize`, { reason: "Verzoek", confirm: "ANONIMISEREN" })).json().error.code).toBe("open_projects");
+  });
 });
