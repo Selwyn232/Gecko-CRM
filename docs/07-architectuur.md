@@ -6,7 +6,22 @@
 - **PostgreSQL** als database.
 - Hosting op **Render**, EU-regio (Frankfurt). Data blijft in de EU.
 
-Detailkeuzes (framework, ORM, jobqueue) worden vastgelegd bij de start van de bouw in dit document.
+### Detailkeuzes
+
+| Onderdeel | Keuze | Waarom |
+|---|---|---|
+| Monorepo | pnpm workspaces (`apps/*`, `packages/*`) | Backend, frontend en gedeelde code in één repo |
+| HTTP-framework | Fastify 5 | Snel, volwassen, goede TypeScript-ondersteuning |
+| Validatie | Zod (ook gedeeld met de frontend) | Eén definitie voor types én invoercontrole |
+| Database-toegang | Drizzle ORM + gegenereerde SQL-migraties | Dicht bij SQL, migraties leesbaar en gecommit |
+| Wachtwoorden | Argon2id | Huidige aanbeveling (OWASP) |
+| 2FA | TOTP (RFC 6238), eigen implementatie getest op RFC-vectoren | Werkt met elke authenticator-app |
+| Tests | Vitest tegen echte PostgreSQL | Constraints en triggers worden mee getest |
+| CI | GitHub Actions | Typecheck, migratiecontrole, tests, build bij elke push |
+| Frontend | Nog te kiezen bij de start van de back-office UI (voorstel: React + Vite of Next.js) | |
+| Achtergrondtaken | Nog te kiezen bij eerste behoefte (voorstel: pg-boss, draait op PostgreSQL) | Geen extra infrastructuur |
+
+Werkwijze en conventies: zie [10 — Ontwikkelen](10-ontwikkelen.md).
 
 ## Architectuurprincipes
 

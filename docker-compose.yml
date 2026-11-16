@@ -1,0 +1,14 @@
+# Lokale database voor ontwikkeling: `docker compose up -d`
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: gecko
+      POSTGRES_PASSWORD: gecko
+      POSTGRES_DB: gecko
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+volumes:
+  pgdata:

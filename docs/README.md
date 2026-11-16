@@ -14,5 +14,6 @@ Elke wijziging in het ontwerp hoort hier eerst te landen, daarna in code.
 | [07 — Architectuur en techniek](07-architectuur.md) | Stack, hosting, backups, beveiliging, AVG |
 | [08 — Fasering](08-fasering.md) | Wat zit in welke versie |
 | [09 — Besluiten en open punten](09-besluiten-en-open-punten.md) | Beslislog en wat nog beantwoord moet worden |
+| [10 — Ontwikkelen](10-ontwikkelen.md) | Werkwijze, conventies en hoe je veilig wijzigt |
 
 Taal: documentatie en UI in het Nederlands; code (namen van tabellen, variabelen) in het Engels.

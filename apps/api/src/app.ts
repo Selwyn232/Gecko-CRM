@@ -1,0 +1,112 @@
+import cookie from "@fastify/cookie";
+import helmet from "@fastify/helmet";
+import rateLimit from "@fastify/rate-limit";
+import { sql } from "drizzle-orm";
+import Fastify, { type FastifyError } from "fastify";
+import {
+  hasZodFastifySchemaValidationErrors,
+  serializerCompiler,
+  validatorCompiler,
+  type ZodTypeProvider,
+} from "fastify-type-provider-zod";
+import type { Config } from "./config.js";
+import type { Db } from "./db/client.js";
+import { authPlugin } from "./http/auth-plugin.js";
+import { AppError } from "./lib/errors.js";
+import { auditRoutes } from "./modules/audit/routes.js";
+import { authRoutes } from "./modules/auth/routes.js";
+import { AuthService } from "./modules/auth/service.js";
+import { catalogRoutes } from "./modules/catalog/routes.js";
+import { organizationRoutes } from "./modules/organizations/routes.js";
+import { roleRoutes } from "./modules/roles/routes.js";
+import { userRoutes } from "./modules/users/routes.js";
+
+/** PostgreSQL-foutcodes die we naar nette meldingen vertalen. */
+const PG_UNIQUE_VIOLATION = "23505";
+const PG_FOREIGN_KEY_VIOLATION = "23503";
+const PG_CHECK_VIOLATION = "23514";
+
+export interface AppDeps {
+  config: Config;
+  db: Db;
+}
+
+export async function buildApp({ config, db }: AppDeps) {
+  const app = Fastify({
+    logger:
+      config.NODE_ENV === "test"
+        ? false
+        : {
+            level: config.LOG_LEVEL,
+            // Nooit wachtwoorden, tokens of cookies in logs.
+            redact: ["req.headers.authorization", "req.headers.cookie", "body.password", "body.newPassword", "body.currentPassword"],
+          },
+    trustProxy: true,
+    genReqId: () => crypto.randomUUID(),
+  }).withTypeProvider<ZodTypeProvider>();
+
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
+
+  await app.register(helmet);
+  await app.register(cookie);
+  if (config.RATE_LIMIT_ENABLED) {
+    await app.register(rateLimit, {
+      global: false,
+      errorResponseBuilder: (_req, ctx) => ({
+        statusCode: 429,
+        error: { code: "rate_limited", message: `Te veel pogingen, probeer het over ${ctx.after} opnieuw` },
+      }),
+    });
+  }
+
+  const authService = new AuthService(db, config);
+  await app.register(authPlugin, { db, authService });
+
+  app.setErrorHandler((err: FastifyError & { code?: string; cause?: { code?: string } }, req, reply) => {
+    if (err instanceof AppError) {
+      return reply.code(err.statusCode).send({ error: { code: err.code, message: err.message, details: err.details } });
+    }
+    if (hasZodFastifySchemaValidationErrors(err)) {
+      return reply.code(400).send({
+        error: {
+          code: "validation_error",
+          message: "Ongeldige invoer",
+          details: err.validation.map((v) => ({ path: v.instancePath, message: v.message })),
+        },
+      });
+    }
+    const pgCode = (err.cause as { code?: string } | undefined)?.code ?? err.code;
+    if (pgCode === PG_UNIQUE_VIOLATION) {
+      return reply.code(409).send({ error: { code: "already_exists", message: "Bestaat al" } });
+    }
+    if (pgCode === PG_FOREIGN_KEY_VIOLATION) {
+      return reply.code(400).send({ error: { code: "invalid_reference", message: "Verwijzing naar een onbekend of gebruikt record" } });
+    }
+    if (pgCode === PG_CHECK_VIOLATION) {
+      return reply.code(400).send({ error: { code: "constraint_violation", message: "Waarde niet toegestaan" } });
+    }
+    if (err.statusCode === 429) {
+      return reply.code(429).send(err);
+    }
+    if (err.statusCode && err.statusCode < 500) {
+      return reply.code(err.statusCode).send({ error: { code: err.code ?? "bad_request", message: err.message } });
+    }
+    req.log.error({ err }, "Onverwachte fout");
+    return reply.code(500).send({ error: { code: "internal_error", message: "Er ging iets mis" } });
+  });
+
+  app.get("/health", { config: { auth: "public" } }, async () => {
+    await db.execute(sql`select 1`);
+    return { status: "ok" };
+  });
+
+  await app.register(authRoutes, { authService, config });
+  await app.register(userRoutes, { db });
+  await app.register(roleRoutes, { db });
+  await app.register(organizationRoutes, { db });
+  await app.register(auditRoutes, { db });
+  await app.register(catalogRoutes, { db });
+
+  return app;
+}
