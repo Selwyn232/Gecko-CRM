@@ -183,6 +183,13 @@
       "when": 1794841975308,
       "tag": "0025_crew_count",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794842463556,
+      "tag": "0026_customer_notes",
+      "breakpoints": true
     }
   ]
 }

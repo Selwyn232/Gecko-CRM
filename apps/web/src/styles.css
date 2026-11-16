@@ -269,3 +269,19 @@ td.mono, .mono { white-space: nowrap; }
 .suggestion:hover { border-color: var(--accent); }
 .suggestion.active { border-color: var(--accent); background: var(--accent-soft); }
 .suggestion .muted { font-size: 12px; }
+
+/* Tijdlijn */
+.note-form { margin: 12px 0; padding: 12px; background: var(--surface-2); border-radius: 6px; }
+.timeline { list-style: none; margin: 0; padding: 0 20px 8px; }
+.timeline li { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.timeline li:last-child { border-bottom: 0; }
+.tl-icon { flex: 0 0 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); font-size: 13px; }
+.tl-note .tl-icon, .tl-call .tl-icon { background: var(--warning-soft); }
+.tl-payment .tl-icon { background: var(--accent-soft); color: var(--accent); }
+
+/* Zoeken */
+.search { position: relative; margin: 0 12px 12px; }
+.search input { width: 100%; }
+.search-results { position: absolute; left: 0; top: 100%; margin-top: 4px; width: 360px; max-width: 80vw; z-index: 20; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); max-height: 70vh; overflow: auto; }
+.search-results button { display: block; width: 100%; text-align: left; padding: 8px 10px; background: none; border: 0; border-bottom: 1px solid var(--border); font: inherit; font-size: 13px; color: var(--text); cursor: pointer; }
+.search-results button.active, .search-results button:hover { background: var(--accent-soft); }

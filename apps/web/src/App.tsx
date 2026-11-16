@@ -12,6 +12,7 @@ import { CustomersPage } from "./pages/Customers";
 import { JourneysPage } from "./pages/Journeys";
 import { MessagesPage } from "./pages/Messages";
 import { WorkPage } from "./pages/Work";
+import { GlobalSearch } from "./components/GlobalSearch";
 import { CustomerPortalPage, PortalRedeemPage } from "./pages/CustomerPortal";
 import { ChecklistsPage } from "./pages/Checklists";
 import { ReportsPage } from "./pages/Reports";
@@ -92,6 +93,7 @@ export function App() {
         <div className="brand">
           <span className="brand-mark">G</span> Gecko CRM
         </div>
+        <GlobalSearch />
         <nav className="nav">
           <div className="nav-section">Klanten</div>
           <NavLink to="/werk">Mijn werk</NavLink>

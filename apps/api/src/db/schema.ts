@@ -17,3 +17,4 @@ export * from "../modules/messages/schema.js";
 export * from "../modules/selfbilling/schema.js";
 export * from "../modules/checklists/schema.js";
 export * from "../modules/portal/schema.js";
+export * from "../modules/timeline/schema.js";

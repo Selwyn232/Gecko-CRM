@@ -57,4 +57,20 @@ describe("project annuleren", () => {
     // Nogmaals annuleren kan niet
     expect((await call("POST", `/projects/${s.projectId}/cancel`, { reason: "nog eens", creditInvoiceIds: [] })).json().error.code).toBe("cannot_cancel");
   });
+
+  it("tijdlijn met notities, en zoeken op naam, postcode en nummers", async () => {
+    const c = (await call("POST", "/customers", { firstName: "Jan", lastName: "Zoekmans", email: "jan@zoek.nl", phone: "06-12345678", property: { street: "Lindelaan", houseNumber: "12", postalCode: "7311 AB", city: "Apeldoorn" } })).json();
+    expect((await call("POST", `/customers/${c.id}/notes`, { kind: "call", body: "Klant belde over planning" })).statusCode).toBe(201);
+    const tl = (await call("GET", `/customers/${c.id}/timeline`)).json();
+    expect(tl[0]).toMatchObject({ kind: "call", detail: "Klant belde over planning" });
+
+    const find = async (q: string) => (await call("GET", `/search?q=${encodeURIComponent(q)}`)).json() as { kind: string; label: string; href: string }[];
+    expect((await find("zoekm")).some((r) => r.href === `/klanten/${c.id}`)).toBe(true);
+    expect((await find("7311ab")).some((r) => r.href === `/klanten/${c.id}`)).toBe(true);
+    expect((await find("0612345678")).some((r) => r.href === `/klanten/${c.id}`)).toBe(true);
+    expect((await find("lindelaan 12")).some((r) => r.href === `/klanten/${c.id}`)).toBe(true);
+    expect((await find("P-1")).some((r) => r.kind === "Project")).toBe(true);
+    expect((await find("F2026")).length).toBeGreaterThan(0);
+    expect(await find("x")).toEqual([]);
+  });
 });
