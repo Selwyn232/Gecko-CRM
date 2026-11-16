@@ -72,6 +72,7 @@ Doel: geen dataverlies van betekenis en snel herstel.
 | Database | `gecko-crm-db`, PostgreSQL 16, plan Basic 1 GB, 5 GB opslag, regio Frankfurt, point-in-time recovery actief |
 | Variabelen | `DATABASE_URL`, `ENCRYPTION_KEY`, `NODE_ENV=production`, `NODE_VERSION=22`, `APP_BASE_URL` |
 | E-mail (zelf in te vullen) | `MAILGUN_API_KEY` (verzendsleutel van het domein), `MAILGUN_DOMAIN`, `MAILGUN_REGION=eu`, optioneel `MAIL_FROM`. Zonder deze variabelen worden e-mails alleen vastgelegd, niet verstuurd |
+| E-mail (huidige stand) | Mailgun **sandbox-domein in de US-regio** (`MAILGUN_REGION=us`): alleen naar goedgekeurde ontvangers. Vóór echte klanten: eigen domein in de **EU-regio** (AVG) |
 
 Eenmalig bij een lege database: `BOOTSTRAP_ADMIN_EMAIL` en `BOOTSTRAP_ADMIN_PASSWORD` maken de eerste beheerder aan,
 `SEED_DEMO=true` laadt voorbeelddata. Verwijder deze variabelen daarna.
