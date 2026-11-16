@@ -13,6 +13,12 @@ import { QuoteDetailPage } from "./pages/QuoteDetail";
 import { QuotePrintPage } from "./pages/QuotePrint";
 import { QuotesPage } from "./pages/Quotes";
 import { PublicQuotePage } from "./pages/PublicQuote";
+import { InvoiceDetailPage } from "./pages/InvoiceDetail";
+import { InvoicePrintPage } from "./pages/InvoicePrint";
+import { InvoicesPage } from "./pages/Invoices";
+import { PublicInvoicePage } from "./pages/PublicInvoice";
+import { SettingsPage } from "./pages/Settings";
+import { TestPaymentPage } from "./pages/TestPayment";
 import { LoginPage } from "./pages/Login";
 import { OrganizationsPage } from "./pages/Organizations";
 import { ProductDetailPage } from "./pages/ProductDetail";
@@ -25,18 +31,21 @@ export function App() {
   const [changingPassword, setChangingPassword] = useState(false);
   const location = useLocation();
   // Klantpagina's zonder login
-  if (location.pathname.startsWith("/akkoord/")) {
+  if (/^\/(akkoord|factuur|testbetaling)\//.test(location.pathname)) {
     return (
       <Routes>
         <Route path="/akkoord/:token" element={<PublicQuotePage />} />
+        <Route path="/factuur/:token" element={<PublicInvoicePage />} />
+        <Route path="/testbetaling/:id" element={<TestPaymentPage />} />
       </Routes>
     );
   }
   if (!me || !me.mfaVerified || me.mustChangePassword) return <LoginPage />;
-  if (/^\/offertes\/[^/]+\/print$/.test(location.pathname)) {
+  if (/^\/(offertes|facturen)\/[^/]+\/print$/.test(location.pathname)) {
     return (
       <Routes>
         <Route path="/offertes/:id/print" element={<QuotePrintPage />} />
+        <Route path="/facturen/:id/print" element={<InvoicePrintPage />} />
       </Routes>
     );
   }
@@ -52,6 +61,7 @@ export function App() {
           {can("customers.read") && <NavLink to="/klanten">Klanten</NavLink>}
           {can("quotes.read") && <NavLink to="/offertes">Offertes</NavLink>}
           {can("projects.read") && <NavLink to="/projecten">Projecten</NavLink>}
+          {can("invoices.read") && <NavLink to="/facturen">Facturen</NavLink>}
           <div className="nav-section">Catalogus</div>
           {can("catalog.read") && <NavLink to="/producten">Producten</NavLink>}
           {can("catalog.read") && <NavLink to="/verkoopkanalen">Verkoopkanalen</NavLink>}
@@ -61,6 +71,7 @@ export function App() {
           {can("users.read") && <NavLink to="/gebruikers">Gebruikers</NavLink>}
           {can("users.read") && <NavLink to="/rollen">Rollen &amp; rechten</NavLink>}
           {can("audit.read") && <NavLink to="/logboek">Logboek</NavLink>}
+          {can("settings.manage") && <NavLink to="/instellingen">Instellingen</NavLink>}
         </nav>
         <div className="sidebar-footer">
           <div style={{ color: "var(--text)", fontWeight: 500 }}>{me.name}</div>
@@ -80,6 +91,9 @@ export function App() {
           <Route path="/projecten/:id" element={<ProjectDetailPage />} />
           <Route path="/klantreizen" element={<JourneysPage />} />
           <Route path="/offertes" element={<QuotesPage />} />
+          <Route path="/facturen" element={<InvoicesPage />} />
+          <Route path="/facturen/:id" element={<InvoiceDetailPage />} />
+          <Route path="/instellingen" element={<SettingsPage />} />
           <Route path="/offertes/:id" element={<QuoteDetailPage />} />
           <Route path="/producten" element={<ProductsPage />} />
           <Route path="/producten/:id" element={<ProductDetailPage />} />

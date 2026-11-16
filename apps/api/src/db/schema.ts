@@ -9,3 +9,5 @@ export * from "../modules/customers/schema.js";
 export * from "../modules/projects/schema.js";
 export * from "../modules/quotes/schema.js";
 export * from "../modules/email/schema.js";
+export * from "../modules/settings/schema.js";
+export * from "../modules/invoices/schema.js";

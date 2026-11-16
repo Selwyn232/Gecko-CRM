@@ -54,6 +54,7 @@ export async function ensureDefaultJourneys(tx: DbOrTx) {
           sortOrder: (i + 1) * 10,
           isInitial: s.isInitial ?? false,
           isFinal: s.isFinal ?? false,
+          invoiceTrigger: s.invoiceTrigger ?? null,
         })),
       )
       .returning();
@@ -75,6 +76,7 @@ export interface StatusInput {
   isInitial?: boolean;
   isFinal?: boolean;
   isActive?: boolean;
+  invoiceTrigger?: "deposit" | "final" | null;
 }
 
 async function getStatus(db: DbOrTx, id: string) {

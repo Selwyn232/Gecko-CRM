@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, type JourneyStatus, type ProjectDetail, type QuoteListItem } from "../api";
+import { api, type InvoiceSummary, type JourneyStatus, type ProjectDetail, type QuoteListItem } from "../api";
+import { InvoicesTable } from "./Invoices";
 import { QuotesTable } from "./Quotes";
 import { useAuth } from "../auth";
 import { ErrorBox, Field, Loading, Modal, StatusPill } from "../components/ui";
@@ -18,6 +19,16 @@ export function ProjectDetailPage() {
   const journeys = useJourneys();
   const [target, setTarget] = useState<JourneyStatus | null>(null);
   const project = useQuery({ queryKey: ["project", id], queryFn: () => api.get<ProjectDetail>(`/projects/${id}`) });
+  const invoices = useQuery({
+    queryKey: ["invoices", "project", id],
+    queryFn: () => api.get<InvoiceSummary[]>(`/invoices?projectId=${id}`),
+    enabled: can("invoices.read"),
+    refetchInterval: 10_000,
+  });
+  const makeInvoice = useMutation({
+    mutationFn: (type: "deposit" | "final") => api.post(`/projects/${id}/invoices`, { type }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
+  });
   const quotes = useQuery({
     queryKey: ["quotes", "project", id],
     queryFn: () => api.get<QuoteListItem[]>(`/quotes?projectId=${id}`),
@@ -112,7 +123,26 @@ export function ProjectDetailPage() {
           <QuotesTable items={quotes.data} showCustomer={false} />
         </div>
       )}
-      <p className="muted" style={{ fontSize: 13 }}>Facturen, afspraken en communicatie komen in de volgende stappen op deze pagina.</p>
+      {can("invoices.read") && (
+        <div className="card flush">
+          <div className="row" style={{ justifyContent: "space-between", padding: "16px 20px 8px" }}>
+            <h2 style={{ margin: 0 }}>Facturen</h2>
+            {can("invoices.manage") && (
+              <div className="row">
+                <button className="btn small" onClick={() => makeInvoice.mutate("deposit")}>Aanbetalingsfactuur maken</button>
+                <button className="btn small" onClick={() => makeInvoice.mutate("final")}>Eindfactuur maken</button>
+              </div>
+            )}
+          </div>
+          <ErrorBox error={makeInvoice.error} />
+          {!invoices.data?.length ? (
+            <div className="empty">Nog geen facturen. De aanbetalingsfactuur gaat automatisch zodra het project de status met factuurmoment bereikt (zie Klantreizen).</div>
+          ) : (
+            <InvoicesTable items={invoices.data} showCustomer={false} />
+          )}
+        </div>
+      )}
+      <p className="muted" style={{ fontSize: 13 }}>Afspraken en communicatie komen in de volgende stappen op deze pagina.</p>
 
       {target && <StatusModal project={p} target={target} onClose={() => setTarget(null)} />}
     </>

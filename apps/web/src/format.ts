@@ -64,3 +64,18 @@ export const formatPercent = (bp: number | null | undefined) =>
   bp == null ? "—" : `${(bp / 100).toLocaleString("nl-NL", { maximumFractionDigits: 1 })}%`;
 
 export const formatQty = (q: string | number) => Number(q).toLocaleString("nl-NL", { maximumFractionDigits: 3 });
+
+export const INVOICE_TYPE: Record<string, string> = { deposit: "Aanbetaling", final: "Eindfactuur", credit: "Creditnota" };
+export const INVOICE_STATUS: Record<string, { label: string; color: string }> = {
+  draft: { label: "Concept", color: "gray" },
+  open: { label: "Openstaand", color: "blue" },
+  paid: { label: "Betaald", color: "green" },
+  credited: { label: "Gecrediteerd", color: "gray" },
+};
+export const DUNNING_STAGE: Record<string, string> = {
+  none: "—",
+  reminder: "Herinnering",
+  formal_notice: "14-dagenbrief",
+  collection: "Incasso",
+};
+export const PAYMENT_METHOD: Record<string, string> = { online: "Online (iDEAL)", bank_transfer: "Overschrijving", warmtefonds: "Warmtefonds", other: "Overig" };

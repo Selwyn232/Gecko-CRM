@@ -27,6 +27,13 @@ const ConfigSchema = z.object({
   MAILGUN_REGION: z.enum(["eu", "us"]).default("eu"),
   /** Afzender, bv. "Gecko <noreply@mail.gecko.nl>". Standaard noreply@MAILGUN_DOMAIN. */
   MAIL_FROM: z.string().optional(),
+  /** Mollie. Zonder sleutel draait betalen in testmodus (gesimuleerde betaalpagina). */
+  MOLLIE_API_KEY: z.string().optional(),
+  /** Achtergrondtaken (automatiseringen, aanmaningen) draaien in dit proces. Uit in tests. */
+  JOBS_ENABLED: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
 });
 

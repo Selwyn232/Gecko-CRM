@@ -24,6 +24,8 @@ export const journeyStatuses = pgTable(
     /** Eindstatus: project is afgerond of geannuleerd. */
     isFinal: boolean("is_final").notNull().default(false),
     color: text("color").notNull().default("gray"),
+    /** Automatisch te maken en versturen factuur bij het bereiken van deze status. */
+    invoiceTrigger: text("invoice_trigger"),
     isActive: boolean("is_active").notNull().default(true),
     ...timestamps(),
   },

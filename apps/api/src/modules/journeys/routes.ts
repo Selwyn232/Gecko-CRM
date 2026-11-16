@@ -15,6 +15,7 @@ const StatusBody = z.object({
   isInitial: z.boolean().optional(),
   isFinal: z.boolean().optional(),
   isActive: z.boolean().optional(),
+  invoiceTrigger: z.enum(["deposit", "final"]).nullish(),
 });
 
 export const journeyRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {

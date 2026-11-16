@@ -180,6 +180,7 @@ export interface JourneyStatus {
   isFinal: boolean;
   color: string;
   isActive: boolean;
+  invoiceTrigger?: "deposit" | "final" | null;
   nextStatusIds?: string[];
   projectCount?: number;
 }
@@ -302,4 +303,57 @@ export interface QuoteListItem {
   customer: { id: string; firstName: string | null; lastName: string; displayNumber: string };
   property: Property;
   totals: QuoteTotals;
+}
+
+export type InvoiceType = "deposit" | "final" | "credit";
+export type InvoiceStatus = "draft" | "open" | "paid" | "credited";
+export interface InvoiceLine {
+  id: string;
+  productCode: string | null;
+  description: string;
+  quantity: string;
+  unitPriceCents: number;
+  vatRateBasisPoints: number;
+  lineTotalCents: number;
+}
+export interface Payment {
+  id: string;
+  amountCents: number;
+  method: string;
+  status: string;
+  provider: string | null;
+  paidAt: string | null;
+  note: string | null;
+  createdAt: string;
+}
+export interface InvoiceSummary {
+  id: string;
+  number: string | null;
+  type: InvoiceType;
+  status: InvoiceStatus;
+  projectId: string | null;
+  invoiceDate: string | null;
+  dueDate: string | null;
+  totalCents: number;
+  paidCents: number;
+  outstandingCents: number;
+  dunningStage: "none" | "reminder" | "formal_notice" | "collection";
+  dunningPaused: string | null;
+  customer: { id: string; firstName: string | null; lastName: string; displayNumber: string } | null;
+}
+export interface InvoiceDetail extends InvoiceSummary {
+  subtotalCents: number;
+  vatCents: number;
+  vatBreakdown: { rateBasisPoints: number; baseCents: number; vatCents: number }[];
+  paymentReference: string | null;
+  customerSnapshot: { name: string; customerNumber: string; email: string | null; address: { street: string; houseNumber: string; houseNumberAddition: string | null; postalCode: string; city: string } | null } | null;
+  companySnapshot: Organization | null;
+  note: string | null;
+  creditedInvoiceId: string | null;
+  sentAt: string | null;
+  paidAt: string | null;
+  lines: InvoiceLine[];
+  payments: Payment[];
+  dunning: { id: string; stage: string; outstandingCents: number; collectionCostsCents: number | null; deadline: string | null; createdAt: string }[];
+  emails: { id: string; toAddress: string; template: string; status: string; error: string | null; createdAt: string }[];
 }

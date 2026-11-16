@@ -8,7 +8,10 @@ export type DomainEventType =
   | "project.status_changed"
   | "quote.sent"
   | "quote.accepted"
-  | "quote.rejected";
+  | "quote.rejected"
+  | "invoice.sent"
+  | "invoice.paid"
+  | "invoice.collection";
 
 export async function emitEvent(
   tx: DbOrTx,

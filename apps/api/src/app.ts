@@ -23,6 +23,10 @@ import { journeyRoutes } from "./modules/journeys/routes.js";
 import { projectRoutes } from "./modules/projects/routes.js";
 import { quoteRoutes } from "./modules/quotes/routes.js";
 import { transportFromConfig, type EmailTransport } from "./modules/email/transport.js";
+import { paymentProviderFromConfig, type PaymentProvider } from "./modules/invoices/payments-provider.js";
+import { invoiceRoutes } from "./modules/invoices/routes.js";
+import type { BillingDeps } from "./modules/invoices/service.js";
+import { settingsRoutes } from "./modules/settings/routes.js";
 import { organizationRoutes } from "./modules/organizations/routes.js";
 import { roleRoutes } from "./modules/roles/routes.js";
 import { userRoutes } from "./modules/users/routes.js";
@@ -39,6 +43,8 @@ export interface AppDeps {
   webDistDir?: string;
   /** E-mailverzending. Standaard volgens de configuratie (Mailgun of niets); tests geven een eigen transport mee. */
   emailTransport?: EmailTransport | null;
+  /** Betaalprovider. Standaard Mollie als er een sleutel is, anders testmodus. */
+  paymentProvider?: PaymentProvider;
 }
 
 /** Serveert de webapplicatie; onbekende paden buiten /api krijgen index.html (client-side routing). */
@@ -50,7 +56,14 @@ async function registerWebApp(app: FastifyInstance, dir: string) {
   });
 }
 
-export async function buildApp({ config, db, webDistDir, emailTransport = transportFromConfig(config) }: AppDeps) {
+export async function buildApp({
+  config,
+  db,
+  webDistDir,
+  emailTransport = transportFromConfig(config),
+  paymentProvider = paymentProviderFromConfig(config),
+}: AppDeps) {
+  const billing: BillingDeps = { config, emailTransport, paymentProvider };
   const app = Fastify({
     logger:
       config.NODE_ENV === "test"
@@ -137,11 +150,20 @@ export async function buildApp({ config, db, webDistDir, emailTransport = transp
       await api.register(projectRoutes, { db });
       await api.register(journeyRoutes, { db });
       await api.register(quoteRoutes, { db, config, emailTransport });
+      await api.register(invoiceRoutes, { db, deps: billing });
+      await api.register(settingsRoutes, { db });
     },
     { prefix: "/api" },
   );
 
   if (webDistDir) await registerWebApp(app, webDistDir);
 
+  app.decorate("billing", billing);
   return app;
+}
+
+declare module "fastify" {
+  interface FastifyInstance {
+    billing: BillingDeps;
+  }
 }

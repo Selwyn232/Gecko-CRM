@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, type CustomerDetail, type ProjectDetail, type Quote, type QuoteListItem } from "../api";
+import { api, type InvoiceSummary, type CustomerDetail, type ProjectDetail, type Quote, type QuoteListItem } from "../api";
 import { QuotesTable } from "./Quotes";
+import { InvoicesTable } from "./Invoices";
 import { useAuth } from "../auth";
 import { ErrorBox, Field, Loading, Modal, StatusPill } from "../components/ui";
 import { customerName, formatAddress, formatDate, PAYMENT_METHODS } from "../format";
@@ -20,6 +21,11 @@ export function CustomerDetailPage() {
   const [addingProject, setAddingProject] = useState(false);
   const [addingQuote, setAddingQuote] = useState(false);
   const customer = useQuery({ queryKey: ["customer", id], queryFn: () => api.get<CustomerDetail>(`/customers/${id}`) });
+  const invoices = useQuery({
+    queryKey: ["invoices", "customer", id],
+    queryFn: () => api.get<InvoiceSummary[]>(`/invoices?customerId=${id}`),
+    enabled: can("invoices.read"),
+  });
   const quotes = useQuery({
     queryKey: ["quotes", "customer", id],
     queryFn: () => api.get<QuoteListItem[]>(`/quotes?customerId=${id}`),
@@ -92,7 +98,13 @@ export function CustomerDetailPage() {
           {!quotes.data?.length ? <div className="empty">Nog geen offertes.</div> : <QuotesTable items={quotes.data} showCustomer={false} />}
         </div>
       )}
-      <p className="muted" style={{ fontSize: 13 }}>Facturen, marge na oplevering en communicatie volgen in de volgende stappen.</p>
+      {can("invoices.read") && invoices.data && invoices.data.length > 0 && (
+        <div className="card flush">
+          <div style={{ padding: "16px 20px 8px" }}><h2 style={{ margin: 0 }}>Facturen</h2></div>
+          <InvoicesTable items={invoices.data} showCustomer={false} />
+        </div>
+      )}
+      <p className="muted" style={{ fontSize: 13 }}>Marge na oplevering en communicatie volgen in de volgende stappen.</p>
 
       {editing && <CustomerForm customer={c} onClose={() => setEditing(false)} />}
       {addingProperty && <PropertyForm customerId={c.id} onClose={() => setAddingProperty(false)} />}

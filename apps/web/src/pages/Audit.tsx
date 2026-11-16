@@ -57,6 +57,22 @@ const ACTIONS: Record<string, string> = {
   "quote.rejected": "Offerte afgewezen",
   "quote.revised": "Nieuwe offerteversie",
   "quote.link_sent": "Offerte ter akkoord verstuurd",
+  "invoice.created": "Factuur aangemaakt",
+  "invoice.finalized": "Factuur definitief",
+  "invoice.sent": "Factuur verstuurd",
+  "invoice.paid": "Factuur betaald",
+  "invoice.credited": "Factuur gecrediteerd",
+  "payment.registered": "Betaling geregistreerd",
+  "payment.paid": "Online betaling ontvangen",
+  "payment.failed": "Online betaling mislukt",
+  "payment.canceled": "Online betaling geannuleerd",
+  "payment.expired": "Online betaling verlopen",
+  "dunning.reminder": "Herinnering verstuurd",
+  "dunning.formal_notice": "14-dagenbrief verstuurd",
+  "dunning.collection": "Overgedragen aan incasso",
+  "dunning.paused": "Aanmaningen gepauzeerd",
+  "dunning.resumed": "Aanmaningen hervat",
+  "setting.updated": "Instelling gewijzigd",
   "advisor.created": "Adviseur toegevoegd",
   "advisor.updated": "Adviseur gewijzigd",
 };
@@ -71,7 +87,7 @@ const FIELD_LABELS: Record<string, string> = {
 };
 /** Technische velden die in het logboek niets toevoegen. */
 const HIDDEN = new Set(["id", "productId", "createdAt", "createdBy", "lastLoginAt", "lockedUntil", "number", "customerId", "statusChangedAt", "statusId", "propertyId", "productGroupId", "salesChannelId", "country", "sortOrder"]);
-const ENTITY: Record<string, string> = { quote: "Offerte", customer: "Klant", project: "Project", journey_status: "Klantreis", user: "Gebruiker", role: "Rol", organization: "Organisatie", product: "Product", sales_channel: "Kanaal", product_group: "Productgroep", vat_code: "Btw" };
+const ENTITY: Record<string, string> = { invoice: "Factuur", setting: "Instelling", quote: "Offerte", customer: "Klant", project: "Project", journey_status: "Klantreis", user: "Gebruiker", role: "Rol", organization: "Organisatie", product: "Product", sales_channel: "Kanaal", product_group: "Productgroep", vat_code: "Btw" };
 
 const show = (key: string, v: unknown) => {
   if (v === null || v === undefined || v === "") return "—";
@@ -105,6 +121,7 @@ export function AuditPage() {
         <select value={entityType} onChange={(e) => setEntityType(e.target.value)}>
           <option value="">Alles</option>
           <option value="customer">Klanten</option>
+          <option value="invoice">Facturen</option>
           <option value="quote">Offertes</option>
           <option value="project">Projecten</option>
           <option value="journey_status">Klantreizen</option>

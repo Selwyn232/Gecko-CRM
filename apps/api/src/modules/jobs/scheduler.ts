@@ -1,0 +1,42 @@
+import type { Db } from "../../db/client.js";
+import { runDunning } from "../invoices/dunning.js";
+import type { BillingDeps } from "../invoices/service.js";
+import { processOutbox } from "./outbox.js";
+
+/**
+ * Achtergrondtaken in hetzelfde proces als de API (één server is voldoende bij dit volume).
+ * - automatiseringen: elke 5 seconden
+ * - aanmaningen: elk uur (idempotent)
+ * Bij opschalen naar meerdere servers: verplaatsen naar een aparte worker (pg-boss), zie docs/07.
+ */
+export function startScheduler(db: Db, deps: BillingDeps, log: (msg: string, data?: object) => void) {
+  let busy = false;
+  const outbox = setInterval(async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      const n = await processOutbox(db, deps);
+      if (n) log("outbox verwerkt", { events: n });
+    } catch (err) {
+      log("outbox fout", { error: String(err) });
+    } finally {
+      busy = false;
+    }
+  }, 5_000);
+
+  const dunning = async () => {
+    try {
+      const r = await runDunning(db, deps);
+      if (r.processed) log("aanmaningen verwerkt", r);
+    } catch (err) {
+      log("aanmaningen fout", { error: String(err) });
+    }
+  };
+  const dunningTimer = setInterval(dunning, 60 * 60_000);
+  setTimeout(dunning, 30_000);
+
+  return () => {
+    clearInterval(outbox);
+    clearInterval(dunningTimer);
+  };
+}

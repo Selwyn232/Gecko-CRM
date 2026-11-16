@@ -25,6 +25,8 @@ export const PERMISSIONS = {
   "journeys.manage": "Klantreizen (statussen en overgangen) instellen",
   "quotes.read": "Offertes bekijken",
   "quotes.manage": "Offertes maken, versturen en akkoord registreren",
+  "invoices.read": "Facturen en betalingen bekijken",
+  "invoices.manage": "Facturen maken, crediteren, betalingen registreren en aanmaningen beheren",
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

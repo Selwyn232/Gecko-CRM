@@ -64,6 +64,27 @@
       "when": 1794804811968,
       "tag": "0008_email_quote_links_org_address",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794809474859,
+      "tag": "0009_invoices_payments_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794809495707,
+      "tag": "0010_invoice_immutability_and_grants",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794809547162,
+      "tag": "0011_outbox_attempts",
+      "breakpoints": true
     }
   ]
 }

@@ -30,6 +30,10 @@
 | B25 | Akkoord voorlopig handmatig geregistreerd (naam, wijze); digitale handtekening en e-mailverzending volgen | 2026-11-16 |
 | B26 | Digitaal akkoord zelf gebouwd (geen externe partij): persoonlijke e-maillink + eenmalige code per e-mail; bewijs (e-mail, IP, apparaat, tijd, inhoud-hash) vastgelegd; bevestiging met volledige inhoud en bedenktijd per e-mail. Externe partij later per documentsoort mogelijk | 2026-11-16 |
 | B27 | E-mail via Mailgun (EU). Elke uitgaande e-mail wordt vastgelegd, ook zonder koppeling | 2026-11-16 |
+| B28 | Facturen: nummering F{jaar}-{volgnummer} zonder gaten; definitief = onveranderbaar (databasetrigger), correctie via creditnota | 2026-11-16 |
+| B29 | Aanbetaling (standaard 70%) per offerteregel; eindfactuur = volledige offerte minus aanbetaling per btw-tarief. Factuurmomenten per status in de klantreis instelbaar | 2026-11-16 |
+| B30 | Aanmaanflow: herinnering → 14-dagenbrief met WIK-kosten → overdracht incasso; termijnen instelbaar, pauze per factuur | 2026-11-16 |
+| B31 | Betalen via Mollie; zonder Mollie-sleutel testmodus met gesimuleerde betaalpagina. Exact voorlopig via CSV-export | 2026-11-16 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten
@@ -51,4 +55,7 @@
 | O14 | 2FA weer verplicht maken voor alle beheerders zodra er echte klantdata in staat | Gecko |
 | O17 | Accepteert het Warmtefonds een gewone elektronische handtekening, of is een geavanceerde nodig? | Gecko (navragen) |
 | O16 | Bedrijfsgegevens Gecko BV (adres, KvK, btw-nummer, IBAN): nu FICTIEF ingevuld, vervangen via Organisaties → Gecko BV | Gecko |
+| O18 | Mollie-account (vereist zakelijke rekening); daarna MOLLIE_API_KEY in Render | Gecko |
+| O19 | Exact Online: administratie, grootboekrekeningen per productgroep, daarna API-koppeling | Gecko / finance |
+| O20 | Vervaldatum aanbetaling koppelen aan schouwdatum (O11) zodra afspraken/planning er zijn | Gecko |
 | O13 | Verkoopprijs vast bij ondertekening, ook als inkoop stijgt tijdens lange wachttijd? | Gecko |

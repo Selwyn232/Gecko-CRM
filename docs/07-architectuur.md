@@ -72,6 +72,8 @@ Doel: geen dataverlies van betekenis en snel herstel.
 | Database | `gecko-crm-db`, PostgreSQL 16, plan Basic 1 GB, 5 GB opslag, regio Frankfurt, point-in-time recovery actief |
 | Variabelen | `DATABASE_URL`, `ENCRYPTION_KEY`, `NODE_ENV=production`, `NODE_VERSION=22`, `APP_BASE_URL` |
 | E-mail (zelf in te vullen) | `MAILGUN_API_KEY` (verzendsleutel van het domein), `MAILGUN_DOMAIN`, `MAILGUN_REGION=eu`, optioneel `MAIL_FROM`. Zonder deze variabelen worden e-mails alleen vastgelegd, niet verstuurd |
+| Betalen | `MOLLIE_API_KEY` (zelf in te vullen). Zonder sleutel: testmodus met gesimuleerde betaalpagina `/testbetaling/:id`. Webhook: `/api/public/payments/mollie/webhook` |
+| Achtergrondtaken | In hetzelfde proces (`JOBS_ENABLED`): automatiseringen uit de outbox elke 5 s, aanmaningen elk uur. Bij meerdere servers naar een aparte worker |
 | E-mail (huidige stand) | Mailgun, domein `mail.gecko.nl` in de **EU-regio**, afzender `Gecko <noreply@mail.gecko.nl>`. DNS (SPF, DKIM, MX, DMARC `p=none`, tracking-CNAME) bij Hostnet. DMARC later aanscherpen naar `quarantine` |
 
 Eenmalig bij een lege database: `BOOTSTRAP_ADMIN_EMAIL` en `BOOTSTRAP_ADMIN_PASSWORD` maken de eerste beheerder aan,

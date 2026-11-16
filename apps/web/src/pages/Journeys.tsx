@@ -5,6 +5,7 @@ import { useAuth } from "../auth";
 import { ErrorBox, Field, Loading, Modal, PageHead, StatusPill } from "../components/ui";
 import { useJourneys } from "../hooks";
 
+const INVOICE_TRIGGERS: Record<string, string> = { deposit: "Aanbetaling", final: "Eindfactuur" };
 const COLORS: Record<string, string> = { gray: "Grijs", blue: "Blauw", green: "Groen", yellow: "Geel", red: "Rood", purple: "Paars" };
 
 export function JourneysPage() {
@@ -36,7 +37,7 @@ export function JourneysPage() {
       </div>
       <div className="card flush">
         <table>
-          <thead><tr><th>Fase</th><th>Status</th><th>Mag door naar</th><th className="num">Projecten</th></tr></thead>
+          <thead><tr><th>Fase</th><th>Status</th><th>Mag door naar</th><th>Factuur</th><th className="num">Projecten</th></tr></thead>
           <tbody>
             {statuses.map((s) => (
               <tr key={s.id} className={manage ? "clickable" : ""} onClick={() => manage && setEditing(s)} style={{ opacity: s.isActive ? 1 : 0.5 }}>
@@ -48,6 +49,7 @@ export function JourneysPage() {
                   {!s.isActive && <span className="badge" style={{ marginLeft: 6 }}>Inactief</span>}
                 </td>
                 <td style={{ fontSize: 13 }}>{s.nextStatusIds?.length ? s.nextStatusIds.map(name).join(", ") : <span className="muted">—</span>}</td>
+                <td>{s.invoiceTrigger ? <span className="badge green">{INVOICE_TRIGGERS[s.invoiceTrigger]}</span> : <span className="muted">—</span>}</td>
                 <td className="num">{s.projectCount ?? 0}</td>
               </tr>
             ))}
@@ -77,6 +79,7 @@ function StatusForm({ productGroupId, status, all, onClose }: { productGroupId: 
     isInitial: status?.isInitial ?? false,
     isFinal: status?.isFinal ?? false,
     isActive: status?.isActive ?? true,
+    invoiceTrigger: status?.invoiceTrigger ?? "",
   });
   const [next, setNext] = useState<string[]>(status?.nextStatusIds ?? []);
   const phases = [...new Set(all.map((s) => s.phase))];
@@ -86,7 +89,8 @@ function StatusForm({ productGroupId, status, all, onClose }: { productGroupId: 
   };
   const save = useMutation({
     mutationFn: async () => {
-      const { key, ...rest } = form;
+      const { key, invoiceTrigger, ...other } = form;
+      const rest = { ...other, invoiceTrigger: invoiceTrigger || null };
       const saved = status
         ? await api.patch<JourneyStatus>(`/journey-statuses/${status.id}`, rest)
         : await api.post<JourneyStatus>(`/journeys/${productGroupId}/statuses`, { key, ...rest });
@@ -109,6 +113,13 @@ function StatusForm({ productGroupId, status, all, onClose }: { productGroupId: 
         <Field label="Kleur">
           <select value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })}>
             {Object.entries(COLORS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </Field>
+        <Field label="Factuur automatisch maken en versturen">
+          <select value={form.invoiceTrigger} onChange={(e) => setForm({ ...form, invoiceTrigger: e.target.value })}>
+            <option value="">Geen</option>
+            <option value="deposit">Aanbetalingsfactuur</option>
+            <option value="final">Eindfactuur</option>
           </select>
         </Field>
         <Field label="Volgorde"><input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })} /></Field>

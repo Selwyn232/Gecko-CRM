@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { bigint, index, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 /**
  * Outbox met domeingebeurtenissen (bv. "project.status_changed"). Wordt in dezelfde transactie
@@ -16,6 +16,8 @@ export const outboxEvents = pgTable(
     payload: jsonb("payload").notNull(),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
     processedAt: timestamp("processed_at", { withTimezone: true }),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
   },
   (t) => [
     index("outbox_unprocessed_idx").on(t.id).where(sql`processed_at IS NULL`),
