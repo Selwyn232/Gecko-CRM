@@ -63,6 +63,7 @@ export interface Organization {
   phone: string | null;
   selfBillingPrefix?: string | null;
   selfBillingVatMode?: "normal" | "reverse_charge" | null;
+  crewCount?: number;
   isActive: boolean;
 }
 export interface ProductGroup {
@@ -380,6 +381,9 @@ export interface AvailabilityBlock {
   part: DayPart;
   /** Gevuld als er een afspraak in dit blok staat. */
   appointmentId: string | null;
+  /** Aantal afspraken en ploegen (capaciteit) in dit dagdeel. */
+  appointmentCount?: number;
+  capacity?: number;
 }
 export interface Appointment {
   id: string;

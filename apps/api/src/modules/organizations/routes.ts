@@ -28,6 +28,7 @@ const OrgBody = z.object({
   website: z.string().max(200).nullish(),
   selfBillingPrefix: z.string().regex(/^[A-Z0-9]{2,8}$/, "2–8 hoofdletters/cijfers").nullish(),
   selfBillingVatMode: z.enum(["normal", "reverse_charge"]).nullish(),
+  crewCount: z.number().int().min(1).max(20).optional(),
   isActive: z.boolean().optional(),
 });
 const IdParams = z.object({ id: z.string().uuid() });

@@ -100,20 +100,33 @@ export async function setPartnerRegions(db: Db, actor: ActorContext, partnerId: 
 }
 
 /** Welke blokken bezet zijn door afspraken: sleutel partner|datum|dagdeel → afspraak-id. */
+/** Afspraken per blok ("partner|datum|dagdeel" → afspraak-id's). */
 async function occupiedBlocks(db: DbOrTx, from: string, to: string, partnerId?: string) {
   const filters: SQL[] = [inArray(appointments.status, ["planned", "completed"]), lte(appointments.date, to), gte(sql`${appointments.date} + (${appointments.days} - 1)`, from)];
   if (partnerId) filters.push(eq(appointments.partnerOrganizationId, partnerId));
   const rows = await db.select().from(appointments).where(and(...filters));
-  const map = new Map<string, string>();
+  const map = new Map<string, string[]>();
   for (const a of rows) {
     for (let i = 0; i < a.days; i++) {
       const date = addDays(a.date, i);
       // Schouw: het gekozen dagdeel. Installatie (of "hele dag"): beide dagdelen.
       const parts: DayPart[] = a.timeWindow === "morning" || a.timeWindow === "afternoon" ? [a.timeWindow] : PARTS;
-      for (const p of parts) map.set(`${a.partnerOrganizationId}|${date}|${p}`, a.id);
+      for (const p of parts) {
+        const key = `${a.partnerOrganizationId}|${date}|${p}`;
+        map.set(key, [...(map.get(key) ?? []), a.id]);
+      }
     }
   }
   return map;
+}
+
+/** Aantal ploegen per partner (capaciteit per beschikbaar dagdeel). */
+async function crewCounts(db: DbOrTx, partnerIds?: string[]) {
+  const rows = await db
+    .select({ id: organizations.id, crews: organizations.crewCount })
+    .from(organizations)
+    .where(partnerIds ? inArray(organizations.id, partnerIds.length ? partnerIds : ["00000000-0000-0000-0000-000000000000"]) : eq(organizations.type, "installation_partner"));
+  return new Map(rows.map((r) => [r.id, Math.max(1, r.crews)]));
 }
 
 export async function listAvailability(db: DbOrTx, q: { from: string; to: string; partnerId?: string }) {
@@ -121,12 +134,19 @@ export async function listAvailability(db: DbOrTx, q: { from: string; to: string
   if (q.partnerId) filters.push(eq(availabilityBlocks.partnerOrganizationId, q.partnerId));
   const rows = await db.select().from(availabilityBlocks).where(and(...filters)).orderBy(asc(availabilityBlocks.date));
   const occupied = await occupiedBlocks(db, q.from, q.to, q.partnerId);
-  return rows.map((r) => ({
-    partnerOrganizationId: r.partnerOrganizationId,
-    date: r.date,
-    part: r.part,
-    appointmentId: occupied.get(`${r.partnerOrganizationId}|${r.date}|${r.part}`) ?? null,
-  }));
+  const crews = await crewCounts(db, [...new Set(rows.map((r) => r.partnerOrganizationId))]);
+  return rows.map((r) => {
+    const ids = occupied.get(`${r.partnerOrganizationId}|${r.date}|${r.part}`) ?? [];
+    return {
+      partnerOrganizationId: r.partnerOrganizationId,
+      date: r.date,
+      part: r.part,
+      /** Eerste afspraak in dit blok (een blok met afspraken kan niet worden uitgezet). */
+      appointmentId: ids[0] ?? null,
+      appointmentCount: ids.length,
+      capacity: crews.get(r.partnerOrganizationId) ?? 1,
+    };
+  });
 }
 
 export interface BlockChange {
@@ -145,7 +165,7 @@ export async function setAvailability(db: Db, actor: ActorContext, partnerId: st
       if (c.available) {
         await tx.insert(availabilityBlocks).values({ partnerOrganizationId: partnerId, date: c.date, part: c.part }).onConflictDoNothing();
       } else {
-        const occupied = (await occupiedBlocks(tx, c.date, c.date, partnerId)).get(`${partnerId}|${c.date}|${c.part}`);
+        const occupied = (await occupiedBlocks(tx, c.date, c.date, partnerId)).get(`${partnerId}|${c.date}|${c.part}`)?.length;
         if (occupied) throw conflict("block_in_use", `Op ${c.date} (${c.part === "morning" ? "ochtend" : "middag"}) staat al een afspraak; dit blok kan niet worden uitgezet`);
         await tx
           .delete(availabilityBlocks)
@@ -211,7 +231,13 @@ export async function findSlots(db: DbOrTx, projectId: string, type: Appointment
     .from(availabilityBlocks)
     .where(and(inArray(availabilityBlocks.partnerOrganizationId, partnerIds), gte(availabilityBlocks.date, from), lte(availabilityBlocks.date, addDays(to, days + 14))));
   const occupied = await occupiedBlocks(db, from, addDays(to, days + 14));
-  const free = new Set(blocks.filter((b) => !occupied.has(`${b.partnerOrganizationId}|${b.date}|${b.part}`)).map((b) => `${b.partnerOrganizationId}|${b.date}|${b.part}`));
+  const crews = await crewCounts(db, partnerIds);
+  // Vrij = minder afspraken in het blok dan de partner ploegen heeft.
+  const free = new Set(
+    blocks
+      .filter((b) => (occupied.get(`${b.partnerOrganizationId}|${b.date}|${b.part}`)?.length ?? 0) < (crews.get(b.partnerOrganizationId) ?? 1))
+      .map((b) => `${b.partnerOrganizationId}|${b.date}|${b.part}`),
+  );
   const isFree = (pid: string, date: string, part: DayPart) => free.has(`${pid}|${date}|${part}`);
   /** Volgende dag waarop de partner beschikbaar is (een meerdaagse installatie loopt over werkdagen door). */
   const workDays = (pid: string, start: string) => {
@@ -239,6 +265,44 @@ export async function findSlots(db: DbOrTx, projectId: string, type: Appointment
   const partOrder = (p: DayPart | null) => (p === "afternoon" ? 1 : 0);
   slots.sort((a, b) => a.date.localeCompare(b.date) || partOrder(a.part) - partOrder(b.part) || a.partnerName.localeCompare(b.partnerName));
   return { regions: regs.map((r) => ({ id: r.id, name: r.name })), slots, message: slots.length ? null : "Geen vrije blokken gevonden in deze periode." };
+}
+
+/**
+ * Planvoorstel: de beste momenten uit de vrije blokken, met uitleg. Weging (lager = beter):
+ * - hoe snel (dagen na het eerste vrije moment),
+ * - drukte van de partner (afspraken komende 14 dagen; spreidt het werk),
+ * - bonus als de partner die dag al in dezelfde buurt (PC2) is: minder reistijd.
+ * Een voorstel; de planner bevestigt.
+ */
+export async function suggestSlots(db: DbOrTx, projectId: string, type: AppointmentType) {
+  const found = await findSlots(db, projectId, type);
+  if (!found.slots.length) return { ...found, suggestions: [] };
+  const ctx = await projectContext(db, projectId);
+  const pc2 = ctx.property.postalCode.replace(/\D/g, "").slice(0, 2);
+  const today = todayIso();
+  const partnerIds = [...new Set(found.slots.map((s) => s.partnerId))];
+  const planned = await db
+    .select({ partnerId: appointments.partnerOrganizationId, date: appointments.date, postalCode: properties.postalCode })
+    .from(appointments)
+    .innerJoin(projects, eq(projects.id, appointments.projectId))
+    .innerJoin(properties, eq(properties.id, projects.propertyId))
+    .where(and(inArray(appointments.partnerOrganizationId, partnerIds), eq(appointments.status, "planned"), gte(appointments.date, today)));
+  const horizon = addDays(today, 14);
+  const load = new Map(partnerIds.map((id) => [id, planned.filter((p) => p.partnerId === id && p.date <= horizon).length]));
+  const first = found.slots[0]!.date;
+  const scored = found.slots.map((s) => {
+    const offset = Math.round((Date.parse(s.date) - Date.parse(first)) / 86_400_000);
+    const nearby = planned.some((p) => p.partnerId === s.partnerId && p.date === s.date && p.postalCode.replace(/\D/g, "").slice(0, 2) === pc2);
+    const l = load.get(s.partnerId) ?? 0;
+    const reasons: string[] = [];
+    if (offset === 0) reasons.push("Eerste vrije moment");
+    else reasons.push(`${offset} dag${offset === 1 ? "" : "en"} na het eerste vrije moment`);
+    if (nearby) reasons.push(`Partner is die dag al in de buurt (postcode ${pc2}..)`);
+    reasons.push(l === 0 ? "Partner heeft de komende 2 weken nog niets gepland" : `Partner heeft ${l} afspraak${l === 1 ? "" : "en"} in de komende 2 weken`);
+    return { ...s, score: offset + l * 0.5 - (nearby ? 3 : 0), reasons };
+  });
+  scored.sort((a, b) => a.score - b.score || a.date.localeCompare(b.date));
+  return { ...found, suggestions: scored.slice(0, 3) };
 }
 
 // ---------------------------------------------------------------- Afspraken
@@ -289,7 +353,8 @@ export async function scheduleAppointment(
           .where(and(eq(availabilityBlocks.partnerOrganizationId, input.partnerId), eq(availabilityBlocks.date, date), eq(availabilityBlocks.part, part)))
           .for("update");
         if (!block) throw conflict("no_capacity", `Partner is niet beschikbaar op ${date} (${part === "morning" ? "ochtend" : "middag"})`);
-        if ((await occupiedBlocks(tx, date, date, input.partnerId)).has(`${input.partnerId}|${date}|${part}`)) {
+        const inBlock = (await occupiedBlocks(tx, date, date, input.partnerId)).get(`${input.partnerId}|${date}|${part}`)?.length ?? 0;
+        if (inBlock >= ((await crewCounts(tx, [input.partnerId])).get(input.partnerId) ?? 1)) {
           throw conflict("no_capacity", `Blok op ${date} (${part === "morning" ? "ochtend" : "middag"}) is al bezet`);
         }
       }

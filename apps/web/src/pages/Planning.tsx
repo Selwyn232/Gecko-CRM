@@ -82,7 +82,10 @@ interface Slot {
 
 export function PlanModal({ projectId, type, title, onClose }: { projectId: string; type: "survey" | "installation"; title: string; onClose: () => void }) {
   const qc = useQueryClient();
-  const slots = useQuery({ queryKey: ["slots", projectId, type], queryFn: () => api.get<{ slots: Slot[]; message: string | null }>(`/planning/slots?projectId=${projectId}&type=${type}`) });
+  const slots = useQuery({
+    queryKey: ["slots", projectId, type],
+    queryFn: () => api.get<{ slots: Slot[]; suggestions: (Slot & { reasons: string[] })[]; message: string | null }>(`/planning/slots?projectId=${projectId}&type=${type}`),
+  });
   const [chosen, setChosen] = useState<Slot | null>(null);
   const [notes, setNotes] = useState("");
   const save = useMutation({
@@ -103,13 +106,29 @@ export function PlanModal({ projectId, type, title, onClose }: { projectId: stri
           <p className="muted" style={{ fontSize: 13 }}>
             {type === "survey" ? "Kies een vrij dagdeel van een partner in deze regio." : `Kies een startdag; de installatie neemt ${slots.data?.slots[0]?.days ?? 1} hele dag(en) in.`} De klant krijgt automatisch een bevestiging per e-mail.
           </p>
+          {!!slots.data?.suggestions.length && (
+            <div style={{ marginBottom: 12 }}>
+              <div className="field" style={{ marginBottom: 4 }}>Voorstel</div>
+              {slots.data.suggestions.map((s, i) => {
+                const match = slots.data!.slots.find((x) => x.date === s.date && x.part === s.part && x.partnerId === s.partnerId) ?? s;
+                const active = chosen?.date === s.date && chosen?.part === s.part && chosen?.partnerId === s.partnerId;
+                return (
+                  <button key={i} type="button" className={`suggestion ${active ? "active" : ""}`} onClick={() => setChosen(match)}>
+                    <strong>{i === 0 ? "★ " : ""}{weekday(s.date)}{s.part ? ` · ${TIME_WINDOW[s.part]}` : ""} · {s.partnerName}</strong>
+                    <span className="muted">{s.reasons.join(" · ")}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="field" style={{ marginBottom: 4 }}>Alle vrije momenten</div>
           <div style={{ maxHeight: 280, overflow: "auto", border: "1px solid var(--border)", borderRadius: 6, marginBottom: 12 }}>
             {[...byDate.entries()].map(([date, list]) => (
               <div key={date} style={{ padding: "6px 12px", borderBottom: "1px solid var(--border)" }}>
                 <strong style={{ fontSize: 13 }}>{weekday(date)}</strong>
                 <div className="row" style={{ marginTop: 4 }}>
                   {list.map((s) => (
-                    <button key={s.partnerId + (s.part ?? "")} className={`btn small ${chosen === s ? "primary" : ""}`} onClick={() => setChosen(s)}>
+                    <button key={s.partnerId + (s.part ?? "")} className={`btn small ${chosen?.date === s.date && chosen?.part === s.part && chosen?.partnerId === s.partnerId ? "primary" : ""}`} onClick={() => setChosen(s)}>
                       {s.part ? `${TIME_WINDOW[s.part]} · ` : ""}{s.partnerName}{s.days > 1 && <span className="muted"> ({s.days} dagen)</span>}
                     </button>
                   ))}

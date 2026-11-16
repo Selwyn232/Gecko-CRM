@@ -7,7 +7,6 @@ import type { EmailTransport } from "../email/transport.js";
 import { listFiles } from "../files/storage.js";
 import {
   cancelAppointment,
-  findSlots,
   getAppointment,
   getPartnerRegions,
   getReport,
@@ -22,6 +21,7 @@ import {
   setAvailability,
   setPartnerRegions,
   toPlan,
+  suggestSlots,
   waivePenalty,
 } from "./service.js";
 
@@ -70,7 +70,8 @@ export const planningRoutes: FastifyPluginAsyncZod<{ db: Db; emailTransport: Ema
   app.get(
     "/planning/slots",
     { preValidation: read, schema: { querystring: z.object({ projectId: z.string().uuid(), type: Type }) } },
-    async (req) => findSlots(db, req.query.projectId, req.query.type),
+    // Vrije momenten plus een voorstel (beste 3) met uitleg.
+    async (req) => suggestSlots(db, req.query.projectId, req.query.type),
   );
 
   app.get(

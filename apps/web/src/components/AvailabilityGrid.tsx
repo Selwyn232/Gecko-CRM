@@ -142,7 +142,7 @@ export function AvailabilityGrid({ blocks, weeks, onSave }: Props) {
                             aria-label={`${DAY_NAMES[d]} ${date} ${p.label}: ${busy ? "afspraak" : on ? "beschikbaar" : "niet beschikbaar"}`}
                           >
                             {p.label}
-                            {busy && <span>afspraak</span>}
+                            {busy && <span>{(block(date, p.key)?.capacity ?? 1) > 1 ? `${block(date, p.key)?.appointmentCount}/${block(date, p.key)?.capacity} bezet` : "afspraak"}</span>}
                           </button>
                         );
                       })}

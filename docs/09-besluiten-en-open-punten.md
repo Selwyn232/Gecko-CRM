@@ -52,6 +52,7 @@
 | B47 | Checklists schouw/oplevering per productgroep zelf in te stellen (Beheer → Checklists): punten, verplicht ja/nee, minimum aantal foto's. Gelden bij een positief rapport; ingediende rapporten bewaren de punten op tekst. Startlijst is algemeen (O23) | 2026-11-16 |
 | B48 | Klantportaal "Mijn Gecko" (/mijn): inloggen zonder wachtwoord met eenmalige e-maillink (30 min), sessie 30 dagen; klant = alle klantrecords met dat e-mailadres. Toont per project fases, status, afspraken, offertes en facturen (geen interne gegevens). Betalen online, offerte/meerwerk accepteren via de bestaande akkoordflow (met code), afspraak verzetten bij dezelfde installateur tot X dagen vooraf (instelling). Medewerker kan klant uitnodigen vanaf de klantkaart | 2026-11-16 |
 | B49 | Startpagina "Mijn werk": per gebruiker (volgens rechten) wat aandacht nodig heeft — rapporten beoordelen, schouw met open aanbetaling, in te plannen schouw/installatie, meerwerk-offertes versturen, offertes zonder reactie (> 5 dagen), projecten die blijven hangen, facturen over vervaldatum, selfbilling niet akkoord / uit te betalen / klaar om te factureren | 2026-11-16 |
+| B50 | Meerdere ploegen per installatiepartner (Organisaties → aantal ploegen): zoveel afspraken passen tegelijk in een beschikbaar dagdeel. Planvoorstel bij het inplannen: beste 3 momenten op basis van snelheid, drukte van de partner en of de partner die dag al in de buurt (PC2) is, met uitleg; de planner bevestigt | 2026-11-16 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten
@@ -75,7 +76,7 @@
 | O19 | Exact Online: administratie, grootboekrekeningen per productgroep, daarna API-koppeling | Gecko / finance |
 | O21 | Foto's staan nu in de database; bij volume naar object storage (S3/R2, EU) | Techniek |
 | O23 | Checklists schouw/oplevering per productgroep inhoudelijk vaststellen (nu generiek) — zelf in te voeren bij Beheer → Checklists | Gecko + partners |
-| O24 | Partners met meerdere ploegen tegelijk: instelling "aantal ploegen" per partner (nu één ploeg per blok) | Gecko |
+| O24 | ~~Partners met meerdere ploegen~~ — gebouwd (B50); aantal ploegen per partner invullen | Gecko |
 | O25 | Btw bij selfbilling installateurs: standaard "verlegd" (onderaanneming). Laten bevestigen door de accountant, per partner aan te passen bij Organisaties | Accountant |
 | O26 | Selfbilling automatisch wekelijks bundelen (nu handmatig per partner) | Gecko |
 | O13 | Verkoopprijs vast bij ondertekening, ook als inkoop stijgt tijdens lange wachttijd? | Gecko |

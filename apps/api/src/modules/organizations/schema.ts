@@ -1,4 +1,4 @@
-import { boolean, index, pgEnum, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgEnum, pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { id, timestamps } from "../../db/columns.js";
 
 /**
@@ -33,6 +33,8 @@ export const organizations = pgTable(
     selfBillingPrefix: text("self_billing_prefix").unique(),
     /** "normal" of "reverse_charge"; leeg = standaard per soort (verkooppartner normaal, installateur verlegd). */
     selfBillingVatMode: text("self_billing_vat_mode"),
+    /** Installatiepartner: aantal ploegen = afspraken die tegelijk in één beschikbaar dagdeel passen. */
+    crewCount: integer("crew_count").notNull().default(1),
     isActive: boolean("is_active").notNull().default(true),
     ...timestamps(),
   },

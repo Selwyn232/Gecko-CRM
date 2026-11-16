@@ -176,6 +176,13 @@
       "when": 1794841406691,
       "tag": "0024_portal",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794841975308,
+      "tag": "0025_crew_count",
+      "breakpoints": true
     }
   ]
 }

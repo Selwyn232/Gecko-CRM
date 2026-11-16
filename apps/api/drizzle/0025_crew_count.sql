@@ -1,0 +1,1 @@
+ALTER TABLE "organizations" ADD COLUMN "crew_count" integer DEFAULT 1 NOT NULL;

@@ -65,6 +65,7 @@ function OrgForm({ org, onClose }: { org?: Organization; onClose: () => void }) 
     iban: org?.iban ?? "",
     selfBillingPrefix: org?.selfBillingPrefix ?? "",
     selfBillingVatMode: org?.selfBillingVatMode ?? "",
+    crewCount: org?.crewCount ?? 1,
     isActive: org?.isActive ?? true,
   });
   const save = useMutation({
@@ -117,6 +118,11 @@ function OrgForm({ org, onClose }: { org?: Organization; onClose: () => void }) 
         <Field label="Btw-nummer"><input value={form.vatNumber} onChange={(e) => setForm({ ...form, vatNumber: e.target.value })} /></Field>
         <Field label="IBAN"><input value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value })} /></Field>
       </div>
+      {form.type === "installation_partner" && (
+        <Field label="Aantal ploegen (afspraken die tegelijk in één dagdeel passen)">
+          <input type="number" min={1} max={20} value={form.crewCount} style={{ width: 90 }} onChange={(e) => setForm({ ...form, crewCount: Math.max(1, Math.min(20, Number(e.target.value) || 1)) })} />
+        </Field>
+      )}
       {(form.type === "sales_partner" || form.type === "installation_partner") && (
         <div className="grid-2">
           <Field label="Selfbilling: voorvoegsel factuurnummer">
