@@ -11,6 +11,7 @@ import { CustomerDetailPage } from "./pages/CustomerDetail";
 import { CustomersPage } from "./pages/Customers";
 import { JourneysPage } from "./pages/Journeys";
 import { MessagesPage } from "./pages/Messages";
+import { ChecklistsPage } from "./pages/Checklists";
 import { ReportsPage } from "./pages/Reports";
 import { PublicSelfBillingPage, SelfBillingDetailPage, SelfBillingPage, SelfBillingPrintPage } from "./pages/SelfBilling";
 import { ProjectDetailPage } from "./pages/ProjectDetail";
@@ -103,6 +104,7 @@ export function App() {
           {can("organizations.read") && <NavLink to="/organisaties">Organisaties</NavLink>}
           {can("projects.read") && <NavLink to="/klantreizen">Klantreizen</NavLink>}
           {can("projects.read") && <NavLink to="/klantberichten">Klantberichten</NavLink>}
+          {can("planning.read") && <NavLink to="/checklists">Checklists</NavLink>}
           {can("planning.read") && <NavLink to="/regios">Regio's</NavLink>}
           {can("planning.read") && <NavLink to="/beschikbaarheid">Beschikbaarheid</NavLink>}
           {can("users.read") && <NavLink to="/gebruikers">Gebruikers</NavLink>}
@@ -129,6 +131,7 @@ export function App() {
           <Route path="/projecten/:id" element={<ProjectDetailPage />} />
           <Route path="/klantreizen" element={<JourneysPage />} />
           <Route path="/klantberichten" element={<MessagesPage />} />
+          <Route path="/checklists" element={<ChecklistsPage />} />
           <Route path="/offertes" element={<QuotesPage />} />
           <Route path="/facturen" element={<InvoicesPage />} />
           <Route path="/facturen/:id" element={<InvoiceDetailPage />} />

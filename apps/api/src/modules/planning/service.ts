@@ -17,6 +17,8 @@ import { appointmentVars, sendTemplateMessage } from "../messages/service.js";
 import { quotes } from "../quotes/schema.js";
 import { addLineInTx } from "../quotes/service.js";
 import { getSetting } from "../settings/service.js";
+import { checkReport, getChecklist } from "../checklists/service.js";
+import { listFiles } from "../files/storage.js";
 import { invoices } from "../invoices/schema.js";
 import { appointments, availabilityBlocks, partnerPenalties, partnerRegions, regions, reports, type ReportData } from "./schema.js";
 
@@ -527,6 +529,11 @@ export async function submitReport(
       throw badRequest("signature_required", "Voor de oplevering is de handtekening van de klant verplicht");
     }
     if (input.data.extraWork?.length && a.type !== "survey") throw badRequest("extra_work_only_survey", "Meerwerk wordt bij de schouw voorgesteld");
+    if (input.positive) {
+      const [proj] = await tx.select({ productGroupId: projects.productGroupId }).from(projects).where(eq(projects.id, a.projectId));
+      const photos = (await listFiles(tx, "appointment", appointmentId)).filter((f) => f.contentType.startsWith("image/") && f.id !== input.customerSignatureFileId).length;
+      checkReport(await getChecklist(tx, proj!.productGroupId, a.type as "survey" | "installation"), input.data.checklist, photos);
+    }
     const [existing] = await tx.select().from(reports).where(eq(reports.appointmentId, appointmentId));
     if (existing) await tx.delete(reports).where(eq(reports.id, existing.id)); // opnieuw indienen na afkeuring
     const [r] = await tx
@@ -573,7 +580,7 @@ export async function reviewReport(db: Db, actor: ActorContext, id: string, inpu
     if (r.review !== "pending") throw conflict("already_reviewed", "Rapport is al beoordeeld");
     const [a] = await tx.select().from(appointments).where(eq(appointments.id, r.appointmentId));
     await tx.update(reports).set({ review: input.approve ? "approved" : "rejected", reviewedBy: actor.userId, reviewedAt: new Date(), reviewNote: input.note ?? null }).where(eq(reports.id, id));
-    await recordAudit(tx, actor, { action: input.approve ? "report.approved" : "report.rejected", entityType: "project", entityId: a!.projectId, metadata: { reportId: id, note: input.note } });
+    await recordAudit(tx, actor, { action: input.approve ? "report.approved" : "report.rejected", entityType: "project", entityId: a!.projectId, metadata: { reportId: id, appointmentId: r.appointmentId, note: input.note } });
 
     let extraWorkQuoteId: string | null = null;
     if (!input.approve) {

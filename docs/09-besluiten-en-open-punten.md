@@ -49,6 +49,7 @@
 | B44 | Selfbilling alleen uitbetalen na akkoord van de ontvanger: bij definitief maken gaat een e-mail met persoonlijke akkoordlink (nieuwe link vervangt de oude). Ontvanger geeft akkoord of "niet akkoord" met reden, via de link of het partnerportaal. Vastgelegd: naam, tijd, IP, apparaat, e-mailadres, methode en inhoud-hash (in factuur en logboek); een gegeven akkoord is onveranderbaar (databasetrigger) en "betaald" kan in de database pas na akkoord. Bij niet akkoord krijgt Gecko een e-mail; na overleg opnieuw ter akkoord sturen. Akkoord via "Inloggen als" alleen in testmodus (gelogd) | 2026-11-16 |
 | B45 | Rapportages (menu Rapportages): doorlooptijd per status uit de statusgeschiedenis, projecten die langer dan X dagen in een status staan, marge (voorcalculatie bij akkoord) per productgroep/kanaal/installateur met wat via selfbilling werkelijk is afgerekend, first-time-right per installateur (opleverrapport nooit afgekeurd) en een cashflowprognose van 8 weken. Marge alleen met recht op inkoopprijzen, cashflow alleen met factuurrechten | 2026-11-16 |
 | B46 | Nacalculatie per project (projectkaart, en marge per project op de klantkaart): omzet, materiaal, installateur, boetes en fee — voor (offerte, prijzen van de offertedatum) naast na (facturen incl. creditnota's, definitieve selfbilling, boetes). Nog niet afgerekend = verwacht. Werkelijke inkoop volgt via Exact. Alleen met recht op inkoopprijzen | 2026-11-16 |
+| B47 | Checklists schouw/oplevering per productgroep zelf in te stellen (Beheer → Checklists): punten, verplicht ja/nee, minimum aantal foto's. Gelden bij een positief rapport; ingediende rapporten bewaren de punten op tekst. Startlijst is algemeen (O23) | 2026-11-16 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten
@@ -71,7 +72,7 @@
 | O18 | Mollie-account (vereist zakelijke rekening); daarna MOLLIE_API_KEY in Render | Gecko |
 | O19 | Exact Online: administratie, grootboekrekeningen per productgroep, daarna API-koppeling | Gecko / finance |
 | O21 | Foto's staan nu in de database; bij volume naar object storage (S3/R2, EU) | Techniek |
-| O23 | Checklists schouw/oplevering per productgroep inhoudelijk vaststellen (nu generiek) — definitieve lijst volgt | Gecko + partners |
+| O23 | Checklists schouw/oplevering per productgroep inhoudelijk vaststellen (nu generiek) — zelf in te voeren bij Beheer → Checklists | Gecko + partners |
 | O24 | Partners met meerdere ploegen tegelijk: instelling "aantal ploegen" per partner (nu één ploeg per blok) | Gecko |
 | O25 | Btw bij selfbilling installateurs: standaard "verlegd" (onderaanneming). Laten bevestigen door de accountant, per partner aan te passen bij Organisaties | Accountant |
 | O26 | Selfbilling automatisch wekelijks bundelen (nu handmatig per partner) | Gecko |

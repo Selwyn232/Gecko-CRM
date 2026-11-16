@@ -162,6 +162,13 @@
       "when": 1794836985989,
       "tag": "0022_selfbilling_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794841069025,
+      "tag": "0023_checklists",
+      "breakpoints": true
     }
   ]
 }

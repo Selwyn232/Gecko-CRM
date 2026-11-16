@@ -226,7 +226,8 @@ export async function partnerQuality(db: DbOrTx, f: ReportFilter) {
     sql`
     WITH r AS (
       SELECT a.partner_organization_id AS partner_id, r.type, r.review,
-             EXISTS (SELECT 1 FROM audit_log al WHERE al.action = 'report.rejected' AND al.metadata->>'reportId' = r.id::text) AS was_rejected
+             EXISTS (SELECT 1 FROM audit_log al WHERE al.action = 'report.rejected'
+               AND (al.metadata->>'reportId' = r.id::text OR al.metadata->>'appointmentId' = r.appointment_id::text)) AS was_rejected
       FROM reports r
       JOIN appointments a ON a.id = r.appointment_id
       JOIN projects p ON p.id = a.project_id

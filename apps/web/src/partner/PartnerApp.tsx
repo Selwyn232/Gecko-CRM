@@ -166,10 +166,10 @@ type PartnerAppointmentDetail = Appointment & {
   extraWorkProducts: { id: string; code: string; name: string; unit: string }[];
   files: { id: string; filename: string; contentType: string }[];
   reportDetail: Report | null;
+  /** Checklist van Gecko voor deze productgroep en soort afspraak. */
+  checklist: { items: { id: string; label: string; required: boolean }[]; minPhotos: number };
 };
 
-const SURVEY_CHECKS = ["Meterkast beoordeeld", "Locatie apparatuur bepaald", "Kabelroute bepaald", "Klant geïnformeerd over planning"];
-const INSTALL_CHECKS = ["Installatie getest en werkend", "Klant uitleg gegeven", "Werkplek opgeruimd", "Aangemeld/geregistreerd waar nodig"];
 
 function PartnerAppointment() {
   const { id } = useParams();
@@ -230,9 +230,9 @@ function PartnerAppointment() {
 function ReportForm({ appointment: a, onDone }: { appointment: PartnerAppointmentDetail; onDone: () => void }) {
   const qc = useQueryClient();
   const survey = a.type === "survey";
-  const checks = survey ? SURVEY_CHECKS : INSTALL_CHECKS;
+  const checks = a.checklist.items;
   const [positive, setPositive] = useState(true);
-  const [checklist, setChecklist] = useState<Record<string, boolean>>(Object.fromEntries(checks.map((c) => [c, false])));
+  const [checklist, setChecklist] = useState<Record<string, boolean>>(Object.fromEntries(checks.map((c) => [c.label, false])));
   const [remarks, setRemarks] = useState("");
   const [serials, setSerials] = useState("");
   const [extra, setExtra] = useState<{ productId: string; quantity: string; note: string }[]>([]);
@@ -272,8 +272,14 @@ function ReportForm({ appointment: a, onDone }: { appointment: PartnerAppointmen
         <button type="button" className={`btn ${!positive ? "danger" : ""}`} onClick={() => setPositive(false)}>{survey ? "Niet haalbaar" : "Werkt (nog) niet"}</button>
       </div>
       {checks.map((c) => (
-        <label key={c} className="checkbox"><input type="checkbox" checked={checklist[c]} onChange={(e) => setChecklist({ ...checklist, [c]: e.target.checked })} /> {c}</label>
+        <label key={c.id} className="checkbox">
+          <input type="checkbox" checked={!!checklist[c.label]} onChange={(e) => setChecklist({ ...checklist, [c.label]: e.target.checked })} /> {c.label}
+          {c.required && <span className="badge" style={{ marginLeft: 6 }} title="Verplicht af te vinken bij een positief rapport">verplicht</span>}
+        </label>
       ))}
+      {a.checklist.minPhotos > 0 && (
+        <p className="muted" style={{ fontSize: 13 }}>Minimaal {a.checklist.minPhotos} foto's nodig (bovenaan bij Foto's), nu {a.files.filter((f) => f.contentType.startsWith("image/") && !f.filename.startsWith("handtekening")).length}.</p>
+      )}
       <Field label="Opmerkingen"><textarea rows={3} value={remarks} onChange={(e) => setRemarks(e.target.value)} /></Field>
       {!survey && <Field label="Serienummers (één per regel)"><textarea rows={2} className="mono" value={serials} onChange={(e) => setSerials(e.target.value)} /></Field>}
       {survey && (

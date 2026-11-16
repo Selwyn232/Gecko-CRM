@@ -28,6 +28,7 @@ import { projects } from "../projects/schema.js";
 import { quoteLines, quotes } from "../quotes/schema.js";
 import { Decision } from "../selfbilling/routes.js";
 import { getSetting } from "../settings/service.js";
+import { getChecklist } from "../checklists/service.js";
 import { decideApproval, getSelfBillingInvoice, listSelfBilling, publicView } from "../selfbilling/service.js";
 import type { Config } from "../../config.js";
 import type { EmailTransport } from "../email/transport.js";
@@ -93,6 +94,7 @@ export const partnerRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; emai
     const [report] = await db.select().from(reports).where(eq(reports.appointmentId, a.id));
     return {
       ...view,
+      checklist: await getChecklist(db, project!.productGroupId, a.type as "survey" | "installation"),
       scope: lines,
       extraWorkProducts,
       files: await listFiles(db, "appointment", a.id),

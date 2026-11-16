@@ -8,6 +8,7 @@ import { organizations } from "../modules/organizations/schema.js";
 import { ensureDefaultJourneys } from "../modules/journeys/service.js";
 import { ensureMapRegions } from "../modules/planning/map-areas.js";
 import { ensureDefaultMessageTemplates } from "../modules/messages/service.js";
+import { ensureDefaultChecklists } from "../modules/checklists/service.js";
 
 /**
  * Basisgegevens die elk systeem nodig heeft. Idempotent: veilig om vaker te draaien;
@@ -157,6 +158,8 @@ export async function seed(db: Db) {
     await ensureMapRegions(tx);
     // Standaard klantberichten per status en voor afspraken (nooit overschrijven)
     await ensureDefaultMessageTemplates(tx);
+    // Checklists schouw/oplevering per productgroep (startlijst; daarna zelf in te stellen)
+    await ensureDefaultChecklists(tx);
 
     for (const c of channels) {
       const inserted = await tx.insert(salesChannels).values(c).onConflictDoNothing().returning();

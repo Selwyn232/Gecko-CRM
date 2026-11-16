@@ -15,3 +15,4 @@ export * from "../modules/files/schema.js";
 export * from "../modules/planning/schema.js";
 export * from "../modules/messages/schema.js";
 export * from "../modules/selfbilling/schema.js";
+export * from "../modules/checklists/schema.js";
