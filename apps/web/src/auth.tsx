@@ -38,7 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout: async () => {
       await api.post("/auth/logout").catch(() => undefined);
       qc.clear();
-      await qc.invalidateQueries({ queryKey: ["me"] });
+      // Volledig herladen: wist alle gegevens in het geheugen en toont gegarandeerd het inlogscherm.
+      window.location.replace("/");
     },
   };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
