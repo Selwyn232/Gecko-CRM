@@ -44,3 +44,7 @@ export const Loading = () => <div className="empty">Laden…</div>;
 export function ActiveBadge({ active }: { active: boolean }) {
   return active ? <span className="badge green">Actief</span> : <span className="badge">Inactief</span>;
 }
+
+export function StatusPill({ status }: { status: { name: string; color: string } }) {
+  return <span className={`status ${status.color}`}>{status.name}</span>;
+}

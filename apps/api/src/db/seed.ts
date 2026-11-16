@@ -5,6 +5,7 @@ import { ADMIN_ROLE_KEY, type Permission } from "../modules/auth/permissions.js"
 import { rolePermissions, roles } from "../modules/auth/schema.js";
 import { productGroups, salesChannelProductGroups, salesChannels, vatCodes, vatRates } from "../modules/catalog/schema.js";
 import { organizations } from "../modules/organizations/schema.js";
+import { ensureDefaultJourneys } from "../modules/journeys/service.js";
 
 /**
  * Basisgegevens die elk systeem nodig heeft. Idempotent: veilig om vaker te draaien;
@@ -17,13 +18,13 @@ const DEFAULT_ROLES: { key: string; name: string; description: string; isSystem?
     key: "klantspecialist",
     name: "Klantspecialist",
     description: "Klantcontact en dossierbeheer",
-    permissions: ["catalog.read", "organizations.read", "users.read"],
+    permissions: ["catalog.read", "organizations.read", "users.read", "customers.read", "customers.manage", "projects.read", "projects.manage"],
   },
   {
     key: "planner",
     name: "Planner",
     description: "Planning van schouwen en installaties",
-    permissions: ["catalog.read", "organizations.read", "users.read"],
+    permissions: ["catalog.read", "organizations.read", "users.read", "customers.read", "projects.read", "projects.manage"],
   },
   {
     key: "finance",
@@ -37,6 +38,8 @@ const DEFAULT_ROLES: { key: string; name: string; description: string; isSystem?
       "sales_prices.manage",
       "purchase_prices.read",
       "purchase_prices.manage",
+      "customers.read",
+      "projects.read",
     ],
   },
 ];
@@ -97,6 +100,9 @@ export async function seed(db: Db) {
       { key: "web", name: "Web", salesPartnerOrganizationId: null },
       { key: "binnendienst", name: "Binnendienst", salesPartnerOrganizationId: null },
     ];
+    // Klantreis per productgroep (alleen als die er nog niet is)
+    await ensureDefaultJourneys(tx);
+
     for (const c of channels) {
       const inserted = await tx.insert(salesChannels).values(c).onConflictDoNothing().returning();
       if (inserted.length) {

@@ -22,6 +22,10 @@
 | B16 | Grens configureerbaarheid zoals in 01 | 2026-11-16 |
 | B17 | TypeScript + PostgreSQL, hosting EU; uitgebreide backups (zie 07) | 2026-11-16 |
 | B18 | Fasering zoals in 08 | 2026-11-16 |
+| B19 | Inloggen met e-mail of gebruikersnaam. 2FA standaard verplicht, per gebruiker uit te zetten door een beheerder (afgeraden). Startwachtwoorden moeten bij eerste login worden vervangen | 2026-11-16 |
+| B20 | Accounts selwyn, renee, barry, jurriaan: beheerder, zonder 2FA (op verzoek, tegen advies in) | 2026-11-16 |
+| B21 | Klantreis per productgroep: statussen met fase, start/eind, en expliciet toegestane overgangen; volledig instelbaar | 2026-11-16 |
+| B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten
 
@@ -39,4 +43,5 @@
 | O10 | Zelffactureringsovereenkomsten met Greenteam en partners | Jurist / finance |
 | O11 | Vervaldatum aanbetaling: hoeveel dagen vóór de schouw (X)? Wat bij niet betalen? | Gecko |
 | O12 | Leverancier digitale handtekening, WhatsApp-BSP, telefonie | Te kiezen in v1/v2 |
+| O14 | 2FA weer verplicht maken voor alle beheerders zodra er echte klantdata in staat | Gecko |
 | O13 | Verkoopprijs vast bij ondertekening, ook als inkoop stijgt tijdens lange wachttijd? | Gecko |

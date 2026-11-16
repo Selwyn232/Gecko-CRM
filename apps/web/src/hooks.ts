@@ -12,3 +12,7 @@ export const useUsers = () => useQuery({ queryKey: ["users"], queryFn: () => api
 
 export const nameById = <T extends { id: string; name: string }>(list: T[] | undefined, id: string | null | undefined) =>
   list?.find((x) => x.id === id)?.name ?? "—";
+
+import type { JourneyStatus, ProductGroup as PG } from "./api";
+export const useJourneys = () =>
+  useQuery({ queryKey: ["journeys"], queryFn: () => api.get<{ productGroup: PG; statuses: JourneyStatus[] }[]>("/journeys") });

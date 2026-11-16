@@ -18,6 +18,9 @@ import { auditRoutes } from "./modules/audit/routes.js";
 import { authRoutes } from "./modules/auth/routes.js";
 import { AuthService } from "./modules/auth/service.js";
 import { catalogRoutes } from "./modules/catalog/routes.js";
+import { customerRoutes } from "./modules/customers/routes.js";
+import { journeyRoutes } from "./modules/journeys/routes.js";
+import { projectRoutes } from "./modules/projects/routes.js";
 import { organizationRoutes } from "./modules/organizations/routes.js";
 import { roleRoutes } from "./modules/roles/routes.js";
 import { userRoutes } from "./modules/users/routes.js";
@@ -126,6 +129,9 @@ export async function buildApp({ config, db, webDistDir }: AppDeps) {
       await api.register(organizationRoutes, { db });
       await api.register(auditRoutes, { db });
       await api.register(catalogRoutes, { db });
+      await api.register(customerRoutes, { db });
+      await api.register(projectRoutes, { db });
+      await api.register(journeyRoutes, { db });
     },
     { prefix: "/api" },
   );

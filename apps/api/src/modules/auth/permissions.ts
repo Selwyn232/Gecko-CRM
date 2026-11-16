@@ -18,6 +18,11 @@ export const PERMISSIONS = {
   "purchase_prices.read": "Inkoopprijzen en partnertarieven bekijken",
   "purchase_prices.manage": "Inkoopprijzen en partnertarieven beheren",
   "settings.manage": "Systeeminstellingen beheren (o.a. btw-tarieven)",
+  "customers.read": "Klanten en woningen bekijken",
+  "customers.manage": "Klanten en woningen aanmaken en wijzigen",
+  "projects.read": "Projecten en hun status bekijken",
+  "projects.manage": "Projecten aanmaken, wijzigen en status aanpassen",
+  "journeys.manage": "Klantreizen (statussen en overgangen) instellen",
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

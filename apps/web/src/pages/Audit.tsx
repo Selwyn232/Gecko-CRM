@@ -36,17 +36,30 @@ const ACTIONS: Record<string, string> = {
   "product_group.created": "Productgroep aangemaakt",
   "product_group.updated": "Productgroep gewijzigd",
   "vat_rate.created": "Btw-tarief toegevoegd",
+  "customer.created": "Klant aangemaakt",
+  "customer.updated": "Klant gewijzigd",
+  "property.created": "Woning toegevoegd",
+  "property.updated": "Woning gewijzigd",
+  "project.created": "Project aangemaakt",
+  "project.updated": "Project gewijzigd",
+  "project.status_changed": "Status gewijzigd",
+  "journey_status.created": "Status aangemaakt",
+  "journey_status.updated": "Status gewijzigd",
+  "journey_status.deleted": "Status verwijderd",
+  "journey_status.transitions_set": "Overgangen gewijzigd",
 };
 
 const FIELD_LABELS: Record<string, string> = {
   name: "Naam", email: "E-mail", isActive: "Actief", roleIds: "Rollen", organizationId: "Organisatie",
   priceCents: "Prijs", validFrom: "Ingangsdatum", scopeId: "Kanaal/leverancier/partner", code: "Code",
   type: "Type", vatCode: "Btw", unit: "Eenheid", description: "Omschrijving", permissions: "Rechten",
-  productGroupIds: "Productgroepen", bom: "Stuklijst", mfaEnabled: "2FA",
+  productGroupIds: "Productgroepen", bom: "Stuklijst", mfaEnabled: "2FA", status: "Status", firstName: "Voornaam",
+  lastName: "Achternaam", phone: "Telefoon", street: "Straat", houseNumber: "Huisnummer", postalCode: "Postcode", city: "Plaats",
+  installationPartnerId: "Installatiepartner", paymentMethod: "Betaalwijze", next: "Vervolgstatussen", phase: "Fase", mfaRequired: "2FA verplicht", username: "Gebruikersnaam",
 };
 /** Technische velden die in het logboek niets toevoegen. */
-const HIDDEN = new Set(["id", "productId", "createdAt", "createdBy", "lastLoginAt", "lockedUntil"]);
-const ENTITY: Record<string, string> = { user: "Gebruiker", role: "Rol", organization: "Organisatie", product: "Product", sales_channel: "Kanaal", product_group: "Productgroep", vat_code: "Btw" };
+const HIDDEN = new Set(["id", "productId", "createdAt", "createdBy", "lastLoginAt", "lockedUntil", "number", "customerId", "statusChangedAt", "statusId", "propertyId", "productGroupId", "salesChannelId", "country", "sortOrder"]);
+const ENTITY: Record<string, string> = { customer: "Klant", project: "Project", journey_status: "Klantreis", user: "Gebruiker", role: "Rol", organization: "Organisatie", product: "Product", sales_channel: "Kanaal", product_group: "Productgroep", vat_code: "Btw" };
 
 const show = (key: string, v: unknown) => {
   if (v === null || v === undefined || v === "") return "—";
@@ -79,6 +92,9 @@ export function AuditPage() {
       <div className="row" style={{ marginBottom: 12 }}>
         <select value={entityType} onChange={(e) => setEntityType(e.target.value)}>
           <option value="">Alles</option>
+          <option value="customer">Klanten</option>
+          <option value="project">Projecten</option>
+          <option value="journey_status">Klantreizen</option>
           <option value="user">Gebruikers</option>
           <option value="role">Rollen</option>
           <option value="organization">Organisaties</option>

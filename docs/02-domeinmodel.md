@@ -105,3 +105,14 @@ factuur- en calculatieregel slaat een **snapshot** op van de prijs die toen gold
 Data wordt afgeschermd op **organisatie**: Greenteam ziet alleen projecten uit eigen kanaal, een
 installatiepartner alleen projecten waaraan die is toegewezen, een klant alleen eigen gegevens.
 Dit wordt in de database afgedwongen, niet alleen in de UI.
+
+## Gebouwd (stand 16-11-2026)
+
+| Onderdeel | Tabellen |
+|---|---|
+| Klanten | `customers` (klantnummer K-000001), `properties` (adres, postcode genormaliseerd) |
+| Projecten | `projects` (projectnummer P-000001, productgroep, kanaal, status, partner, betaalwijze), `project_status_history` |
+| Klantreis | `journey_statuses` (per productgroep, fase, start/eind, kleur), `journey_transitions` |
+| Gebeurtenissen | `outbox_events` (`customer.created`, `project.created`, `project.status_changed`) |
+
+Telefoonnummers worden opgeslagen als +31…, zodat inkomende WhatsApp/telefonie later automatisch aan de klant te koppelen is.

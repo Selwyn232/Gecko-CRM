@@ -34,3 +34,12 @@ export const ORG_TYPES: Record<string, string> = {
   installation_partner: "Installatiepartner",
   supplier: "Leverancier",
 };
+
+export const customerName = (c: { firstName: string | null; lastName: string }) => [c.firstName, c.lastName].filter(Boolean).join(" ");
+
+export const formatAddress = (p: { street: string; houseNumber: string; houseNumberAddition: string | null; postalCode: string; city: string }) =>
+  `${p.street} ${p.houseNumber}${p.houseNumberAddition ? `-${p.houseNumberAddition}` : ""}, ${p.postalCode.replace(/^(\d{4})([A-Z]{2})$/, "$1 $2")} ${p.city}`;
+
+export const PAYMENT_METHODS: Record<string, string> = { direct: "Direct (iDEAL/overschrijving)", warmtefonds: "Warmtefonds" };
+
+export const daysSince = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);

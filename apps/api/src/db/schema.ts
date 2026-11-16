@@ -3,3 +3,7 @@ export * from "../modules/organizations/schema.js";
 export * from "../modules/auth/schema.js";
 export * from "../modules/audit/schema.js";
 export * from "../modules/catalog/schema.js";
+export * from "../modules/events/schema.js";
+export * from "../modules/journeys/schema.js";
+export * from "../modules/customers/schema.js";
+export * from "../modules/projects/schema.js";

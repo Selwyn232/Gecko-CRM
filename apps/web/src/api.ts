@@ -149,3 +149,75 @@ export interface Cost {
   complete: boolean;
   missingPrices: string[];
 }
+
+export interface Property {
+  id: string;
+  customerId: string;
+  street: string;
+  houseNumber: string;
+  houseNumberAddition: string | null;
+  postalCode: string;
+  city: string;
+  country: string;
+  notes: string | null;
+}
+export interface JourneyStatus {
+  id: string;
+  productGroupId: string;
+  key: string;
+  name: string;
+  phase: string;
+  sortOrder: number;
+  isInitial: boolean;
+  isFinal: boolean;
+  color: string;
+  isActive: boolean;
+  nextStatusIds?: string[];
+  projectCount?: number;
+}
+export interface CustomerSummary {
+  id: string;
+  number: number;
+  displayNumber: string;
+  firstName: string | null;
+  lastName: string;
+  email: string | null;
+  phone: string | null;
+  salesChannelId: string | null;
+  notes: string | null;
+  createdAt: string;
+  properties: Property[];
+  projectCount?: number;
+}
+export interface ProjectSummary {
+  id: string;
+  displayNumber: string;
+  customerId: string;
+  propertyId: string;
+  productGroupId: string;
+  salesChannelId: string;
+  statusId: string;
+  statusChangedAt: string;
+  installationPartnerId: string | null;
+  paymentMethod: "direct" | "warmtefonds";
+  notes: string | null;
+  createdAt: string;
+  status: JourneyStatus;
+}
+export interface CustomerDetail extends CustomerSummary {
+  projects: ProjectSummary[];
+}
+export interface ProjectListItem extends ProjectSummary {
+  customer: { id: string; displayNumber: string; firstName: string | null; lastName: string };
+  property: Property;
+}
+export interface ProjectDetail extends ProjectSummary {
+  customer: CustomerSummary;
+  property: Property;
+  history: { id: string; fromStatusId: string | null; toStatusId: string; changedAt: string; changedByName: string | null; note: string | null }[];
+  nextStatuses: JourneyStatus[];
+}
+export interface Paged<T> {
+  total: number;
+  items: T[];
+}

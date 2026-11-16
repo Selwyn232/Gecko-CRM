@@ -4,6 +4,11 @@ import { useAuth } from "./auth";
 import { ChangePasswordModal } from "./components/ChangePassword";
 import { AuditPage } from "./pages/Audit";
 import { ChannelsPage } from "./pages/Channels";
+import { CustomerDetailPage } from "./pages/CustomerDetail";
+import { CustomersPage } from "./pages/Customers";
+import { JourneysPage } from "./pages/Journeys";
+import { ProjectDetailPage } from "./pages/ProjectDetail";
+import { ProjectsPage } from "./pages/Projects";
 import { LoginPage } from "./pages/Login";
 import { OrganizationsPage } from "./pages/Organizations";
 import { ProductDetailPage } from "./pages/ProductDetail";
@@ -23,11 +28,15 @@ export function App() {
           <span className="brand-mark">G</span> Gecko CRM
         </div>
         <nav className="nav">
+          <div className="nav-section">Klanten</div>
+          {can("customers.read") && <NavLink to="/klanten">Klanten</NavLink>}
+          {can("projects.read") && <NavLink to="/projecten">Projecten</NavLink>}
           <div className="nav-section">Catalogus</div>
           {can("catalog.read") && <NavLink to="/producten">Producten</NavLink>}
           {can("catalog.read") && <NavLink to="/verkoopkanalen">Verkoopkanalen</NavLink>}
           <div className="nav-section">Beheer</div>
           {can("organizations.read") && <NavLink to="/organisaties">Organisaties</NavLink>}
+          {can("projects.read") && <NavLink to="/klantreizen">Klantreizen</NavLink>}
           {can("users.read") && <NavLink to="/gebruikers">Gebruikers</NavLink>}
           {can("users.read") && <NavLink to="/rollen">Rollen &amp; rechten</NavLink>}
           {can("audit.read") && <NavLink to="/logboek">Logboek</NavLink>}
@@ -43,7 +52,12 @@ export function App() {
       </aside>
       <main className="main">
         <Routes>
-          <Route path="/" element={<Navigate to="/producten" replace />} />
+          <Route path="/" element={<Navigate to={can("projects.read") ? "/projecten" : "/producten"} replace />} />
+          <Route path="/klanten" element={<CustomersPage />} />
+          <Route path="/klanten/:id" element={<CustomerDetailPage />} />
+          <Route path="/projecten" element={<ProjectsPage />} />
+          <Route path="/projecten/:id" element={<ProjectDetailPage />} />
+          <Route path="/klantreizen" element={<JourneysPage />} />
           <Route path="/producten" element={<ProductsPage />} />
           <Route path="/producten/:id" element={<ProductDetailPage />} />
           <Route path="/verkoopkanalen" element={<ChannelsPage />} />
