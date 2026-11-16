@@ -128,7 +128,20 @@ function PartnerAppointments() {
       {todo.length > 0 && <div className="alert warning">{todo.length} afspraak/afspraken wacht(en) op een rapport.</div>}
       <div className="card flush">
         {list.isLoading ? <Loading /> : !list.data?.length ? <div className="empty">Geen afspraken.</div> : (
-          <table>
+          <>
+          <div className="only-mobile">
+            {list.data.map((a) => (
+              <Link key={a.id} to={`/afspraken/${a.id}`} className="appt-card">
+                <div className="row" style={{ justifyContent: "space-between" }}>
+                  <strong>{weekday(a.date)} · {TIME_WINDOW[a.timeWindow]}</strong>
+                  {a.report ? <span className={`status ${REPORT_REVIEW[a.report.review]!.color}`}>{REPORT_REVIEW[a.report.review]!.label}</span> : a.status === "planned" && a.date <= todayIso() ? <span className="badge yellow">Rapport indienen</span> : <span className={`status ${APPOINTMENT_STATUS[a.status]!.color}`}>{APPOINTMENT_STATUS[a.status]!.label}</span>}
+                </div>
+                <div>{APPOINTMENT_TYPE[a.type]} {a.productGroupName.toLowerCase()}{a.days > 1 && ` (${a.days} dagen)`}</div>
+                <div className="muted" style={{ fontSize: 13 }}>{[a.customer.firstName, a.customer.lastName].filter(Boolean).join(" ")} · {a.address}</div>
+              </Link>
+            ))}
+          </div>
+          <table className="only-desktop">
             <thead><tr><th>Datum</th><th>Soort</th><th>Klant / adres</th><th>Status</th><th>Rapport</th></tr></thead>
             <tbody>
               {list.data.map((a) => (
@@ -142,6 +155,7 @@ function PartnerAppointments() {
               ))}
             </tbody>
           </table>
+          </>
         )}
       </div>
       {openPenalties.length > 0 && (
