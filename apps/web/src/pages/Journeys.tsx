@@ -26,7 +26,7 @@ export function JourneysPage() {
     <>
       <PageHead
         title="Klantreizen"
-        sub="Per productgroep: de statussen van een project en welke overgangen zijn toegestaan. Automatische berichten per status volgen later."
+        sub="Per productgroep: de statussen van een project en welke overgangen zijn toegestaan. De e-mail aan de klant per status stel je in bij Klantberichten."
         actions={manage && <button className="btn primary" onClick={() => setEditing("new")}>Nieuwe status</button>}
       />
       <div className="tabs">

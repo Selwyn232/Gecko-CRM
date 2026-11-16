@@ -7,6 +7,7 @@ import { productGroups, salesChannelProductGroups, salesChannels, vatCodes, vatR
 import { organizations } from "../modules/organizations/schema.js";
 import { ensureDefaultJourneys } from "../modules/journeys/service.js";
 import { ensureMapRegions } from "../modules/planning/map-areas.js";
+import { ensureDefaultMessageTemplates } from "../modules/messages/service.js";
 
 /**
  * Basisgegevens die elk systeem nodig heeft. Idempotent: veilig om vaker te draaien;
@@ -154,6 +155,8 @@ export async function seed(db: Db) {
     await ensureDefaultJourneys(tx);
     // De 200 kaartgebieden als regio's
     await ensureMapRegions(tx);
+    // Standaard klantberichten per status en voor afspraken (nooit overschrijven)
+    await ensureDefaultMessageTemplates(tx);
 
     for (const c of channels) {
       const inserted = await tx.insert(salesChannels).values(c).onConflictDoNothing().returning();

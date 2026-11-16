@@ -30,6 +30,7 @@ import { settingsRoutes } from "./modules/settings/routes.js";
 import { partnerRoutes } from "./modules/partner/routes.js";
 import { planningRoutes } from "./modules/planning/routes.js";
 import { testingRoutes } from "./modules/testing/routes.js";
+import { messageRoutes } from "./modules/messages/routes.js";
 import { organizationRoutes } from "./modules/organizations/routes.js";
 import { roleRoutes } from "./modules/roles/routes.js";
 import { userRoutes } from "./modules/users/routes.js";
@@ -158,6 +159,7 @@ export async function buildApp({
       await api.register(planningRoutes, { db, emailTransport });
       await api.register(partnerRoutes, { db });
       await api.register(testingRoutes, { db });
+      await api.register(messageRoutes, { db, emailTransport });
     },
     { prefix: "/api" },
   );

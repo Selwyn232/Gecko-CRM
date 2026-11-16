@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { Fragment, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, type InvoiceSummary, type CustomerDetail, type ProjectDetail, type Quote, type QuoteListItem } from "../api";
 import { QuotesTable } from "./Quotes";
 import { InvoicesTable } from "./Invoices";
 import { useAuth } from "../auth";
 import { ErrorBox, Field, Loading, Modal, StatusPill } from "../components/ui";
-import { customerName, formatAddress, formatDate, PAYMENT_METHODS } from "../format";
+import { customerName, formatAddress, formatDate, formatDateTime, PAYMENT_METHODS } from "../format";
 import { nameById, useAdvisors, useChannels, useOrganizations, useProductGroups } from "../hooks";
 import { AddressFields, CustomerForm } from "./Customers";
 
@@ -104,13 +104,71 @@ export function CustomerDetailPage() {
           <InvoicesTable items={invoices.data} showCustomer={false} />
         </div>
       )}
-      <p className="muted" style={{ fontSize: 13 }}>Marge na oplevering en communicatie volgen in de volgende stappen.</p>
+      <CustomerEmails customerId={c.id} />
 
       {editing && <CustomerForm customer={c} onClose={() => setEditing(false)} />}
       {addingProperty && <PropertyForm customerId={c.id} onClose={() => setAddingProperty(false)} />}
       {addingQuote && <QuoteForm customer={c} onClose={() => setAddingQuote(false)} onSaved={(q) => navigate(`/offertes/${q.id}`)} />}
       {addingProject && <ProjectForm customer={c} onClose={() => setAddingProject(false)} onSaved={(p) => navigate(`/projecten/${p.id}`)} />}
     </>
+  );
+}
+
+const EMAIL_KINDS: Record<string, string> = {
+  "quote.link": "Offerte",
+  "quote.code": "Bevestigingscode offerte",
+  "quote.accepted": "Bevestiging opdracht",
+  "invoice.deposit": "Aanbetalingsfactuur",
+  "invoice.final": "Eindfactuur",
+  "invoice.credit": "Creditnota",
+  "project.status": "Statusbericht",
+  "appointment.scheduled": "Afspraak ingepland",
+  "appointment.scheduled.survey": "Schouw ingepland",
+  "appointment.scheduled.installation": "Installatie ingepland",
+  "appointment.canceled": "Afspraak geannuleerd",
+  "appointment.reminder.survey": "Herinnering schouw",
+  "appointment.reminder.installation": "Herinnering installatie",
+};
+const EMAIL_STATUS: Record<string, { label: string; cls: string }> = {
+  sent: { label: "Verstuurd", cls: "green" },
+  queued: { label: "In de wachtrij", cls: "yellow" },
+  failed: { label: "Mislukt", cls: "red" },
+  not_sent: { label: "Niet verstuurd", cls: "" },
+};
+interface CustomerEmail { id: string; toAddress: string; subject: string; text: string; template: string; status: string; error: string | null; createdAt: string }
+
+/** Alle e-mails aan deze klant; klik op een regel voor de tekst. */
+function CustomerEmails({ customerId }: { customerId: string }) {
+  const emails = useQuery({ queryKey: ["customer-emails", customerId], queryFn: () => api.get<CustomerEmail[]>(`/customers/${customerId}/emails`) });
+  const [open, setOpen] = useState<string | null>(null);
+  return (
+    <div className="card flush">
+      <div style={{ padding: "16px 20px 8px" }}><h2 style={{ margin: 0 }}>E-mails</h2></div>
+      {!emails.data?.length ? <div className="empty">Nog geen e-mails verstuurd.</div> : (
+        <table>
+          <thead><tr><th>Datum</th><th>Soort</th><th>Onderwerp</th><th>Aan</th><th>Status</th></tr></thead>
+          <tbody>
+            {emails.data.map((e) => {
+              const st = EMAIL_STATUS[e.status] ?? { label: e.status, cls: "" };
+              return (
+                <Fragment key={e.id}>
+                  <tr className="clickable" onClick={() => setOpen(open === e.id ? null : e.id)}>
+                    <td className="muted" style={{ whiteSpace: "nowrap" }}>{formatDateTime(e.createdAt)}</td>
+                    <td style={{ fontSize: 13 }}>{EMAIL_KINDS[e.template] ?? (e.template.startsWith("invoice") || e.template.startsWith("dunning") ? "Factuur / betaling" : e.template)}</td>
+                    <td>{e.subject}</td>
+                    <td style={{ fontSize: 13 }}>{e.toAddress}</td>
+                    <td><span className={`badge ${st.cls}`} title={e.error ?? undefined}>{st.label}</span></td>
+                  </tr>
+                  {open === e.id && (
+                    <tr><td colSpan={5} style={{ whiteSpace: "pre-wrap", fontSize: 13, background: "var(--surface-2)" }}>{e.text}{e.error && <div className="alert error" style={{ marginTop: 8 }}>{e.error}</div>}</td></tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
 

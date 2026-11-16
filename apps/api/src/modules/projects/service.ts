@@ -204,7 +204,7 @@ export async function changeStatus(
       after: { status: to.name },
       metadata: input.note ? { note: input.note } : undefined,
     });
-    await emitEvent(tx, "project.status_changed", { type: "project", id }, { projectId: id, fromStatusKey: from?.key, toStatusKey: to.key });
+    await emitEvent(tx, "project.status_changed", { type: "project", id }, { projectId: id, fromStatusKey: from?.key, toStatusKey: to.key, toStatusId: to.id });
     return getProject(tx, id);
   });
 }

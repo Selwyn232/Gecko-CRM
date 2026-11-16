@@ -104,6 +104,10 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: grid; place-items: center; padding: 16px; z-index: 10; }
 .modal { background: var(--surface); border-radius: 10px; padding: 24px; width: 100%; max-width: 520px; max-height: 90vh; overflow: auto; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); }
+.modal.wide { max-width: 1040px; }
+.chip { display: inline-block; padding: 2px 8px; margin: 0 4px 4px 0; border-radius: 99px; border: 1px solid var(--border); background: var(--surface-2); font-size: 12px; font-family: ui-monospace, monospace; cursor: pointer; color: var(--text); }
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.mail-preview { width: 100%; height: 460px; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 
 .auth-wrap { min-height: 100%; display: grid; place-items: center; padding: 16px; }

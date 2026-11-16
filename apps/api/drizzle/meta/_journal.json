@@ -141,6 +141,13 @@
       "when": 1794817354792,
       "tag": "0019_session_impersonation",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794834250415,
+      "tag": "0020_message_templates",
+      "breakpoints": true
     }
   ]
 }

@@ -10,6 +10,7 @@ import { ChannelsPage } from "./pages/Channels";
 import { CustomerDetailPage } from "./pages/CustomerDetail";
 import { CustomersPage } from "./pages/Customers";
 import { JourneysPage } from "./pages/Journeys";
+import { MessagesPage } from "./pages/Messages";
 import { ProjectDetailPage } from "./pages/ProjectDetail";
 import { ProjectsPage } from "./pages/Projects";
 import { QuoteDetailPage } from "./pages/QuoteDetail";
@@ -88,6 +89,7 @@ export function App() {
           <div className="nav-section">Beheer</div>
           {can("organizations.read") && <NavLink to="/organisaties">Organisaties</NavLink>}
           {can("projects.read") && <NavLink to="/klantreizen">Klantreizen</NavLink>}
+          {can("projects.read") && <NavLink to="/klantberichten">Klantberichten</NavLink>}
           {can("planning.read") && <NavLink to="/regios">Regio's</NavLink>}
           {can("planning.read") && <NavLink to="/beschikbaarheid">Beschikbaarheid</NavLink>}
           {can("users.read") && <NavLink to="/gebruikers">Gebruikers</NavLink>}
@@ -113,6 +115,7 @@ export function App() {
           <Route path="/projecten" element={<ProjectsPage />} />
           <Route path="/projecten/:id" element={<ProjectDetailPage />} />
           <Route path="/klantreizen" element={<JourneysPage />} />
+          <Route path="/klantberichten" element={<MessagesPage />} />
           <Route path="/offertes" element={<QuotesPage />} />
           <Route path="/facturen" element={<InvoicesPage />} />
           <Route path="/facturen/:id" element={<InvoiceDetailPage />} />

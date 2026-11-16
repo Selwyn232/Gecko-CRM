@@ -7,6 +7,8 @@ export interface SendEmailInput extends EmailMessage {
   template: string;
   customerId?: string | null;
   related?: { type: string; id: string };
+  /** Zelfde sleutel = niet nogmaals versturen. */
+  dedupeKey?: string;
 }
 
 /** Uitkomst van elke verzending in de serverlogs (zonder inhoud of ontvanger), voor diagnose. */
@@ -22,6 +24,10 @@ function logEmail(level: "info" | "error", data: Record<string, unknown>) {
  * Een mislukte verzending gooit geen fout naar de gebruiker; de status wordt "failed" met de reden.
  */
 export async function sendEmail(db: DbOrTx, transport: EmailTransport | null, input: SendEmailInput) {
+  if (input.dedupeKey) {
+    const [existing] = await db.select().from(outboundEmails).where(eq(outboundEmails.dedupeKey, input.dedupeKey));
+    if (existing) return existing;
+  }
   const [row] = await db
     .insert(outboundEmails)
     .values({
@@ -33,6 +39,7 @@ export async function sendEmail(db: DbOrTx, transport: EmailTransport | null, in
       customerId: input.customerId ?? null,
       relatedType: input.related?.type ?? null,
       relatedId: input.related?.id ?? null,
+      dedupeKey: input.dedupeKey ?? null,
       status: transport ? "queued" : "not_sent",
       provider: transport?.name ?? null,
     })

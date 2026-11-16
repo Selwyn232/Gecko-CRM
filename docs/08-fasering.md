@@ -6,7 +6,7 @@
 - Klanten, woningen, projecten
 - Productcatalogus, stuklijsten, prijslijsten per kanaal, inkoop- en partnerprijzen (met versies)
 - Offertes (ook via API voor Greenteam) + digitale handtekening → order
-- Configureerbare statusflow per productgroep + basis-automatiseringen (e-mail bij statuswissel)
+- Configureerbare statusflow per productgroep + basis-automatiseringen (e-mail bij statuswissel — gebouwd, zie Klantberichten)
 - Facturatie (aanbetaling, eind, credit) + Exact-koppeling + Mollie
 - Herinneringen en aanmaanflow
 - Voor- en nacalculatie op de klantkaart

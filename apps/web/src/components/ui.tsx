@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import { ApiError } from "../api";
 
-export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-label={title}>
+      <div className={wide ? "modal wide" : "modal"} role="dialog" aria-label={title}>
         <h2>{title}</h2>
         {children}
       </div>

@@ -44,6 +44,7 @@
 | B40 | "Inloggen als" voor beheerders (recht users.impersonate): niet als jezelf of andere beheerder, max. 1 uur, zichtbare balk, start en alle acties gelogd met de beheerder erbij | 2026-11-16 |
 | B41 | Testmodus (instelling, standaard uit): vandaag plannen, rapporten direct indienen, testscenario's met testklant en "Testinstallateur (test)". Paarse balk zolang aan; uitzetten vóór echte klanten | 2026-11-16 |
 | B38 | Partner niet gekomen: boete €250 (instelbaar), automatisch geregistreerd, kwijt te schelden met reden; verrekening via selfbilling | 2026-11-16 |
+| B42 | Klantberichten: per status in de klantreis een e-mail (aan/uit, tekst met invulvelden), plus vaste berichten bij afspraak ingepland/geannuleerd en een herinnering de dag vóór de afspraak (vanaf 9:00). Standaardteksten worden nooit overschreven; elk bericht hooguit één keer (dedupe), alles zichtbaar op de klantkaart. Beheer: Klantberichten (recht journeys.manage) | 2026-11-16 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten

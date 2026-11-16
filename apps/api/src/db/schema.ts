@@ -13,3 +13,4 @@ export * from "../modules/settings/schema.js";
 export * from "../modules/invoices/schema.js";
 export * from "../modules/files/schema.js";
 export * from "../modules/planning/schema.js";
+export * from "../modules/messages/schema.js";

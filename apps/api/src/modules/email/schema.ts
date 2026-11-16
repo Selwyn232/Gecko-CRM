@@ -25,6 +25,8 @@ export const outboundEmails = pgTable(
     provider: text("provider"),
     providerMessageId: text("provider_message_id"),
     error: text("error"),
+    /** Voorkomt dubbel versturen bij automatische berichten (bv. herinnering per afspraak). */
+    dedupeKey: text("dedupe_key").unique(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     sentAt: timestamp("sent_at", { withTimezone: true }),
   },

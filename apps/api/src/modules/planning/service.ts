@@ -6,8 +6,6 @@ import { badRequest, conflict, forbidden, notFound } from "../../lib/errors.js";
 import { recordAudit } from "../audit/service.js";
 import { productGroups } from "../catalog/schema.js";
 import { customers, properties } from "../customers/schema.js";
-import { escapeHtml, layout } from "../email/layout.js";
-import { sendEmail } from "../email/service.js";
 import type { EmailTransport } from "../email/transport.js";
 import { emitEvent } from "../events/service.js";
 import { emitJourneyEvent } from "../journeys/auto.js";
@@ -15,7 +13,7 @@ import { journeyStatuses, journeyTransitions } from "../journeys/schema.js";
 import { organizations } from "../organizations/schema.js";
 import { projects } from "../projects/schema.js";
 import { formatProjectNumber } from "../projects/service.js";
-import { getCompany } from "../quotes/links.js";
+import { appointmentVars, sendTemplateMessage } from "../messages/service.js";
 import { quotes } from "../quotes/schema.js";
 import { addLineInTx } from "../quotes/service.js";
 import { getSetting } from "../settings/service.js";
@@ -24,14 +22,12 @@ import { appointments, availabilityBlocks, partnerPenalties, partnerRegions, reg
 
 type AppointmentType = "survey" | "installation";
 const TYPE_LABEL: Record<AppointmentType, string> = { survey: "schouw", installation: "installatie" };
-const WINDOW_LABEL = { morning: "in de ochtend (8:00–12:00)", afternoon: "in de middag (12:00–17:00)", day: "gedurende de dag" } as const;
 
 export const addDays = (iso: string, days: number) => {
   const d = new Date(`${iso}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 };
-const dateNl = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
 // ---------------------------------------------------------------- Regio's
 
@@ -357,23 +353,37 @@ export async function cancelAppointment(
 
 async function notifyCustomer(db: Db, transport: EmailTransport | null, appointmentId: string, kind: "scheduled" | "canceled") {
   const a = await getAppointment(db, appointmentId);
-  if (!a.customer.email) return;
-  const company = await getCompany(db);
-  const what = TYPE_LABEL[a.type as AppointmentType];
-  const name = [a.customer.firstName, a.customer.lastName].filter(Boolean).join(" ");
-  const html =
-    kind === "scheduled"
-      ? `<p>Beste ${escapeHtml(name)},</p><p>De ${what} voor uw ${escapeHtml(a.productGroupName.toLowerCase())} is ingepland op <strong>${dateNl(a.date)}</strong>, ${WINDOW_LABEL[a.timeWindow]}${a.days > 1 ? ` (${a.days} dagen)` : ""}.</p><p>Adres: ${escapeHtml(a.address)}<br>Uitgevoerd door: ${escapeHtml(a.partnerName)}</p><p>Komt deze datum niet uit? Beantwoord dan deze e-mail.</p>`
-      : `<p>Beste ${escapeHtml(name)},</p><p>De ${what} op ${dateNl(a.date)} gaat helaas niet door. Wij nemen contact met u op voor een nieuwe afspraak.</p>`;
-  await sendEmail(db, transport, {
+  const key = kind === "canceled" ? "appointment.canceled" : a.type === "survey" ? "appointment.scheduled.survey" : "appointment.scheduled.installation";
+  await sendTemplateMessage(db, transport, { key }, {
     to: a.customer.email,
-    subject: kind === "scheduled" ? `Uw ${what} is ingepland op ${dateNl(a.date)}` : `Uw ${what} op ${dateNl(a.date)} gaat niet door`,
-    template: `appointment.${kind}`,
     customerId: a.customer.id,
     related: { type: "appointment", id: a.id },
-    html: layout(company, html),
-    text: html.replace(/<[^>]+>/g, "").replace(/\n+/g, "\n"),
+    vars: appointmentVars(a),
   });
+}
+
+/**
+ * Herinnering de dag vóór een geplande afspraak (bij meerdaagse installaties: vóór de eerste dag).
+ * Vanaf 9:00 Nederlandse tijd; per afspraak en datum hooguit één keer (ook na verzetten opnieuw).
+ */
+export async function sendAppointmentReminders(db: Db, transport: EmailTransport | null, now = new Date()) {
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Amsterdam", hour: "2-digit", hour12: false }).format(now));
+  if (hour < 9) return { sent: 0 };
+  const tomorrow = addDays(todayIso(now), 1);
+  const due = await db.select({ id: appointments.id }).from(appointments).where(and(eq(appointments.status, "planned"), eq(appointments.date, tomorrow)));
+  let sent = 0;
+  for (const { id } of due) {
+    const a = await getAppointment(db, id);
+    const r = await sendTemplateMessage(db, transport, { key: a.type === "survey" ? "appointment.reminder.survey" : "appointment.reminder.installation" }, {
+      to: a.customer.email,
+      customerId: a.customer.id,
+      related: { type: "appointment", id: a.id },
+      vars: appointmentVars(a),
+      dedupeKey: `appointment.reminder:${a.id}:${a.date}`,
+    });
+    if (r) sent++;
+  }
+  return { sent };
 }
 
 export async function getAppointment(db: DbOrTx, id: string) {

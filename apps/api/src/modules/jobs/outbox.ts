@@ -6,16 +6,16 @@ import { invoiceProjectAndSend, type BillingDeps } from "../invoices/service.js"
 import { applyJourneyEvent } from "../journeys/auto.js";
 import type { JourneyEvent } from "../journeys/events.js";
 import { journeyStatuses } from "../journeys/schema.js";
+import { sendStatusMessage } from "../messages/service.js";
 import { projects } from "../projects/schema.js";
 
 const MAX_ATTEMPTS = 5;
 const system: ActorContext = { userId: null, organizationId: null, permissions: new Set() };
 
-type Handler = (db: Db, deps: BillingDeps, payload: Record<string, unknown>) => Promise<void>;
+type Handler = (db: Db, deps: BillingDeps, payload: Record<string, unknown>, eventId: number) => Promise<void>;
 
 /**
  * Automatiseringen per gebeurtenistype. Nieuwe automatisering = hier een handler toevoegen.
- * (Later: door beheerders instelbare regels per status, zoals e-mail/WhatsApp-berichten.)
  */
 const HANDLERS: Record<string, Handler[]> = {
   "invoice.paid": [
@@ -43,6 +43,21 @@ const HANDLERS: Record<string, Handler[]> = {
         await invoiceProjectAndSend(db, deps, system, String(payload.projectId), row.trigger);
       }
     },
+    // Klantbericht bij de bereikte status (als daarvoor een actief bericht is ingesteld).
+    async (db, deps, payload, eventId) => {
+      const projectId = String(payload.projectId);
+      let statusId = payload.toStatusId as string | undefined;
+      if (!statusId) {
+        // Oudere gebeurtenissen hebben alleen de sleutel van de status.
+        const [row] = await db
+          .select({ id: journeyStatuses.id })
+          .from(projects)
+          .innerJoin(journeyStatuses, and(eq(journeyStatuses.productGroupId, projects.productGroupId), eq(journeyStatuses.key, String(payload.toStatusKey))))
+          .where(eq(projects.id, projectId));
+        statusId = row?.id;
+      }
+      if (statusId) await sendStatusMessage(db, deps.emailTransport, projectId, statusId, `project.status:${eventId}`);
+    },
   ],
 };
 
@@ -60,7 +75,7 @@ export async function processOutbox(db: Db, deps: BillingDeps, batch = 20) {
         .for("update", { skipLocked: true });
       if (!ev) return false;
       try {
-        for (const h of HANDLERS[ev.type] ?? []) await h(db, deps, ev.payload as Record<string, unknown>);
+        for (const h of HANDLERS[ev.type] ?? []) await h(db, deps, ev.payload as Record<string, unknown>, Number(ev.id));
         await tx.update(outboxEvents).set({ processedAt: new Date(), attempts: sql`${outboxEvents.attempts} + 1`, lastError: null }).where(eq(outboxEvents.id, ev.id));
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
