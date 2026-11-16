@@ -84,7 +84,8 @@ export async function buildApp({
             // Nooit wachtwoorden, tokens of cookies in logs.
             redact: ["req.headers.authorization", "req.headers.cookie", "body.password", "body.newPassword", "body.currentPassword"],
           },
-    trustProxy: true,
+    // Alleen de echte proxy-hop vertrouwen; anders kan een bezoeker zijn IP vervalsen via X-Forwarded-For.
+    trustProxy: config.TRUST_PROXY_HOPS === undefined ? true : (_addr: string, hop: number) => hop < config.TRUST_PROXY_HOPS!,
     genReqId: () => crypto.randomUUID(),
   }).withTypeProvider<ZodTypeProvider>();
 

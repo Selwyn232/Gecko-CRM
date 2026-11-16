@@ -4,7 +4,7 @@ import type { ActorContext } from "../../lib/context.js";
 import { todayIso } from "../../lib/dates.js";
 import { badRequest, conflict, forbidden, notFound } from "../../lib/errors.js";
 import { recordAudit } from "../audit/service.js";
-import { productGroups } from "../catalog/schema.js";
+import { productGroups, products } from "../catalog/schema.js";
 import { customers, properties } from "../customers/schema.js";
 import type { EmailTransport } from "../email/transport.js";
 import { emitEvent } from "../events/service.js";
@@ -594,6 +594,16 @@ export async function submitReport(
       throw badRequest("signature_required", "Voor de oplevering is de handtekening van de klant verplicht");
     }
     if (input.data.extraWork?.length && a.type !== "survey") throw badRequest("extra_work_only_survey", "Meerwerk wordt bij de schouw voorgesteld");
+    if (input.data.extraWork?.length) {
+      // Alleen actief meerwerk uit de catalogus van deze productgroep.
+      const [proj] = await tx.select({ productGroupId: projects.productGroupId }).from(projects).where(eq(projects.id, a.projectId));
+      const ids = [...new Set(input.data.extraWork.map((x) => x.productId))];
+      const ok = await tx
+        .select({ id: products.id })
+        .from(products)
+        .where(and(inArray(products.id, ids), eq(products.type, "extra_work"), eq(products.isActive, true), eq(products.productGroupId, proj!.productGroupId)));
+      if (ok.length !== ids.length) throw badRequest("invalid_extra_work", "Kies meerwerk uit de lijst voor deze productgroep");
+    }
     if (input.positive) {
       const [proj] = await tx.select({ productGroupId: projects.productGroupId }).from(projects).where(eq(projects.id, a.projectId));
       const photos = (await listFiles(tx, "appointment", appointmentId)).filter((f) => f.contentType.startsWith("image/") && f.id !== input.customerSignatureFileId).length;

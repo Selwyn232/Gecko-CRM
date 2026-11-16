@@ -630,7 +630,11 @@ export async function exportSelfBillingCsv(db: DbOrTx, from: string, to: string)
     .innerJoin(organizations, eq(organizations.id, selfBillingInvoices.partnerOrganizationId))
     .where(and(ne(selfBillingInvoices.status, "draft"), sql`${selfBillingInvoices.invoiceDate} BETWEEN ${from} AND ${to}`))
     .orderBy(asc(selfBillingInvoices.invoiceDate), asc(selfBillingInvoices.number));
-  const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const cell = (v: unknown) => {
+    const raw = String(v ?? "");
+    const safe = /^[=+\-@\t\r]/.test(raw) && !/^-?\d/.test(raw) ? `'${raw}` : raw; // geen formules in Excel
+    return `"${safe.replace(/"/g, '""')}"`;
+  };
   const amount = (c: number) => (c / 100).toFixed(2).replace(".", ",");
   const out = [["Factuurnummer", "Datum", "Crediteur", "KvK", "Soort", "Btw-behandeling", "Btw-tarief", "Bedrag excl. btw", "Btw", "Status", "Betaald op"].map(cell).join(";")];
   for (const r of rows) {

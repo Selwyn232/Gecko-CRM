@@ -1,3 +1,7 @@
+import type { FastifyRequest } from "fastify";
+import { loadPermissions, missingPermissions, permissionsOfRoles } from "../auth/access.js";
+import type { Permission } from "../auth/permissions.js";
+import { forbidden } from "../../lib/errors.js";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import type { Db } from "../../db/client.js";
@@ -13,6 +17,15 @@ import {
 } from "./service.js";
 
 const IdParams = z.object({ id: z.string().uuid() });
+
+/** Rollen toekennen of een account resetten mag alleen als je zelf minstens dezelfde rechten hebt (geen escalatie). */
+async function assertNoEscalation(db: Db, req: FastifyRequest, opts: { roleIds?: string[]; targetUserId?: string }) {
+  const wanted = new Set<Permission>();
+  if (opts.roleIds) for (const p of await permissionsOfRoles(db, opts.roleIds)) wanted.add(p);
+  if (opts.targetUserId) for (const p of await loadPermissions(db, opts.targetUserId)) wanted.add(p);
+  const missing = missingPermissions(req.actor.permissions, wanted);
+  if (missing.length) throw forbidden("privilege_escalation", "Je kunt geen rechten geven of een account beheren met meer rechten dan je zelf hebt");
+}
 
 export const userRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
   const read = requirePermission("users.read");
@@ -54,6 +67,7 @@ export const userRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
       },
     },
     async (req, reply) => {
+      await assertNoEscalation(db, req, { roleIds: req.body.roleIds });
       reply.code(201);
       return createUser(db, req.actor, req.body);
     },
@@ -77,7 +91,10 @@ export const userRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
         }),
       },
     },
-    async (req) => updateUser(db, req.actor, req.params.id, req.body),
+    async (req) => {
+      await assertNoEscalation(db, req, { roleIds: req.body.roleIds, targetUserId: req.params.id });
+      return updateUser(db, req.actor, req.params.id, req.body);
+    },
   );
 
   app.post(
@@ -87,12 +104,14 @@ export const userRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
       schema: { params: IdParams, body: z.object({ password: z.string(), mustChangePassword: z.boolean().default(true) }) },
     },
     async (req) => {
+      await assertNoEscalation(db, req, { targetUserId: req.params.id });
       await adminResetPassword(db, req.actor, req.params.id, req.body.password, req.body.mustChangePassword);
       return { ok: true };
     },
   );
 
   app.post("/users/:id/reset-mfa", { preValidation: manage, schema: { params: IdParams } }, async (req) => {
+    await assertNoEscalation(db, req, { targetUserId: req.params.id });
     await adminResetMfa(db, req.actor, req.params.id);
     return { ok: true };
   });

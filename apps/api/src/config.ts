@@ -15,6 +15,11 @@ const ConfigSchema = z.object({
   SESSION_ABSOLUTE_TIMEOUT_HOURS: z.coerce.number().int().positive().default(168),
   APP_NAME: z.string().default("Gecko CRM"),
   /** Beperkt inlogpogingen per IP. Alleen uitzetten in tests. */
+  /**
+   * Aantal vertrouwde proxy's vóór de app. Bepaalt welk IP uit X-Forwarded-For wordt gebruikt.
+   * Leeg = alles vertrouwen (oud gedrag; IP is dan te vervalsen). Instellen zodra het aantal hops bij Render is gecontroleerd.
+   */
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).optional(),
   RATE_LIMIT_ENABLED: z
     .enum(["true", "false"])
     .default("true")

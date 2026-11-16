@@ -91,6 +91,8 @@ describe("inloggen en 2FA", () => {
     for (let i = 0; i < 5; i++) await login(u.email, "fout-fout-fout");
     const res = await login(u.email);
     expect(res.statusCode).toBe(423);
+    // Met een fout wachtwoord verraadt de blokkade niets: gewoon "onjuist"
+    expect((await login(u.email, "nog-steeds-fout")).statusCode).toBe(401);
     const locked = await ctx.db
       .select()
       .from(auditLog)

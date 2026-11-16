@@ -6,6 +6,7 @@ import { requirePermission } from "../../http/auth-plugin.js";
 import { isIsoDate } from "../../lib/dates.js";
 import { forbidden } from "../../lib/errors.js";
 import { listEmails } from "../email/service.js";
+import { getSetting } from "../settings/service.js";
 import { runDunning } from "./dunning.js";
 import { dunningEvents, invoiceStatus } from "./schema.js";
 import {
@@ -134,6 +135,8 @@ export const invoiceRoutes: FastifyPluginAsyncZod<{ db: Db; deps: BillingDeps }>
   // Testmodus: gesimuleerde betaalpagina. Alleen beschikbaar zolang er geen echte provider is.
   const testOnly = async () => {
     if (deps.paymentProvider.name !== "test") throw forbidden("test_mode_off", "Testbetalingen zijn uitgeschakeld");
+    // Live zonder Mollie: alleen als de testmodus aan staat (anders kan iedereen met een factuurlink "betalen").
+    if (deps.config.NODE_ENV === "production" && !(await getSetting(db, "test.mode"))) throw forbidden("test_mode_off", "Testbetalingen zijn uitgeschakeld");
   };
   app.get(
     "/public/test-payments/:id",

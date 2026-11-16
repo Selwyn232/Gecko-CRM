@@ -398,6 +398,9 @@ export async function startOnlinePayment(db: Db, deps: BillingDeps, token: strin
 
 /** Betaalverzoek voor een factuur; `redirectUrl` = waar de klant na betalen terugkomt. */
 export async function startPaymentForInvoice(db: Db, deps: BillingDeps, invoiceId: string, redirectUrl: string) {
+  if (deps.paymentProvider.name === "test" && deps.config.NODE_ENV === "production" && !(await getSetting(db, "test.mode"))) {
+    throw new AppError(503, "online_payment_unavailable", "Online betalen is nog niet beschikbaar. Maak het bedrag over onder vermelding van het betalingskenmerk.");
+  }
   const [inv] = await db.select().from(invoices).where(eq(invoices.id, invoiceId));
   if (!inv) throw notFound("Factuur");
   if (inv.status !== "open") throw conflict("invoice_not_open", "Deze factuur staat niet meer open");
@@ -512,7 +515,11 @@ export async function exportCsv(db: DbOrTx, from: string, to: string) {
     .orderBy(asc(invoices.number));
   const head = ["Factuurnummer", "Factuurdatum", "Vervaldatum", "Soort", "Klantnummer", "Klantnaam", "Btw-tarief", "Omzet excl. btw", "Btw", "Totaal factuur incl. btw", "Betalingskenmerk"];
   const fmt = (c: number) => (c / 100).toFixed(2).replace(".", ",");
-  const esc = (v: string) => (/[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  // Geen formules in Excel: cellen die met = + - @ beginnen krijgen een '.
+  const esc = (raw: string) => {
+    const v = /^[=+\-@\t\r]/.test(raw) && !/^-?\d/.test(raw) ? `'${raw}` : raw;
+    return /[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+  };
   const out = [head.join(";")];
   for (const inv of rows) {
     const snap = inv.customerSnapshot as { name: string; customerNumber: string };

@@ -59,11 +59,12 @@ export class AuthService {
       throw unauthorized("invalid_credentials", "E-mailadres of wachtwoord onjuist");
     }
 
+    const valid = await verifyPassword(user.passwordHash, password);
+    // Blokkade pas melden na een juist wachtwoord, zodat een geblokkeerd account niet verraadt dat het bestaat.
     if (user.lockedUntil && user.lockedUntil > new Date()) {
+      if (!valid) throw unauthorized("invalid_credentials", "E-mailadres of wachtwoord onjuist");
       throw new AppError(423, "account_locked", "Account tijdelijk geblokkeerd na te veel mislukte pogingen");
     }
-
-    const valid = await verifyPassword(user.passwordHash, password);
     if (!valid || !user.isActive) {
       await this.registerFailure(user, actor, valid ? "inactive" : "wrong_password");
       throw unauthorized("invalid_credentials", "E-mailadres of wachtwoord onjuist");
@@ -146,7 +147,7 @@ export class AuthService {
     const [target] = await this.db.select().from(users).where(eq(users.id, targetId));
     if (!target || !target.isActive) throw badRequest("invalid_target", "Gebruiker bestaat niet of is niet actief");
     const targetPerms = await loadPermissions(this.db, targetId);
-    if (targetPerms.has("roles.manage") || targetPerms.has("users.impersonate")) {
+    if (targetPerms.has("roles.manage") || targetPerms.has("users.impersonate") || targetPerms.has("users.manage")) {
       throw badRequest("impersonate_admin", "Inloggen als een andere beheerder is niet toegestaan");
     }
     const token = randomToken();

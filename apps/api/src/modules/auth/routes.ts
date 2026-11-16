@@ -30,6 +30,9 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
       schema: { body: z.object({ email: z.string().min(1).max(254), password: z.string().min(1).max(256) }) },
     },
     async (req, reply) => {
+      // Diagnose (zonder IP-adressen): hoeveel proxy-schakels staan in X-Forwarded-For? Nodig om TRUST_PROXY_HOPS te bepalen.
+      const xff = req.headers["x-forwarded-for"];
+      req.log.info({ xffEntries: typeof xff === "string" ? xff.split(",").length : 0, cfRay: !!req.headers["cf-ray"] }, "login proxy chain");
       const result = await authService.login(req.body.email, req.body.password, {
         ip: req.ip,
         userAgent: req.headers["user-agent"],
@@ -100,7 +103,10 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
   app.post(
     "/auth/mfa/setup",
     { config: { auth: "password", rateLimit: { max: 10, timeWindow: "1 minute" } } },
-    async (req) => authService.startMfaSetup(req.auth!.user),
+    async (req) => {
+      if (req.auth!.impersonatorUserId) throw forbidden("impersonation_not_allowed", "2FA instellen kan alleen de gebruiker zelf");
+      return authService.startMfaSetup(req.auth!.user);
+    },
   );
 
   app.post(
@@ -109,7 +115,10 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
       config: { auth: "password", rateLimit: { max: 10, timeWindow: "1 minute" } },
       schema: { body: z.object({ code: z.string() }) },
     },
-    async (req) => authService.enableMfa(req.auth!.user, req.auth!.sessionId, req.body.code, req.actor),
+    async (req) => {
+      if (req.auth!.impersonatorUserId) throw forbidden("impersonation_not_allowed", "2FA instellen kan alleen de gebruiker zelf");
+      return authService.enableMfa(req.auth!.user, req.auth!.sessionId, req.body.code, req.actor);
+    },
   );
 
   app.post(
