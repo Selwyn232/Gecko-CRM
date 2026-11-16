@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import type { Db } from "../../db/client.js";
 import { requirePermission } from "../../http/auth-plugin.js";
+import { projectCalculation } from "./calculation.js";
 import { paymentMethod } from "./schema.js";
 import { changeStatus, createProject, getProject, listProjects, statusCounts, updateProject } from "./service.js";
 
@@ -36,6 +37,10 @@ export const projectRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db
     async (req) => statusCounts(db, req.query.productGroupId),
   );
   app.get("/projects/:id", { preValidation: read, schema: { params: IdParams } }, async (req) => getProject(db, req.params.id));
+  /** Voor- en nacalculatie; alleen met recht op inkoopprijzen (B24). */
+  app.get("/projects/:id/calculation", { preValidation: requirePermission("purchase_prices.read"), schema: { params: IdParams } }, async (req) =>
+    projectCalculation(db, req.params.id),
+  );
   app.post(
     "/projects",
     {

@@ -6,6 +6,7 @@ import { api, type Appointment, type InvoiceSummary, type JourneyStatus, type Pr
 import { InvoicesTable } from "./Invoices";
 import { QuotesTable } from "./Quotes";
 import { useAuth } from "../auth";
+import { ProjectCalculation } from "../components/Calculation";
 import { ErrorBox, Field, Loading, Modal, StatusPill } from "../components/ui";
 import { customerName, daysSince, formatAddress, formatDateTime, PAYMENT_METHODS } from "../format";
 import { nameById, useChannels, useJourneys, useOrganizations, useProductGroups } from "../hooks";
@@ -166,7 +167,7 @@ export function ProjectDetailPage() {
           )}
         </div>
       )}
-      <p className="muted" style={{ fontSize: 13 }}>Communicatie (inbox) komt in een volgende stap op deze pagina.</p>
+      {can("purchase_prices.read") && <ProjectCalculation projectId={p.id} />}
 
       {target && <StatusModal project={p} target={target} onClose={() => setTarget(null)} />}
     </>

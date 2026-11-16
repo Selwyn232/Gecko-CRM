@@ -75,7 +75,7 @@ async function projectLabel(db: DbOrTx, projectId: string) {
  * 3. bij arbeid/meerwerk zonder stuklijst: het partnertarief (ontbreekt het, dan melden).
  * Materiaal zonder arbeid levert de partner niets op.
  */
-async function partnerAmount(db: DbOrTx, productId: string, quantity: string, partnerId: string, date: string) {
+export async function partnerAmount(db: DbOrTx, productId: string, quantity: string, partnerId: string, date: string) {
   const direct = await effectivePrice(db, "partner", productId, partnerId, date);
   if (direct) return { cents: multiplyCents(direct.priceCents, quantity), missing: [] as string[] };
   const [product] = await db.select().from(products).where(eq(products.id, productId));
@@ -90,7 +90,7 @@ async function partnerAmount(db: DbOrTx, productId: string, quantity: string, pa
   return { cents: 0, missing: [] };
 }
 
-async function quotePartnerAmount(db: DbOrTx, quoteId: string, partnerId: string, date: string) {
+export async function quotePartnerAmount(db: DbOrTx, quoteId: string, partnerId: string, date: string) {
   const lines = await db.select().from(quoteLines).where(eq(quoteLines.quoteId, quoteId));
   let cents = 0;
   const missing: string[] = [];

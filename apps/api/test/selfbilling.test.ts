@@ -189,4 +189,18 @@ describe("selfbilling", () => {
     const [org] = await ctx.db.select().from(organizations).where(eq(organizations.id, partnerId));
     expect(org!.selfBillingPrefix).toBe("INS");
   });
+
+  it("nacalculatie project: voor (offerte) naast na (facturen en selfbilling)", async () => {
+    const c = (await api("GET", `/projects/${projectId}/calculation`)).json();
+    const comp = (k: string) => c.components.find((x: { key: string }) => x.key === k);
+    expect(comp("revenue")).toMatchObject({ plannedCents: 1_050_000, actualCents: 1_050_000, basis: "actual" });
+    expect(comp("partner")).toMatchObject({ plannedCents: -170_000, actualCents: -170_000, basis: "actual" });
+    // Fee was bij versturen nog niet ingesteld (voor = 0); werkelijk via selfbilling 10%
+    expect(comp("fee")).toMatchObject({ plannedCents: 0, actualCents: -105_000, basis: "actual" });
+    expect(c.planned.marginCents).toBe(880_000);
+    expect(c.actual.marginCents).toBe(775_000);
+    expect(c.deviationCents).toBe(-105_000);
+    expect(c.complete).toBe(true);
+    expect(c.missing).toContain("inkoopprijs BAT");
+  });
 });
