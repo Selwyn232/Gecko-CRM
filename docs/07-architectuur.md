@@ -66,7 +66,7 @@ Doel: geen dataverlies van betekenis en snel herstel.
 
 | Onderdeel | Instelling |
 |---|---|
-| Webservice | `gecko-crm-web` (plan Starter, geen slaapstand), regio Frankfurt, Node 22. Deployt automatisch bij elke push naar de ontwikkelbranch |
+| Webservice | `gecko-crm-web` (plan Starter, geen slaapstand), regio Frankfurt, Node 22. Adres: **https://crm.gecko.nl** (CNAME bij Hostnet naar `gecko-crm-web.onrender.com`; certificaat via Render). `APP_BASE_URL=https://crm.gecko.nl`. Deployt automatisch bij elke push naar de ontwikkelbranch |
 | Build | `npx -y pnpm@10.28.0 install --frozen-lockfile --prod=false && npx -y pnpm@10.28.0 build` |
 | Start | `node apps/api/dist/cli/bootstrap.js && node apps/api/dist/server.js` (eerst migraties en basisgegevens, dan de server) |
 | Database | `gecko-crm-db`, PostgreSQL 16, plan Basic 1 GB, 5 GB opslag, regio Frankfurt, point-in-time recovery actief |
