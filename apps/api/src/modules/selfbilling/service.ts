@@ -20,6 +20,7 @@ import { partnerPenalties } from "../planning/schema.js";
 import { projects } from "../projects/schema.js";
 import { formatProjectNumber } from "../projects/service.js";
 import { getCompany } from "../quotes/links.js";
+import { getSetting } from "../settings/service.js";
 import { quoteLines, quotes } from "../quotes/schema.js";
 import { getQuote } from "../quotes/service.js";
 import { selfBillingInvoices, selfBillingLines, selfBillingSequences, type SelfBillingInvoice } from "./schema.js";
@@ -659,4 +660,26 @@ export async function exportSelfBillingCsv(db: DbOrTx, from: string, to: string)
     }
   }
   return out.join("\r\n");
+}
+
+/**
+ * Wekelijkse bundeling (instelling, standaard uit): op maandag vanaf 9:00 een concept per partner met uitbetaalbare
+ * posten, tenzij die partner al een concept heeft. Definitief maken en ter akkoord sturen doet een medewerker.
+ */
+export async function autoWeeklyDrafts(db: Db, now = new Date()) {
+  if (!(await getSetting(db, "selfbilling.auto_weekly"))) return { created: 0 };
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Amsterdam", weekday: "short", hour: "2-digit", hour12: false }).formatToParts(now);
+  const weekday = parts.find((p) => p.type === "weekday")?.value;
+  const hour = Number(parts.find((p) => p.type === "hour")?.value);
+  if (weekday !== "Mon" || hour < 9) return { created: 0 };
+  const system: ActorContext = { userId: null, organizationId: null, permissions: new Set() };
+  let created = 0;
+  for (const p of await openItems(db)) {
+    if (!p.canBill) continue;
+    const [draft] = await db.select({ id: selfBillingInvoices.id }).from(selfBillingInvoices).where(and(eq(selfBillingInvoices.partnerOrganizationId, p.partner.id), eq(selfBillingInvoices.status, "draft")));
+    if (draft) continue;
+    await createDraft(db, system, p.partner.id);
+    created++;
+  }
+  return { created };
 }

@@ -45,7 +45,7 @@ export function QuotesPage() {
 
   return (
     <>
-      <PageHead title="Offertes" sub="Nieuwe offertes maak je vanaf de klantkaart." />
+      <PageHead title="Offertes" sub="Nieuwe offertes maak je vanaf de klantkaart." actions={<a className="btn" href="/api/exports/offertes.csv">Exporteren (CSV)</a>} />
       <div className="row" style={{ marginBottom: 12 }}>
         <input placeholder="Zoek op klant, postcode of offertenummer" value={search} onChange={(e) => setSearch(e.target.value)} style={{ minWidth: 280 }} />
         <select value={status} onChange={(e) => setStatus(e.target.value)}>

@@ -32,7 +32,12 @@ export function CustomersPage() {
       <PageHead
         title="Klanten"
         sub="Zoek op naam, e-mail, telefoon, postcode, adres of klantnummer."
-        actions={can("customers.manage") && <button className="btn primary" onClick={() => setCreating(true)}>Nieuwe klant</button>}
+        actions={
+          <>
+            <a className="btn" href="/api/exports/klanten.csv">Exporteren (CSV)</a>
+            {can("customers.manage") && <button className="btn primary" onClick={() => setCreating(true)}>Nieuwe klant</button>}
+          </>
+        }
       />
       <div className="row" style={{ marginBottom: 12 }}>
         <input placeholder="Zoeken…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ minWidth: 320 }} autoFocus />

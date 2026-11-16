@@ -31,7 +31,7 @@ export function ProjectsPage() {
 
   return (
     <>
-      <PageHead title="Projecten" sub="Alle lopende projecten, per fase van de klantreis." />
+      <PageHead title="Projecten" sub="Alle lopende projecten, per fase van de klantreis." actions={<a className="btn" href="/api/exports/projecten.csv">Exporteren (CSV)</a>} />
       <div className="phase-strip">
         <button className={!phase ? "active" : ""} onClick={() => { setPhase(""); setStatusId(""); }}>Alle fasen</button>
         {phases.map((p) => (

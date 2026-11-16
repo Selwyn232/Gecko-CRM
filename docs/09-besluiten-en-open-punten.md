@@ -57,6 +57,7 @@
 | B52 | Klanttijdlijn op de klantkaart (notities, belnotities, e-mails, statuswissels, afspraken, offertes, facturen, betalingen; filterbaar). Notities zijn intern. Zoekbalk in de zijbalk (toets /): klant op naam, e-mail, telefoon, postcode, adres, en K-/P-/O-/F-nummers; resultaten volgens rechten | 2026-11-16 |
 | B53 | Verkooppartnerportaal voor Greenteam: gebruikers met rol "Verkooppartner" in de organisatie Greenteam maken klanten en offertes (catalogus en prijzen van hun kanaal, geen kostprijzen), versturen ze ter akkoord, volgen de projectstatus en zien hun fee. Gekoppeld aan een adviseur (bij Gebruikers) = alleen eigen offertes/klanten; zonder koppeling = hele organisatie | 2026-11-16 |
 | B54 | Beveiligingsreview (16-11): geen rechten uitdelen of accounts resetten met meer rechten dan je zelf hebt; niet inloggen-als een gebruikersbeheerder; geen 2FA instellen tijdens inloggen-als; blokkade pas melden na juist wachtwoord; testbetalingen live alleen in testmodus; CSV-exports zonder formules; meerwerk alleen uit de eigen catalogus | 2026-11-16 |
+| B55 | Selfbilling automatisch bundelen (instelling "Selfbilling: elke maandag automatisch conceptfacturen", standaard uit): maandag vanaf 9:00 een concept per partner zonder open concept; definitief maken blijft handwerk. CSV-exports van klanten, projecten en offertes (volgens rechten, gelogd) | 2026-11-16 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten
@@ -82,6 +83,6 @@
 | O23 | Checklists schouw/oplevering per productgroep inhoudelijk vaststellen (nu generiek) — zelf in te voeren bij Beheer → Checklists | Gecko + partners |
 | O24 | ~~Partners met meerdere ploegen~~ — gebouwd (B50); aantal ploegen per partner invullen | Gecko |
 | O25 | Btw bij selfbilling installateurs: standaard "verlegd" (onderaanneming). Laten bevestigen door de accountant, per partner aan te passen bij Organisaties | Accountant |
-| O26 | Selfbilling automatisch wekelijks bundelen (nu handmatig per partner) | Gecko |
+| O26 | ~~Selfbilling wekelijks bundelen~~ — gebouwd als instelling (B55), standaard uit | Gecko |
 | O27 | IP-adres achter de proxy van Render: aantal hops controleren (logregel "login proxy chain") en TRUST_PROXY_HOPS instellen; tot dan is het IP (pogingenlimiet, bewijs bij akkoorden) te vervalsen | Techniek |
 | O13 | Verkoopprijs vast bij ondertekening, ook als inkoop stijgt tijdens lange wachttijd? | Gecko |

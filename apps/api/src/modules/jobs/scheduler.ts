@@ -2,6 +2,7 @@ import type { Db } from "../../db/client.js";
 import { runDunning } from "../invoices/dunning.js";
 import type { BillingDeps } from "../invoices/service.js";
 import { sendAppointmentReminders } from "../planning/service.js";
+import { autoWeeklyDrafts } from "../selfbilling/service.js";
 import { processOutbox } from "./outbox.js";
 
 /**
@@ -31,6 +32,12 @@ export function startScheduler(db: Db, deps: BillingDeps, log: (msg: string, dat
       if (r.processed) log("aanmaningen verwerkt", r);
     } catch (err) {
       log("aanmaningen fout", { error: String(err) });
+    }
+    try {
+      const r = await autoWeeklyDrafts(db);
+      if (r.created) log("selfbilling-concepten aangemaakt", r);
+    } catch (err) {
+      log("selfbilling-bundeling fout", { error: String(err) });
     }
     try {
       const r = await sendAppointmentReminders(db, deps.emailTransport);

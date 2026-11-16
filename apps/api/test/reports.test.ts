@@ -100,4 +100,15 @@ describe("rapportages", () => {
     const empty = (await api("GET", "/work", undefined, (await loginWithMfa(ctx.app, u.email)).headers)).json();
     expect(empty.sections).toEqual([]);
   });
+
+  it("CSV-exports: volgens rechten en zonder formules", async () => {
+    await api("POST", "/customers", { lastName: "=HYPERLINK(1)", property: { street: "Weg", houseNumber: "2", postalCode: "1234AB", city: "Ede" } });
+    const res = await api("GET", "/exports/klanten.csv");
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain('"Klantnummer"');
+    expect(res.body).toContain(`"'=HYPERLINK(1)"`);
+    expect((await api("GET", "/exports/offertes.csv")).body).toContain("Bedrag excl. btw");
+    const u = await makeUser(ctx.db, []);
+    expect((await api("GET", "/exports/projecten.csv", undefined, (await loginWithMfa(ctx.app, u.email)).headers)).statusCode).toBe(403);
+  });
 });
