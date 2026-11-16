@@ -32,7 +32,9 @@ beforeAll(async () => {
   // Twee statuswissels; de eerste "20 dagen geleden"
   const journey = (await api("GET", `/journeys/${groupId}`)).json() as { id: string; key: string }[];
   await api("POST", `/projects/${projectId}/status`, { toStatusId: journey.find((s) => s.key === "schouw_inplannen")!.id });
-  await ctx.db.execute(sql`UPDATE project_status_history SET changed_at = now() - interval '20 days' WHERE project_id = ${projectId}`);
+  // Start 21 dagen geleden, wissel naar "Schouw in te plannen" 20 dagen geleden (elk een eigen tijdstip).
+  await ctx.db.execute(sql`UPDATE project_status_history SET changed_at = now() - interval '21 days' WHERE project_id = ${projectId} AND from_status_id IS NULL`);
+  await ctx.db.execute(sql`UPDATE project_status_history SET changed_at = now() - interval '20 days' WHERE project_id = ${projectId} AND from_status_id IS NOT NULL`);
   await ctx.db.update(projects).set({ statusChangedAt: sql`now() - interval '20 days'` }).where(eq(projects.id, projectId));
   await api("POST", `/projects/${projectId}/invoices`, { type: "deposit" });
 });
