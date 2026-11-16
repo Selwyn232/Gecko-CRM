@@ -21,6 +21,7 @@ import { projects } from "../projects/schema.js";
 import { formatProjectNumber } from "../projects/service.js";
 import { getCompany } from "../quotes/links.js";
 import { getSetting } from "../settings/service.js";
+import { notifyPermission } from "../tasks/service.js";
 import { quoteLines, quotes } from "../quotes/schema.js";
 import { getQuote } from "../quotes/service.js";
 import { selfBillingInvoices, selfBillingLines, selfBillingSequences, type SelfBillingInvoice } from "./schema.js";
@@ -516,6 +517,9 @@ export async function decideApproval(
     });
     return { number: row.number!, company: inv.companySnapshot as Company, partner: inv.partnerName };
   });
+  if (input.decision === "dispute") {
+    await notifyPermission(db, "invoices.manage", { title: `Niet akkoord: selfbilling ${result.number}`, body: `${result.partner}: ${input.reason ?? ""}`, href: `/selfbilling/${id}`, dedupeKey: `sb-dispute:${id}:${Date.now()}` });
+  }
   // Bij "niet akkoord" krijgt Gecko een seintje.
   if (input.decision === "dispute" && notify && result.company.email) {
     const html = `<p>${escapeHtml(result.partner)} (${escapeHtml(input.name)}) is <strong>niet akkoord</strong> met selfbillingfactuur <strong>${escapeHtml(result.number)}</strong>.</p><p>Reden: ${escapeHtml(input.reason ?? "—")}</p><p>Bekijk de factuur in het CRM onder Selfbilling. Na overleg kunt u hem opnieuw ter akkoord sturen.</p>`;

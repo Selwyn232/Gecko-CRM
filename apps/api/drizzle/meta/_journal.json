@@ -197,6 +197,13 @@
       "when": 1794842754968,
       "tag": "0027_sales_portal",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1794843555802,
+      "tag": "0028_tasks_notifications",
+      "breakpoints": true
     }
   ]
 }

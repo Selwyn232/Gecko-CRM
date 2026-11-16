@@ -14,6 +14,7 @@ import { quotes } from "../quotes/schema.js";
 import { formatQuoteNumber } from "../quotes/service.js";
 import { selfBillingInvoices } from "../selfbilling/schema.js";
 import { openItems } from "../selfbilling/service.js";
+import { dueTasks } from "../tasks/service.js";
 
 export interface WorkItem {
   label: string;
@@ -44,6 +45,24 @@ export async function myWork(db: DbOrTx, actor: ActorContext) {
   const today = todayIso();
   const sections: WorkSection[] = [];
   const add = (s: WorkSection) => s.count > 0 && sections.push(s);
+
+  if (actor.userId) {
+    const mine = await dueTasks(db, actor.userId, addDays(today, 7));
+    add({
+      key: "tasks",
+      title: "Mijn taken",
+      hint: "Open taken met een deadline binnen 7 dagen (of zonder deadline). Afvinken op de klantkaart.",
+      severity: mine.some((t) => t.dueDate && t.dueDate < today) ? "high" : "normal",
+      count: mine.length,
+      items: mine.slice(0, LIMIT).map((t) => ({
+        label: t.title,
+        detail: t.dueDate ? `${t.dueDate < today ? "Te laat · " : ""}deadline ${t.dueDate}` : "geen deadline",
+        href: t.customerId ? `/klanten/${t.customerId}` : "/werk",
+        date: t.dueDate,
+      })),
+      href: "/werk",
+    });
+  }
 
   if (can("planning.read")) {
     const pending = await db

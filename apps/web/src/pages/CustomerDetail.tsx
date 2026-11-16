@@ -7,6 +7,7 @@ import { InvoicesTable } from "./Invoices";
 import { useAuth } from "../auth";
 import { CustomerMargins } from "../components/Calculation";
 import { CustomerTimeline } from "../components/Timeline";
+import { CustomerTasks } from "../components/Tasks";
 import { ErrorBox, Field, Loading, Modal, StatusPill } from "../components/ui";
 import { customerName, formatAddress, formatDate, formatDateTime, PAYMENT_METHODS } from "../format";
 import { nameById, useAdvisors, useChannels, useOrganizations, useProductGroups } from "../hooks";
@@ -110,6 +111,7 @@ export function CustomerDetailPage() {
         </div>
       )}
       {can("purchase_prices.read") && <CustomerMargins projects={c.projects} />}
+      <CustomerTasks customerId={c.id} projects={c.projects} />
       <CustomerTimeline customerId={c.id} projects={c.projects} />
       <CustomerEmails customerId={c.id} />
 

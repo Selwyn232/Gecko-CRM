@@ -38,6 +38,7 @@ import { workRoutes } from "./modules/work/routes.js";
 import { timelineRoutes } from "./modules/timeline/routes.js";
 import { salesRoutes } from "./modules/sales/routes.js";
 import { exportRoutes } from "./modules/exports/routes.js";
+import { taskRoutes } from "./modules/tasks/routes.js";
 import { portalRoutes } from "./modules/portal/routes.js";
 import { organizationRoutes } from "./modules/organizations/routes.js";
 import { roleRoutes } from "./modules/roles/routes.js";
@@ -176,6 +177,7 @@ export async function buildApp({
       await api.register(timelineRoutes, { db });
       await api.register(salesRoutes, { db, config, emailTransport });
       await api.register(exportRoutes, { db });
+      await api.register(taskRoutes, { db });
       await api.register(portalRoutes, { db, config, deps: billing });
     },
     { prefix: "/api" },

@@ -285,3 +285,14 @@ td.mono, .mono { white-space: nowrap; }
 .search-results { position: absolute; left: 0; top: 100%; margin-top: 4px; width: 360px; max-width: 80vw; z-index: 20; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); max-height: 70vh; overflow: auto; }
 .search-results button { display: block; width: 100%; text-align: left; padding: 8px 10px; background: none; border: 0; border-bottom: 1px solid var(--border); font: inherit; font-size: 13px; color: var(--text); cursor: pointer; }
 .search-results button.active, .search-results button:hover { background: var(--accent-soft); }
+
+/* Meldingen en taken */
+.bell { position: relative; }
+.bell-panel { position: absolute; bottom: 100%; left: 0; margin-bottom: 6px; width: 340px; max-height: 60vh; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); z-index: 30; }
+.bell-item { display: block; width: 100%; text-align: left; padding: 8px 12px; border: 0; border-bottom: 1px solid var(--border); background: none; font: inherit; font-size: 13px; color: var(--text); cursor: pointer; }
+.bell-item.unread { background: var(--accent-soft); }
+.bell-item:hover { background: var(--surface-2); }
+.task-list { list-style: none; margin: 0; padding: 0 20px; }
+.task-list li { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.task-list li.done span { text-decoration: line-through; color: var(--muted); }
+.task-form { padding: 12px 20px 16px; }

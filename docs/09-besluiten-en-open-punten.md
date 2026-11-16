@@ -58,6 +58,7 @@
 | B53 | Verkooppartnerportaal voor Greenteam: gebruikers met rol "Verkooppartner" in de organisatie Greenteam maken klanten en offertes (catalogus en prijzen van hun kanaal, geen kostprijzen), versturen ze ter akkoord, volgen de projectstatus en zien hun fee. Gekoppeld aan een adviseur (bij Gebruikers) = alleen eigen offertes/klanten; zonder koppeling = hele organisatie | 2026-11-16 |
 | B54 | Beveiligingsreview (16-11): geen rechten uitdelen of accounts resetten met meer rechten dan je zelf hebt; niet inloggen-als een gebruikersbeheerder; geen 2FA instellen tijdens inloggen-als; blokkade pas melden na juist wachtwoord; testbetalingen live alleen in testmodus; CSV-exports zonder formules; meerwerk alleen uit de eigen catalogus | 2026-11-16 |
 | B55 | Selfbilling automatisch bundelen (instelling "Selfbilling: elke maandag automatisch conceptfacturen", standaard uit): maandag vanaf 9:00 een concept per partner zonder open concept; definitief maken blijft handwerk. CSV-exports van klanten, projecten en offertes (volgens rechten, gelogd) | 2026-11-16 |
+| B56 | Taken (klantkaart: titel, voor wie, deadline, project; afvinken) en meldingen (belletje): bij een toegewezen taak, ingediend rapport, geaccepteerde offerte, factuur naar incasso en selfbilling "niet akkoord". Open taken met deadline binnen 7 dagen op Mijn werk | 2026-11-16 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten

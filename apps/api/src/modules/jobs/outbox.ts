@@ -7,6 +7,8 @@ import { applyJourneyEvent } from "../journeys/auto.js";
 import type { JourneyEvent } from "../journeys/events.js";
 import { journeyStatuses } from "../journeys/schema.js";
 import { sendStatusMessage } from "../messages/service.js";
+import type { Permission } from "../auth/permissions.js";
+import { notifyPermission } from "../tasks/service.js";
 import { projects } from "../projects/schema.js";
 
 const MAX_ATTEMPTS = 5;
@@ -17,7 +19,31 @@ type Handler = (db: Db, deps: BillingDeps, payload: Record<string, unknown>, eve
 /**
  * Automatiseringen per gebeurtenistype. Nieuwe automatisering = hier een handler toevoegen.
  */
+/** Melding in het CRM voor iedereen met het recht; één keer per gebeurtenis (outbox-id). */
+const notifyOnce = (db: Db, eventId: number, permission: Permission, n: { title: string; body?: string | null; href?: string | null }) =>
+  notifyPermission(db, permission, { ...n, dedupeKey: `event:${eventId}` });
+
 const HANDLERS: Record<string, Handler[]> = {
+  "report.submitted": [
+    async (db, _deps, payload, eventId) => {
+      const [p] = await db.select({ number: projects.number }).from(projects).where(eq(projects.id, String(payload.projectId)));
+      await notifyOnce(db, eventId, "planning.manage", {
+        title: `${payload.type === "survey" ? "Schouwrapport" : "Opleverrapport"} ingediend`,
+        body: p ? `Project P-${String(p.number).padStart(6, "0")} — beoordelen` : null,
+        href: "/planning",
+      });
+    },
+  ],
+  "quote.accepted": [
+    async (db, _deps, payload, eventId) => {
+      await notifyOnce(db, eventId, "quotes.manage", { title: "Offerte geaccepteerd door de klant", body: null, href: `/offertes/${String(payload.quoteId)}` });
+    },
+  ],
+  "invoice.collection": [
+    async (db, _deps, payload, eventId) => {
+      await notifyOnce(db, eventId, "invoices.manage", { title: "Factuur overgedragen voor incasso", body: null, href: `/facturen/${String(payload.invoiceId)}` });
+    },
+  ],
   "invoice.paid": [
     async (db, _deps, payload) => {
       const type = payload.type as string;

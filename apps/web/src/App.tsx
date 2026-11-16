@@ -14,6 +14,7 @@ import { MessagesPage } from "./pages/Messages";
 import { WorkPage } from "./pages/Work";
 import { SalesApp } from "./sales/SalesApp";
 import { GlobalSearch } from "./components/GlobalSearch";
+import { NotificationBell } from "./components/Notifications";
 import { CustomerPortalPage, PortalRedeemPage } from "./pages/CustomerPortal";
 import { ChecklistsPage } from "./pages/Checklists";
 import { ReportsPage } from "./pages/Reports";
@@ -133,6 +134,7 @@ export function App() {
         <div className="sidebar-footer">
           <div style={{ color: "var(--text)", fontWeight: 500 }}>{me.name}</div>
           <div>{me.username ?? me.email}</div>
+          <NotificationBell />
           <div className="row" style={{ marginTop: 8 }}>
             <button className="btn small" onClick={() => setChangingPassword(true)}>Wachtwoord</button>
             <button className="btn small" onClick={logout}>Uitloggen</button>
