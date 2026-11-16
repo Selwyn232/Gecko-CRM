@@ -84,4 +84,20 @@ describe("rapportages", () => {
     const past = (await api("GET", "/reports/overview?from=2020-01-01&to=2020-12-31")).json();
     expect(past.margins.productGroups).toHaveLength(0);
   });
+
+  it("Mijn werk: aandachtspunten volgens rechten", async () => {
+    // Vervaldatum in het verleden (alleen in de test: beveiliging tijdelijk uit)
+    await ctx.db.execute(sql`ALTER TABLE invoices DISABLE TRIGGER invoices_protect_finalized`);
+    await ctx.db.execute(sql`UPDATE invoices SET due_date = current_date - 3 WHERE project_id = ${projectId}`);
+    await ctx.db.execute(sql`ALTER TABLE invoices ENABLE TRIGGER invoices_protect_finalized`);
+    const w = (await api("GET", "/work")).json();
+    const keys = w.sections.map((s: { key: string }) => s.key);
+    expect(keys).toEqual(expect.arrayContaining(["overdue", "stuck", "toplan-survey"]));
+    const overdue = w.sections.find((s: { key: string }) => s.key === "overdue");
+    expect(overdue.items[0].label).toBe("Rapport");
+    // Zonder rechten: niets
+    const u = await makeUser(ctx.db, []);
+    const empty = (await api("GET", "/work", undefined, (await loginWithMfa(ctx.app, u.email)).headers)).json();
+    expect(empty.sections).toEqual([]);
+  });
 });

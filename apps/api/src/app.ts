@@ -34,6 +34,7 @@ import { messageRoutes } from "./modules/messages/routes.js";
 import { selfBillingRoutes } from "./modules/selfbilling/routes.js";
 import { reportRoutes } from "./modules/reports/routes.js";
 import { checklistRoutes } from "./modules/checklists/routes.js";
+import { workRoutes } from "./modules/work/routes.js";
 import { portalRoutes } from "./modules/portal/routes.js";
 import { organizationRoutes } from "./modules/organizations/routes.js";
 import { roleRoutes } from "./modules/roles/routes.js";
@@ -167,6 +168,7 @@ export async function buildApp({
       await api.register(selfBillingRoutes, { db, config, emailTransport });
       await api.register(reportRoutes, { db });
       await api.register(checklistRoutes, { db });
+      await api.register(workRoutes, { db });
       await api.register(portalRoutes, { db, config, deps: billing });
     },
     { prefix: "/api" },

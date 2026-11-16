@@ -11,6 +11,7 @@ import { CustomerDetailPage } from "./pages/CustomerDetail";
 import { CustomersPage } from "./pages/Customers";
 import { JourneysPage } from "./pages/Journeys";
 import { MessagesPage } from "./pages/Messages";
+import { WorkPage } from "./pages/Work";
 import { CustomerPortalPage, PortalRedeemPage } from "./pages/CustomerPortal";
 import { ChecklistsPage } from "./pages/Checklists";
 import { ReportsPage } from "./pages/Reports";
@@ -93,6 +94,7 @@ export function App() {
         </div>
         <nav className="nav">
           <div className="nav-section">Klanten</div>
+          <NavLink to="/werk">Mijn werk</NavLink>
           {can("customers.read") && <NavLink to="/klanten">Klanten</NavLink>}
           {can("quotes.read") && <NavLink to="/offertes">Offertes</NavLink>}
           {can("projects.read") && <NavLink to="/projecten">Projecten</NavLink>}
@@ -127,7 +129,8 @@ export function App() {
       </aside>
       <main className="main">
         <Routes>
-          <Route path="/" element={<Navigate to={can("projects.read") ? "/projecten" : "/producten"} replace />} />
+          <Route path="/" element={<Navigate to="/werk" replace />} />
+          <Route path="/werk" element={<WorkPage />} />
           <Route path="/klanten" element={<CustomersPage />} />
           <Route path="/klanten/:id" element={<CustomerDetailPage />} />
           <Route path="/projecten" element={<ProjectsPage />} />
