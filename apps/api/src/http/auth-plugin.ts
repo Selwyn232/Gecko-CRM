@@ -18,7 +18,7 @@ function extractToken(req: FastifyRequest): string | null {
 
 /**
  * Bepaalt bij elk verzoek wie de gebruiker is en dwingt het toegangsniveau van de route af.
- * Standaard is elke route afgeschermd ("full"); openbaar maken moet expliciet.
+ * Standaard is elke API-route afgeschermd ("full"); openbaar maken moet expliciet.
  */
 export const authPlugin = fp<{ db: Db; authService: AuthService }>(async (app, { db, authService }) => {
   app.decorateRequest("auth", null);
@@ -26,7 +26,8 @@ export const authPlugin = fp<{ db: Db; authService: AuthService }>(async (app, {
 
   app.addHook("onRequest", async (req) => {
     req.actor = { ...systemActor(), requestId: req.id, ip: req.ip };
-    const level = req.routeOptions.config.auth ?? "full";
+    // API-routes zijn standaard afgeschermd; overige paden (de webapplicatie zelf) zijn openbaar.
+    const level = req.routeOptions.config?.auth ?? (req.url.startsWith("/api/") ? "full" : "public");
     const token = extractToken(req);
     const session = token ? await authService.resolveSession(token) : null;
 

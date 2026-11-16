@@ -1,0 +1,97 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { api, type Organization } from "../api";
+import { useAuth } from "../auth";
+import { ActiveBadge, ErrorBox, Field, Loading, Modal, PageHead } from "../components/ui";
+import { ORG_TYPES } from "../format";
+import { useOrganizations } from "../hooks";
+
+export function OrganizationsPage() {
+  const { can } = useAuth();
+  const orgs = useOrganizations();
+  const [editing, setEditing] = useState<Organization | "new" | null>(null);
+  const [type, setType] = useState("");
+  const list = (orgs.data ?? []).filter((o) => !type || o.type === type);
+
+  return (
+    <>
+      <PageHead
+        title="Organisaties"
+        sub="Gecko, verkooppartners, installatiepartners en leveranciers."
+        actions={can("organizations.manage") && <button className="btn primary" onClick={() => setEditing("new")}>Nieuwe organisatie</button>}
+      />
+      <div className="row" style={{ marginBottom: 12 }}>
+        <select value={type} onChange={(e) => setType(e.target.value)}>
+          <option value="">Alle soorten</option>
+          {Object.entries(ORG_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+      </div>
+      <div className="card flush">
+        {orgs.isLoading ? <Loading /> : (
+          <table>
+            <thead><tr><th>Naam</th><th>Soort</th><th>KvK</th><th>E-mail</th><th>Status</th></tr></thead>
+            <tbody>
+              {list.map((o) => (
+                <tr key={o.id} className={can("organizations.manage") ? "clickable" : ""} onClick={() => can("organizations.manage") && setEditing(o)}>
+                  <td><strong>{o.name}</strong></td>
+                  <td>{ORG_TYPES[o.type]}</td>
+                  <td>{o.kvkNumber ?? "—"}</td>
+                  <td>{o.email ?? "—"}</td>
+                  <td><ActiveBadge active={o.isActive} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+      {editing && <OrgForm org={editing === "new" ? undefined : editing} onClose={() => setEditing(null)} />}
+    </>
+  );
+}
+
+function OrgForm({ org, onClose }: { org?: Organization; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState({
+    name: org?.name ?? "",
+    type: org?.type ?? "installation_partner",
+    kvkNumber: org?.kvkNumber ?? "",
+    email: org?.email ?? "",
+    phone: org?.phone ?? "",
+    isActive: org?.isActive ?? true,
+  });
+  const save = useMutation({
+    mutationFn: () => {
+      const body = { ...form, kvkNumber: form.kvkNumber || null, email: form.email || null, phone: form.phone || null };
+      if (org) {
+        const { type: _t, ...rest } = body;
+        return api.patch(`/organizations/${org.id}`, rest);
+      }
+      return api.post("/organizations", body);
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["organizations"] });
+      onClose();
+    },
+  });
+  return (
+    <Modal title={org ? "Organisatie wijzigen" : "Nieuwe organisatie"} onClose={onClose}>
+      <ErrorBox error={save.error} />
+      <Field label="Naam"><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+      <Field label="Soort">
+        <select value={form.type} disabled={!!org} onChange={(e) => setForm({ ...form, type: e.target.value as Organization["type"] })}>
+          {Object.entries(ORG_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+      </Field>
+      <div className="grid-2">
+        <Field label="KvK-nummer"><input value={form.kvkNumber} onChange={(e) => setForm({ ...form, kvkNumber: e.target.value })} /></Field>
+        <Field label="Telefoon"><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
+      </div>
+      <Field label="E-mail"><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
+      <label className="checkbox"><input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Actief</label>
+      <div className="modal-actions">
+        <button className="btn" onClick={onClose}>Annuleren</button>
+        <button className="btn primary" onClick={() => save.mutate()} disabled={save.isPending}>Opslaan</button>
+      </div>
+    </Modal>
+  );
+}

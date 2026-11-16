@@ -1,10 +1,14 @@
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createDb } from "./db/client.js";
 
 const config = loadConfig();
 const { db, pool } = createDb(config.DATABASE_URL);
-const app = await buildApp({ config, db });
+// In productie serveert de API ook de gebouwde webapplicatie (apps/web/dist).
+const webDistDir = fileURLToPath(new URL("../../web/dist", import.meta.url));
+const app = await buildApp({ config, db, webDistDir: existsSync(webDistDir) ? webDistDir : undefined });
 
 const shutdown = async (signal: string) => {
   app.log.info({ signal }, "Afsluiten");

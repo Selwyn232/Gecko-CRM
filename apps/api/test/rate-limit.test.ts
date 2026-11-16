@@ -17,7 +17,7 @@ describe("rate limiting", () => {
 
   it("blokkeert na 10 inlogpogingen per minuut", async () => {
     const attempt = () =>
-      app.inject({ method: "POST", url: "/auth/login", payload: { email: "x@gecko.test", password: "y" } });
+      app.inject({ method: "POST", url: "/api/auth/login", payload: { email: "x@gecko.test", password: "y" } });
     for (let i = 0; i < 10; i++) expect((await attempt()).statusCode).toBe(401);
     const res = await attempt();
     expect(res.statusCode).toBe(429);

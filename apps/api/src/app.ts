@@ -2,7 +2,8 @@ import cookie from "@fastify/cookie";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import { sql } from "drizzle-orm";
-import Fastify, { type FastifyError } from "fastify";
+import fastifyStatic from "@fastify/static";
+import Fastify, { type FastifyError, type FastifyInstance } from "fastify";
 import {
   hasZodFastifySchemaValidationErrors,
   serializerCompiler,
@@ -29,9 +30,20 @@ const PG_CHECK_VIOLATION = "23514";
 export interface AppDeps {
   config: Config;
   db: Db;
+  /** Map met de gebouwde webapplicatie. Leeg = alleen API (zoals in tests). */
+  webDistDir?: string;
 }
 
-export async function buildApp({ config, db }: AppDeps) {
+/** Serveert de webapplicatie; onbekende paden buiten /api krijgen index.html (client-side routing). */
+async function registerWebApp(app: FastifyInstance, dir: string) {
+  await app.register(fastifyStatic, { root: dir, wildcard: false });
+  app.setNotFoundHandler((req, reply) => {
+    if (req.method === "GET" && !req.url.startsWith("/api/")) return reply.sendFile("index.html");
+    return reply.code(404).send({ error: { code: "not_found", message: "Niet gevonden" } });
+  });
+}
+
+export async function buildApp({ config, db, webDistDir }: AppDeps) {
   const app = Fastify({
     logger:
       config.NODE_ENV === "test"
@@ -48,7 +60,11 @@ export async function buildApp({ config, db }: AppDeps) {
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
-  await app.register(helmet);
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: { "img-src": ["'self'", "data:"], "script-src": ["'self'"], "style-src": ["'self'", "'unsafe-inline'"] },
+    },
+  });
   await app.register(cookie);
   if (config.RATE_LIMIT_ENABLED) {
     await app.register(rateLimit, {
@@ -101,12 +117,20 @@ export async function buildApp({ config, db }: AppDeps) {
     return { status: "ok" };
   });
 
-  await app.register(authRoutes, { authService, config });
-  await app.register(userRoutes, { db });
-  await app.register(roleRoutes, { db });
-  await app.register(organizationRoutes, { db });
-  await app.register(auditRoutes, { db });
-  await app.register(catalogRoutes, { db });
+  // Alle API-routes onder /api; de rest van de paden is voor de webapplicatie.
+  await app.register(
+    async (api) => {
+      await api.register(authRoutes, { authService, config });
+      await api.register(userRoutes, { db });
+      await api.register(roleRoutes, { db });
+      await api.register(organizationRoutes, { db });
+      await api.register(auditRoutes, { db });
+      await api.register(catalogRoutes, { db });
+    },
+    { prefix: "/api" },
+  );
+
+  if (webDistDir) await registerWebApp(app, webDistDir);
 
   return app;
 }

@@ -72,16 +72,16 @@ export async function makeUser(db: Db, roleKeys: string[] = [], email?: string) 
 
 /** Volledige login inclusief 2FA-instelling. Geeft headers terug voor vervolgverzoeken. */
 export async function loginWithMfa(app: FastifyInstance, email: string, password = PASSWORD) {
-  const login = await app.inject({ method: "POST", url: "/auth/login", payload: { email, password } });
+  const login = await app.inject({ method: "POST", url: "/api/auth/login", payload: { email, password } });
   if (login.statusCode !== 200) throw new Error(`login faalde: ${login.body}`);
   const { token, mfa } = login.json() as { token: string; mfa: "setup" | "verify" };
   const headers = { authorization: `Bearer ${token}` };
   if (mfa !== "setup") throw new Error("helper verwacht een nieuwe gebruiker zonder 2FA");
-  const setup = await app.inject({ method: "POST", url: "/auth/mfa/setup", headers });
+  const setup = await app.inject({ method: "POST", url: "/api/auth/mfa/setup", headers });
   const { secret } = setup.json() as { secret: string };
   const enable = await app.inject({
     method: "POST",
-    url: "/auth/mfa/enable",
+    url: "/api/auth/mfa/enable",
     headers,
     payload: { code: totpAt(secret, currentStep()) },
   });
