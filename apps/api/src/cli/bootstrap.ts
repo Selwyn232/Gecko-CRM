@@ -5,6 +5,9 @@
  * 3. optioneel voorbeelddata (SEED_DEMO=true)
  * 4. eerste beheerder, alleen als er nog géén gebruikers zijn
  *    (BOOTSTRAP_ADMIN_EMAIL + BOOTSTRAP_ADMIN_PASSWORD). Verwijder die variabelen na de eerste login.
+ * 6. optioneel eenmalig wachtwoord herstellen: RESET_USER_PASSWORD="gebruikersnaam:wachtwoord".
+ *    Zet het wachtwoord zonder wachtwoordbeleid (bewuste uitzondering door de eigenaar), zonder
+ *    verplichte wijziging en zonder 2FA-plicht; heft blokkades op en beëindigt sessies. Verwijder de variabele daarna.
  * 5. optioneel extra beheerders op gebruikersnaam, zonder 2FA en met verplicht nieuw wachtwoord bij
  *    eerste login: BOOTSTRAP_USERS="naam:startwachtwoord,naam2:startwachtwoord2".
  *    Bestaat de gebruikersnaam al, dan wordt die overgeslagen. Verwijder de variabele daarna.
@@ -17,7 +20,9 @@ import { seed } from "../db/seed.js";
 import { seedDemo } from "../db/seed-demo.js";
 import { systemActor } from "../lib/context.js";
 import { ADMIN_ROLE_KEY } from "../modules/auth/permissions.js";
-import { roles, users } from "../modules/auth/schema.js";
+import { roles, sessions, users } from "../modules/auth/schema.js";
+import { hashPassword } from "../modules/auth/password.js";
+import { recordAudit } from "../modules/audit/service.js";
 import { organizations } from "../modules/organizations/schema.js";
 import { createUser } from "../modules/users/service.js";
 
@@ -60,6 +65,21 @@ try {
         mustChangePassword: true,
       });
       console.log(`Gebruiker aangemaakt: ${name.toLowerCase()}`);
+    }
+  }
+  const reset = process.env.RESET_USER_PASSWORD;
+  if (reset && reset.includes(":")) {
+    const [login, ...rest] = reset.split(":");
+    const pw = rest.join(":");
+    const [u] = await db.select().from(users).where(sql`lower(${users.username}) = ${login!.toLowerCase()} or lower(${users.email}) = ${login!.toLowerCase()}`);
+    if (u && pw.length >= 4) {
+      await db
+        .update(users)
+        .set({ passwordHash: await hashPassword(pw), mustChangePassword: false, mfaRequired: false, totpEnabledAt: null, totpSecretEncrypted: null, failedLoginCount: 0, lockedUntil: null })
+        .where(eq(users.id, u.id));
+      await db.update(sessions).set({ revokedAt: new Date() }).where(eq(sessions.userId, u.id));
+      await recordAudit(db, systemActor(), { action: "user.password_reset", entityType: "user", entityId: u.id, metadata: { via: "RESET_USER_PASSWORD", policyOverride: true, mfaRequired: false } });
+      console.log(`Wachtwoord hersteld voor ${login}`);
     }
   }
 } finally {

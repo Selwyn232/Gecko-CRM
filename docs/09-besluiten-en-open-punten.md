@@ -23,7 +23,7 @@
 | B17 | TypeScript + PostgreSQL, hosting EU; uitgebreide backups (zie 07) | 2026-11-16 |
 | B18 | Fasering zoals in 08 | 2026-11-16 |
 | B19 | Inloggen met e-mail of gebruikersnaam. 2FA standaard verplicht, per gebruiker uit te zetten door een beheerder (afgeraden). Startwachtwoorden moeten bij eerste login worden vervangen | 2026-11-16 |
-| B20 | Accounts selwyn, renee, barry, jurriaan: beheerder, zonder 2FA (op verzoek, tegen advies in) | 2026-11-16 |
+| B20 | Accounts selwyn, renee, barry, jurriaan: zonder 2FA (op verzoek, tegen advies in). Account selwyn (beheerder) op verzoek van de eigenaar met eenvoudig wachtwoord, uitzondering op het wachtwoordbeleid; alleen accountblokkade na 5 pogingen beschermt | 2026-11-16 |
 | B21 | Klantreis per productgroep: statussen met fase, start/eind, en expliciet toegestane overgangen; volledig instelbaar | 2026-11-16 |
 | B23 | Offerte per productgroep; akkoord maakt automatisch het project aan. Prijzen/btw/kostprijs/fee vastgezet bij definitief maken; wijzigen via nieuwe versie | 2026-11-16 |
 | B24 | Kostprijs en marge alleen zichtbaar met recht op inkoopprijzen. Fee per verkoopkanaal instelbaar (basispunten) | 2026-11-16 |
