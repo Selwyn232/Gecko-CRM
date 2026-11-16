@@ -108,10 +108,11 @@ function PartnerAppointment() {
   const { id } = useParams();
   const qc = useQueryClient();
   const detail = useQuery({ queryKey: ["partner-appointment", id], queryFn: () => api.get<PartnerAppointmentDetail>(`/partner/appointments/${id}`) });
+  const testStatus = useQuery({ queryKey: ["test-status"], queryFn: () => api.get<{ testMode: boolean }>("/testing/status") });
   if (detail.isLoading) return <Loading />;
   if (!detail.data) return <ErrorBox error={detail.error} />;
   const a = detail.data;
-  const canReport = a.status === "planned" && a.date <= todayIso();
+  const canReport = a.status === "planned" && (a.date <= todayIso() || !!testStatus.data?.testMode);
   const refresh = () => qc.invalidateQueries({ queryKey: ["partner-appointment", id] });
 
   return (

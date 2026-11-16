@@ -200,7 +200,8 @@ export async function findSlots(db: DbOrTx, projectId: string, type: Appointment
   if (type === "installation" && ctx.project.installationPartnerId) partners = partners.filter((p) => p.id === ctx.project.installationPartnerId);
   if (!partners.length) return { regions: regs.map((r) => ({ id: r.id, name: r.name })), slots: [], message: "Geen installatiepartner werkt in deze regio. Stel het werkgebied in bij Beschikbaarheid." };
 
-  const lead = await getSetting(db, type === "survey" ? "planning.survey_lead_days" : "planning.installation_lead_days");
+  // In testmodus mag vandaag al worden gepland.
+  const lead = (await getSetting(db, "test.mode")) ? 0 : await getSetting(db, type === "survey" ? "planning.survey_lead_days" : "planning.installation_lead_days");
   const horizon = await getSetting(db, "planning.horizon_days");
   const from = addDays(todayIso(), lead);
   const to = addDays(todayIso(), horizon);
@@ -509,7 +510,9 @@ export async function submitReport(
     if (!a) throw notFound("Afspraak");
     if (actor.organizationId !== a.partnerOrganizationId && !actor.permissions.has("planning.manage")) throw forbidden();
     if (a.status !== "planned") throw conflict("not_planned", "Voor deze afspraak kan geen rapport meer worden ingediend");
-    if (a.date > todayIso()) throw badRequest("too_early", "Een rapport kan pas op of na de afspraakdatum worden ingediend");
+    if (a.date > todayIso() && !(await getSetting(tx, "test.mode"))) {
+      throw badRequest("too_early", "Een rapport kan pas op of na de afspraakdatum worden ingediend");
+    }
     if (a.type === "installation" && (!input.customerSignedName || !input.customerSignatureFileId)) {
       throw badRequest("signature_required", "Voor de oplevering is de handtekening van de klant verplicht");
     }

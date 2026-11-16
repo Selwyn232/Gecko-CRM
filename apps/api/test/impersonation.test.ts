@@ -25,7 +25,7 @@ const header = (jar: Record<string, string>) => ({ cookie: Object.entries(jar).m
 describe("inloggen als", () => {
   it("beheerder kijkt mee als gebruiker en keert terug; alles gelogd", async () => {
     const target = await makeUser(ctx.db, ["planner"]);
-    let jar = { gecko_session: admin.token };
+    let jar: Record<string, string> = { gecko_session: admin.token };
     const start = await ctx.app.inject({ method: "POST", url: `/api/users/${target.id}/impersonate`, headers: header(jar) });
     expect(start.statusCode, start.body).toBe(200);
     jar = cookiesFrom(start, jar);

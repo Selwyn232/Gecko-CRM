@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useAuth } from "./auth";
 import { ChangePasswordModal } from "./components/ChangePassword";
 import { ImpersonationBar } from "./components/ImpersonationBar";
+import { TestModeBar } from "./components/TestModeBar";
+import { TestingPage } from "./pages/Testing";
 import { AuditPage } from "./pages/Audit";
 import { ChannelsPage } from "./pages/Channels";
 import { CustomerDetailPage } from "./pages/CustomerDetail";
@@ -49,6 +51,7 @@ export function App() {
   if (me.organizationType === "installation_partner") {
     return (
       <>
+        <TestModeBar />
         <ImpersonationBar />
         <PartnerApp />
       </>
@@ -65,6 +68,7 @@ export function App() {
 
   return (
     <>
+    <TestModeBar />
     <ImpersonationBar />
     <div className="shell">
       <aside className="sidebar">
@@ -90,6 +94,7 @@ export function App() {
           {can("users.read") && <NavLink to="/rollen">Rollen &amp; rechten</NavLink>}
           {can("audit.read") && <NavLink to="/logboek">Logboek</NavLink>}
           {can("settings.manage") && <NavLink to="/instellingen">Instellingen</NavLink>}
+          {can("settings.manage") && <NavLink to="/testen">Testen</NavLink>}
         </nav>
         <div className="sidebar-footer">
           <div style={{ color: "var(--text)", fontWeight: 500 }}>{me.name}</div>
@@ -113,6 +118,7 @@ export function App() {
           <Route path="/facturen/:id" element={<InvoiceDetailPage />} />
           <Route path="/instellingen" element={<SettingsPage />} />
           <Route path="/planning" element={<PlanningPage />} />
+          <Route path="/testen" element={<TestingPage />} />
           <Route path="/rapporten/:id" element={<ReportReviewPage />} />
           <Route path="/regios" element={<RegionsPage />} />
           <Route path="/beschikbaarheid" element={<AvailabilityPage />} />

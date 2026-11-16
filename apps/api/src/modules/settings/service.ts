@@ -11,6 +11,11 @@ import { appSettings } from "./schema.js";
  * het beheerscherm toont ze automatisch.
  */
 export const SETTINGS = {
+  "test.mode": {
+    label: "Testmodus: vandaag al inplannen, rapporten direct indienen, testscenario's maken (uitzetten bij echte klanten)",
+    schema: z.boolean(),
+    default: false,
+  },
   "invoice.payment_term_days": { label: "Betaaltermijn facturen (dagen)", schema: z.number().int().min(1).max(90), default: 14 },
   "invoice.deposit_basis_points": { label: "Aanbetaling (% × 100, 7000 = 70%)", schema: z.number().int().min(0).max(10000), default: 7000 },
   "dunning.enabled": { label: "Automatische herinneringen en aanmaningen", schema: z.boolean(), default: true },

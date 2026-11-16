@@ -210,3 +210,9 @@ td.mono, .mono { white-space: nowrap; }
 
 .impersonation-bar { position: sticky; top: 0; z-index: 20; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 16px; background: #d4a015; color: #1c211d; font-size: 14px; }
 .impersonation-bar .btn { background: #fff; color: #1c211d; border-color: #fff; }
+.testmode-bar { background: #7c3aed; color: #fff; text-align: center; padding: 4px 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
+.steps { counter-reset: step; list-style: none; padding: 0; margin: 0; }
+.steps li { counter-increment: step; display: grid; grid-template-columns: 32px 1fr auto; gap: 12px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.steps li:last-child { border-bottom: 0; }
+.steps li::before { content: counter(step); width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; display: grid; place-items: center; }
+.steps .who { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
