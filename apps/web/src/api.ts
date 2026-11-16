@@ -396,6 +396,19 @@ export interface Appointment {
   address: string;
   customer: { id: string; firstName: string | null; lastName: string; email: string | null; phone: string | null };
   report: { id: string; review: "pending" | "approved" | "rejected"; positive: boolean; submittedAt: string } | null;
+  /** Geplande schouw waarvoor de aanbetaling nog niet is betaald. */
+  depositUnpaid?: boolean;
+}
+export interface Penalty {
+  id: string;
+  partnerOrganizationId: string;
+  partnerName: string;
+  appointmentId: string | null;
+  amountCents: number;
+  reason: string;
+  status: "open" | "settled" | "waived";
+  waivedReason: string | null;
+  createdAt: string;
 }
 export interface ReportData {
   remarks?: string;

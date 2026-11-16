@@ -1,17 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api, type Appointment, type Report, type ToPlanItem } from "../api";
+import { api, type Appointment, type Penalty, type Report, type ToPlanItem } from "../api";
 import { useAuth } from "../auth";
 import { ErrorBox, Field, Loading, Modal, PageHead } from "../components/ui";
-import { addDaysIso, APPOINTMENT_STATUS, APPOINTMENT_TYPE, daysSince, formatDateTime, REPORT_REVIEW, TIME_WINDOW, todayIso, weekday } from "../format";
+import { addDaysIso, APPOINTMENT_STATUS, APPOINTMENT_TYPE, daysSince, formatCents, formatDateTime, REPORT_REVIEW, TIME_WINDOW, todayIso, weekday } from "../format";
 import { useOrganizations } from "../hooks";
 
-type Tab = "survey" | "installation" | "agenda" | "reports";
+type Tab = "survey" | "installation" | "agenda" | "attention" | "reports" | "penalties";
 
 export function PlanningPage() {
   const [tab, setTab] = useState<Tab>("survey");
   const reports = useQuery({ queryKey: ["reports", "pending"], queryFn: () => api.get<Report[]>("/reports?review=pending") });
+  const attention = useQuery({
+    queryKey: ["appointments", "attention"],
+    queryFn: async () => (await api.get<Appointment[]>(`/appointments?status=planned&from=${todayIso()}&to=${addDaysIso(todayIso(), 60)}`)).filter((a) => a.depositUnpaid),
+  });
   return (
     <>
       <PageHead title="Planning" sub="Schouwen en installaties inplannen op de opgegeven beschikbaarheid van installatiepartners." />
@@ -19,11 +23,20 @@ export function PlanningPage() {
         <button className={tab === "survey" ? "active" : ""} onClick={() => setTab("survey")}>Schouw te plannen</button>
         <button className={tab === "installation" ? "active" : ""} onClick={() => setTab("installation")}>Installatie te plannen</button>
         <button className={tab === "agenda" ? "active" : ""} onClick={() => setTab("agenda")}>Agenda</button>
+        <button className={tab === "attention" ? "active" : ""} onClick={() => setTab("attention")}>Aanbetaling open {attention.data?.length ? <span className="badge red">{attention.data.length}</span> : null}</button>
         <button className={tab === "reports" ? "active" : ""} onClick={() => setTab("reports")}>Rapporten {reports.data?.length ? <span className="badge yellow">{reports.data.length}</span> : null}</button>
+        <button className={tab === "penalties" ? "active" : ""} onClick={() => setTab("penalties")}>Sancties</button>
       </div>
       {(tab === "survey" || tab === "installation") && <ToPlan type={tab} />}
       {tab === "agenda" && <Agenda />}
+      {tab === "attention" && (
+        <>
+          <div className="alert warning">Geplande schouwen waarvoor de aanbetaling nog niet is betaald. Neem contact op met de klant of verzet de schouw.</div>
+          <div className="card flush">{!attention.data?.length ? <div className="empty">Geen signaleringen.</div> : <AppointmentsTable items={attention.data} />}</div>
+        </>
+      )}
       {tab === "reports" && <PendingReports reports={reports.data} />}
+      {tab === "penalties" && <Penalties />}
     </>
   );
 }
@@ -136,7 +149,10 @@ export function AppointmentsTable({ items, onCancel }: { items: Appointment[]; o
             <td className="mono"><Link to={`/projecten/${a.projectId}`}>{a.projectNumber}</Link></td>
             <td>{[a.customer.firstName, a.customer.lastName].filter(Boolean).join(" ")}<div className="muted" style={{ fontSize: 12 }}>{a.address}</div></td>
             <td>{a.partnerName}</td>
-            <td><span className={`status ${APPOINTMENT_STATUS[a.status]!.color}`}>{APPOINTMENT_STATUS[a.status]!.label}</span></td>
+            <td>
+              <span className={`status ${APPOINTMENT_STATUS[a.status]!.color}`}>{APPOINTMENT_STATUS[a.status]!.label}</span>
+              {a.depositUnpaid && <div><span className="badge red" style={{ marginTop: 4 }}>⚠ Aanbetaling niet betaald</span></div>}
+            </td>
             <td>{a.report ? <button className="btn small" onClick={() => navigate(`/rapporten/${a.report!.id}`)}>{REPORT_REVIEW[a.report.review]!.label}</button> : <span className="muted">—</span>}</td>
             {onCancel && <td className="num">{a.status === "planned" && <button className="btn small danger" onClick={() => onCancel(a)}>Annuleren</button>}</td>}
           </tr>
@@ -190,13 +206,59 @@ export function CancelModal({ appointment, onClose }: { appointment: Appointment
     <Modal title={`${APPOINTMENT_TYPE[appointment.type]} op ${weekday(appointment.date)} annuleren`} onClose={onClose}>
       <ErrorBox error={save.error} />
       <Field label="Reden"><input value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
-      <label className="checkbox"><input type="checkbox" checked={noShow} onChange={(e) => setNoShow(e.target.checked)} /> De partner is niet gekomen (wordt bijgehouden voor sancties)</label>
+      <label className="checkbox"><input type="checkbox" checked={noShow} onChange={(e) => setNoShow(e.target.checked)} /> De partner is niet gekomen — er wordt een boete (standaard €250) geregistreerd</label>
       <label className="checkbox"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Klant per e-mail informeren</label>
       <div className="modal-actions">
         <button className="btn" onClick={onClose}>Terug</button>
         <button className="btn danger" disabled={reason.length < 3 || save.isPending} onClick={() => save.mutate()}>Annuleren</button>
       </div>
     </Modal>
+  );
+}
+
+const PENALTY_STATUS: Record<string, { label: string; color: string }> = {
+  open: { label: "Open", color: "red" },
+  settled: { label: "Verrekend", color: "green" },
+  waived: { label: "Kwijtgescholden", color: "gray" },
+};
+
+function Penalties() {
+  const { can } = useAuth();
+  const qc = useQueryClient();
+  const list = useQuery({ queryKey: ["penalties"], queryFn: () => api.get<Penalty[]>("/penalties") });
+  const waive = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => api.post(`/penalties/${id}/waive`, { reason }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["penalties"] }),
+  });
+  const open = (list.data ?? []).filter((p) => p.status === "open").reduce((s, p) => s + p.amountCents, 0);
+  return (
+    <>
+      <p className="muted">Boetes worden automatisch geregistreerd als een afspraak wordt geannuleerd met "partner niet gekomen". Verrekening volgt via de selfbilling. Openstaand: <strong>{formatCents(open)}</strong></p>
+      <ErrorBox error={waive.error} />
+      <div className="card flush">
+        {list.isLoading ? <Loading /> : !list.data?.length ? <div className="empty">Geen sancties.</div> : (
+          <table>
+            <thead><tr><th>Datum</th><th>Partner</th><th>Reden</th><th>Status</th><th className="num">Bedrag</th><th /></tr></thead>
+            <tbody>
+              {list.data.map((p) => (
+                <tr key={p.id}>
+                  <td>{formatDateTime(p.createdAt)}</td>
+                  <td>{p.partnerName}</td>
+                  <td>{p.reason}{p.waivedReason && <div className="muted" style={{ fontSize: 12 }}>Kwijtgescholden: {p.waivedReason}</div>}</td>
+                  <td><span className={`status ${PENALTY_STATUS[p.status]!.color}`}>{PENALTY_STATUS[p.status]!.label}</span></td>
+                  <td className="num">{formatCents(p.amountCents)}</td>
+                  <td className="num">
+                    {can("planning.manage") && p.status === "open" && (
+                      <button className="btn small" onClick={() => { const r = prompt("Reden voor kwijtschelden (bv. overmacht)"); if (r && r.length >= 3) waive.mutate({ id: p.id, reason: r }); }}>Kwijtschelden</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </>
   );
 }
 

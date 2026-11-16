@@ -19,7 +19,8 @@ import { getCompany } from "../quotes/links.js";
 import { quotes } from "../quotes/schema.js";
 import { addLineInTx } from "../quotes/service.js";
 import { getSetting } from "../settings/service.js";
-import { appointments, availability, regions, reports, type ReportData } from "./schema.js";
+import { invoices } from "../invoices/schema.js";
+import { appointments, availability, partnerPenalties, regions, reports, type ReportData } from "./schema.js";
 
 type AppointmentType = "survey" | "installation";
 const TYPE_LABEL: Record<AppointmentType, string> = { survey: "schouw", installation: "installatie" };
@@ -256,6 +257,14 @@ export async function cancelAppointment(
       metadata: { appointmentId: id, reason: input.reason, partnerId: a.partnerOrganizationId },
     });
     await emitEvent(tx, "appointment.canceled", { type: "appointment", id }, { projectId: a.projectId, partnerNoShow: !!input.partnerNoShow });
+    if (input.partnerNoShow) {
+      const amount = await getSetting(tx, "planning.no_show_penalty_cents");
+      const [pen] = await tx
+        .insert(partnerPenalties)
+        .values({ partnerOrganizationId: a.partnerOrganizationId, appointmentId: id, amountCents: amount, reason: `Niet gekomen op ${a.date}: ${input.reason}`, createdBy: actor.userId })
+        .returning();
+      await recordAudit(tx, actor, { action: "penalty.created", entityType: "organization", entityId: a.partnerOrganizationId, after: pen });
+    }
   });
   if (input.notifyCustomer !== false) await notifyCustomer(db, transport, id, "canceled");
   return getAppointment(db, id);
@@ -295,7 +304,23 @@ export async function getAppointment(db: DbOrTx, id: string) {
     .where(eq(appointments.id, id));
   if (!row) throw notFound("Afspraak");
   const [report] = await db.select().from(reports).where(eq(reports.appointmentId, id));
-  return toView(row, report ?? null);
+  const flags = await depositFlags(db, [row.a]);
+  return { ...toView(row, report ?? null), depositUnpaid: flags.has(row.a.id) };
+}
+
+/**
+ * Signalering (O11): geplande schouwen waarvoor de aanbetaling nog niet is voldaan.
+ * Geeft de id's van de betreffende afspraken terug.
+ */
+async function depositFlags(db: DbOrTx, appts: (typeof appointments.$inferSelect)[]) {
+  const surveys = appts.filter((a) => a.type === "survey" && a.status === "planned");
+  if (!surveys.length) return new Set<string>();
+  const deposits = await db
+    .select({ projectId: invoices.projectId, status: invoices.status })
+    .from(invoices)
+    .where(and(inArray(invoices.projectId, surveys.map((s) => s.projectId)), eq(invoices.type, "deposit")));
+  const paid = new Set(deposits.filter((d) => d.status === "paid").map((d) => d.projectId));
+  return new Set(surveys.filter((s) => !paid.has(s.projectId)).map((s) => s.id));
 }
 
 function toView(
@@ -336,7 +361,8 @@ export async function listAppointments(db: DbOrTx, q: { from?: string; to?: stri
     .limit(500);
   const ids = rows.map((r) => r.a.id);
   const reps = ids.length ? await db.select().from(reports).where(inArray(reports.appointmentId, ids)) : [];
-  return rows.map((r) => toView(r, reps.find((x) => x.appointmentId === r.a.id) ?? null));
+  const flags = await depositFlags(db, rows.map((r) => r.a));
+  return rows.map((r) => ({ ...toView(r, reps.find((x) => x.appointmentId === r.a.id) ?? null), depositUnpaid: flags.has(r.a.id) }));
 }
 
 /** Projecten die klaarstaan om een schouw/installatie te plannen: status met overgang naar "{type}.scheduled". */
@@ -487,5 +513,32 @@ async function createExtraWorkQuote(tx: DbOrTx, actor: ActorContext, projectId: 
   for (const l of lines) await addLineInTx(tx, actor, q!.id, { productId: l.productId, quantity: l.quantity, description: l.note ?? null });
   await recordAudit(tx, actor, { action: "quote.created", entityType: "quote", entityId: q!.id, after: { kind: "extra_work", projectId } });
   return q!.id;
+}
+
+// ---------------------------------------------------------------- Sancties
+
+export async function listPenalties(db: DbOrTx, q: { partnerId?: string; status?: "open" | "settled" | "waived" }) {
+  const filters: SQL[] = [];
+  if (q.partnerId) filters.push(eq(partnerPenalties.partnerOrganizationId, q.partnerId));
+  if (q.status) filters.push(eq(partnerPenalties.status, q.status));
+  const rows = await db
+    .select({ penalty: partnerPenalties, partnerName: organizations.name })
+    .from(partnerPenalties)
+    .innerJoin(organizations, eq(organizations.id, partnerPenalties.partnerOrganizationId))
+    .where(filters.length ? and(...filters) : undefined)
+    .orderBy(asc(partnerPenalties.createdAt));
+  return rows.map((r) => ({ ...r.penalty, partnerName: r.partnerName }));
+}
+
+/** Sanctie kwijtschelden (bv. bij overmacht), met reden. */
+export async function waivePenalty(db: Db, actor: ActorContext, id: string, reason: string) {
+  return db.transaction(async (tx) => {
+    const [p] = await tx.select().from(partnerPenalties).where(eq(partnerPenalties.id, id)).for("update");
+    if (!p) throw notFound("Sanctie");
+    if (p.status !== "open") throw conflict("penalty_not_open", "Alleen een openstaande sanctie kan worden kwijtgescholden");
+    const [after] = await tx.update(partnerPenalties).set({ status: "waived", waivedReason: reason }).where(eq(partnerPenalties.id, id)).returning();
+    await recordAudit(tx, actor, { action: "penalty.waived", entityType: "organization", entityId: p.partnerOrganizationId, before: p, after });
+    return after!;
+  });
 }
 

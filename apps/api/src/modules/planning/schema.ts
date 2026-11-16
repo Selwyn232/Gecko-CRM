@@ -91,3 +91,22 @@ export interface ReportData {
   /** Voorgesteld meerwerk (alleen schouw): producten uit de meerwerkcatalogus. */
   extraWork?: { productId: string; quantity: number; note?: string }[];
 }
+
+export const penaltyStatus = pgEnum("penalty_status", ["open", "settled", "waived"]);
+
+/** Sanctie voor een installatiepartner (bv. niet komen opdagen). Wordt later verrekend via selfbilling. */
+export const partnerPenalties = pgTable(
+  "partner_penalties",
+  {
+    id: id(),
+    partnerOrganizationId: uuid("partner_organization_id").notNull().references(() => organizations.id),
+    appointmentId: uuid("appointment_id").references(() => appointments.id),
+    amountCents: integer("amount_cents").notNull(),
+    reason: text("reason").notNull(),
+    status: penaltyStatus("status").notNull().default("open"),
+    waivedReason: text("waived_reason"),
+    createdBy: uuid("created_by").references(() => users.id),
+    ...timestamps(),
+  },
+  (t) => [index("partner_penalties_partner_idx").on(t.partnerOrganizationId, t.status)],
+);

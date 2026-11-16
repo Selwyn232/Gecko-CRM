@@ -12,6 +12,7 @@ import {
   getReport,
   listAppointments,
   listAvailability,
+  listPenalties,
   listRegions,
   listReports,
   reviewReport,
@@ -19,6 +20,7 @@ import {
   scheduleAppointment,
   setAvailability,
   toPlan,
+  waivePenalty,
 } from "./service.js";
 
 const IdParams = z.object({ id: z.string().uuid() });
@@ -131,5 +133,16 @@ export const planningRoutes: FastifyPluginAsyncZod<{ db: Db; emailTransport: Ema
     "/reports/:id/review",
     { preValidation: manage, schema: { params: IdParams, body: z.object({ approve: z.boolean(), note: z.string().max(2000).nullish() }) } },
     async (req) => reviewReport(db, req.actor, req.params.id, req.body),
+  );
+
+  app.get(
+    "/penalties",
+    { preValidation: read, schema: { querystring: z.object({ partnerId: z.string().uuid().optional(), status: z.enum(["open", "settled", "waived"]).optional() }) } },
+    async (req) => listPenalties(db, req.query),
+  );
+  app.post(
+    "/penalties/:id/waive",
+    { preValidation: manage, schema: { params: IdParams, body: z.object({ reason: z.string().min(3).max(500) }) } },
+    async (req) => waivePenalty(db, req.actor, req.params.id, req.body.reason),
   );
 };

@@ -39,6 +39,8 @@
 | B34 | Automatische statuswissels per gebeurtenis (schouw ingepland, rapport ingediend/goedgekeurd, meerwerk, betaald) instelbaar per status in de klantreis | 2026-11-16 |
 | B35 | Partnerportaal: partner ziet alleen eigen afspraken; rapport met foto's; oplevering met handtekening klant; meerwerk alleen bij de schouw, via meerwerk-offerte ter akkoord bij klant | 2026-11-16 |
 | B36 | Vervaldatum aanbetaling uiterlijk X dagen (instelbaar, standaard 2) vóór de schouwdatum | 2026-11-16 |
+| B37 | Geplande schouw met onbetaalde aanbetaling wordt gesignaleerd (Planning → "Aanbetaling open", rode markering in de agenda); niet automatisch geannuleerd | 2026-11-16 |
+| B38 | Partner niet gekomen: boete €250 (instelbaar), automatisch geregistreerd, kwijt te schelden met reden; verrekening via selfbilling | 2026-11-16 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten
@@ -54,7 +56,6 @@
 | O8 | Gedrag bij oplevering met restpunten: eindfactuur wachten of deels factureren? | Gecko |
 | O9 | AVG-rollen en verwerkersovereenkomsten juridisch bevestigen | Jurist |
 | O10 | Zelffactureringsovereenkomsten met Greenteam en partners | Jurist / finance |
-| O11 | Wat te doen als de aanbetaling niet vóór de schouw binnen is (schouw automatisch annuleren?) | Gecko |
 | O12 | Leverancier digitale handtekening, WhatsApp-BSP, telefonie | Te kiezen in v1/v2 |
 | O14 | 2FA weer verplicht maken voor alle beheerders zodra er echte klantdata in staat | Gecko |
 | O17 | Accepteert het Warmtefonds een gewone elektronische handtekening, of is een geavanceerde nodig? | Gecko (navragen) |
@@ -62,6 +63,5 @@
 | O18 | Mollie-account (vereist zakelijke rekening); daarna MOLLIE_API_KEY in Render | Gecko |
 | O19 | Exact Online: administratie, grootboekrekeningen per productgroep, daarna API-koppeling | Gecko / finance |
 | O21 | Foto's staan nu in de database; bij volume naar object storage (S3/R2, EU) | Techniek |
-| O22 | Hoogte en verrekening van sancties bij niet-nakomen (nu alleen geregistreerd als "partner niet gekomen") | Gecko |
-| O23 | Checklists schouw/oplevering per productgroep inhoudelijk vaststellen (nu generiek) | Gecko + partners |
+| O23 | Checklists schouw/oplevering per productgroep inhoudelijk vaststellen (nu generiek) — definitieve lijst volgt | Gecko + partners |
 | O13 | Verkoopprijs vast bij ondertekening, ook als inkoop stijgt tijdens lange wachttijd? | Gecko |

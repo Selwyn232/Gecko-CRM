@@ -215,6 +215,28 @@ describe("planning en partnerportaal", () => {
     expect(again.statusCode, again.body).toBe(200);
   });
 
+  it("signaleert onbetaalde aanbetaling bij geplande schouw; no-show geeft €250 boete", async () => {
+    const projectId = await projectReadyForSurvey("Signaal");
+    await call("PUT", "/planning/availability", { partnerId: partnerB, entries: [{ regionId, date: addDays(todayIso(), 2), surveySlots: 1, installationSlots: 0 }] });
+    const a = (await call("POST", `/projects/${projectId}/appointments`, { type: "survey", date: addDays(todayIso(), 2), partnerId: partnerB, regionId })).json();
+    await flush();
+    const listed = (await call("GET", `/appointments?projectId=${projectId}`)).json();
+    expect(listed[0].depositUnpaid).toBe(true);
+    const [deposit] = (await call("GET", `/invoices?projectId=${projectId}`)).json();
+    await call("POST", `/invoices/${deposit.id}/payments`, { amountCents: deposit.totalCents, method: "bank_transfer" });
+    expect((await call("GET", `/appointments?projectId=${projectId}`)).json()[0].depositUnpaid).toBe(false);
+
+    await call("POST", `/appointments/${a.id}/cancel`, { reason: "Monteur kwam niet", partnerNoShow: true, notifyCustomer: false });
+    const penalties = (await call("GET", `/penalties?partnerId=${partnerB}`)).json();
+    expect(penalties).toHaveLength(1);
+    expect(penalties[0]).toMatchObject({ amountCents: 25_000, status: "open" });
+    // Partner ziet eigen sanctie, andere partner niet
+    expect((await call("GET", "/partner/penalties", undefined, partnerBHeaders)).json()).toHaveLength(1);
+    expect((await call("GET", "/partner/penalties", undefined, partnerAHeaders)).json()).toHaveLength(0);
+    const waived = (await call("POST", `/penalties/${penalties[0].id}/waive`, { reason: "Overmacht: storing" })).json();
+    expect(waived.status).toBe("waived");
+  });
+
   it("capaciteit kan niet lager dan geplande afspraken; postcode buiten regio geeft melding", async () => {
     const res = await call("PUT", "/partner/availability", { entries: [{ regionId, date: todayIso(), surveySlots: 0, installationSlots: 0 }] }, partnerAHeaders);
     expect(res.json().error.code).toBe("capacity_in_use");

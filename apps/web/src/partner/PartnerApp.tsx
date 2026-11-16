@@ -1,14 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
-import { api, type Appointment, type AvailabilityRow, type Region, type Report } from "../api";
+import { api, type Appointment, type AvailabilityRow, type Penalty, type Region, type Report } from "../api";
 import { useAuth } from "../auth";
 import { AvailabilityGrid } from "../components/AvailabilityGrid";
 import { ChangePasswordModal } from "../components/ChangePassword";
 import { PhotoGrid, PhotoUpload } from "../components/PhotoUpload";
 import { SignaturePad } from "../components/SignaturePad";
 import { ErrorBox, Field, Loading, PageHead } from "../components/ui";
-import { addDaysIso, APPOINTMENT_STATUS, APPOINTMENT_TYPE, formatQty, REPORT_REVIEW, TIME_WINDOW, todayIso, weekday } from "../format";
+import { addDaysIso, APPOINTMENT_STATUS, APPOINTMENT_TYPE, formatCents, formatQty, REPORT_REVIEW, TIME_WINDOW, todayIso, weekday } from "../format";
 
 /** Portaal voor installatiepartners: alleen eigen afspraken, rapporten en beschikbaarheid. */
 export function PartnerApp() {
@@ -52,6 +52,8 @@ function PartnerAppointments() {
   const list = useQuery({ queryKey: ["partner-appointments"], queryFn: () => api.get<Appointment[]>(`/partner/appointments?from=${from}&to=${to}`) });
   const open = (list.data ?? []).filter((a) => a.status === "planned");
   const todo = open.filter((a) => a.date <= todayIso());
+  const penalties = useQuery({ queryKey: ["partner-penalties"], queryFn: () => api.get<Penalty[]>("/partner/penalties") });
+  const openPenalties = (penalties.data ?? []).filter((p) => p.status === "open");
   return (
     <>
       <PageHead title="Afspraken" sub="Uw geplande schouwen en installaties. Lever na afloop het rapport in met foto's." />
@@ -74,6 +76,19 @@ function PartnerAppointments() {
           </table>
         )}
       </div>
+      {openPenalties.length > 0 && (
+        <div className="card flush">
+          <div style={{ padding: "16px 20px 8px" }}><h2 style={{ margin: 0 }}>Openstaande sancties</h2></div>
+          <table>
+            <tbody>
+              {openPenalties.map((p) => (
+                <tr key={p.id}><td>{p.reason}</td><td className="num">{formatCents(p.amountCents)}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="muted" style={{ padding: "8px 20px", fontSize: 13 }}>Sancties worden verrekend met uw vergoeding. Vragen? Neem contact op met Gecko.</p>
+        </div>
+      )}
     </>
   );
 }

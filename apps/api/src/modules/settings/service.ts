@@ -29,6 +29,7 @@ export const SETTINGS = {
   },
   "planning.survey_lead_days": { label: "Schouw op zijn vroegst over (dagen)", schema: z.number().int().min(0).max(60), default: 3 },
   "planning.installation_lead_days": { label: "Installatie op zijn vroegst over (dagen, levertijd materiaal)", schema: z.number().int().min(0).max(90), default: 7 },
+  "planning.no_show_penalty_cents": { label: "Boete partner niet gekomen (in centen, 25000 = €250)", schema: z.number().int().min(0).max(1_000_000), default: 25_000 },
   "planning.horizon_days": { label: "Planning: zoeken tot (dagen vooruit)", schema: z.number().int().min(7).max(365), default: 56 },
   "quote.change_window_days": { label: "Klant mag afspraak verzetten tot (dagen vooraf)", schema: z.number().int().min(0).max(60), default: 14 },
 } as const;

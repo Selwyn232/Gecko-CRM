@@ -12,7 +12,7 @@ import { listFiles, loadFile, saveFile } from "../files/storage.js";
 import { organizations } from "../organizations/schema.js";
 import { appointments, reports } from "../planning/schema.js";
 import { AvailabilityEntries } from "../planning/routes.js";
-import { getAppointment, getReport, listAppointments, listAvailability, listRegions, setAvailability, submitReport } from "../planning/service.js";
+import { getAppointment, getReport, listAppointments, listAvailability, listPenalties, listRegions, setAvailability, submitReport } from "../planning/service.js";
 import { projects } from "../projects/schema.js";
 import { quoteLines, quotes } from "../quotes/schema.js";
 
@@ -126,6 +126,8 @@ export const partnerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db
       return submitReport(db, req.actor, a.id, req.body);
     },
   );
+
+  app.get("/partner/penalties", { preValidation: portal }, async (req) => listPenalties(db, { partnerId: await partnerId(req) }));
 
   app.get("/partner/regions", { preValidation: portal }, async () => (await listRegions(db)).filter((r) => r.isActive).map((r) => ({ id: r.id, name: r.name, postalRanges: r.postalRanges })));
   app.get(
