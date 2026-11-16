@@ -10,6 +10,8 @@ export const regions = pgTable("regions", {
   id: id(),
   name: text("name").notNull().unique(),
   postalRanges: jsonb("postal_ranges").$type<[number, number][]>().notNull(),
+  /** Code van het kaartgebied (bv. "1011-1037") voor de 200 standaardgebieden; leeg bij zelf gemaakte regio's. */
+  mapCode: text("map_code").unique(),
   isActive: boolean("is_active").notNull().default(true),
   ...timestamps(),
 });

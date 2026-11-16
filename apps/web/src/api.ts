@@ -365,6 +365,7 @@ export interface InvoiceDetail extends InvoiceSummary {
 export interface Region {
   id: string;
   name: string;
+  mapCode: string | null;
   postalRanges: [number, number][];
   isActive: boolean;
 }

@@ -24,21 +24,25 @@ export function RegionsPage() {
   const { can } = useAuth();
   const regions = useQuery({ queryKey: ["regions"], queryFn: () => api.get<Region[]>("/regions") });
   const [editing, setEditing] = useState<Region | "new" | null>(null);
+  const [showMap, setShowMap] = useState(false);
+  const list = (regions.data ?? []).filter((r) => showMap || !r.mapCode);
+  const mapCount = (regions.data ?? []).filter((r) => r.mapCode).length;
   return (
     <>
       <PageHead
         title="Regio's"
-        sub="Een regio is een set postcodegebieden (eerste 4 cijfers). Partners geven per regio hun beschikbaarheid op."
+        sub="Nederland is standaard verdeeld in 200 kaartgebieden (op postcode). Partners klikken hun werkgebied aan op de kaart. Hier kun je daarnaast eigen regio's maken."
         actions={can("planning.manage") && <button className="btn primary" onClick={() => setEditing("new")}>Nieuwe regio</button>}
       />
+      <label className="checkbox" style={{ marginBottom: 8 }}><input type="checkbox" checked={showMap} onChange={(e) => setShowMap(e.target.checked)} /> Ook de {mapCount} kaartgebieden tonen</label>
       <div className="card flush">
-        {regions.isLoading ? <Loading /> : !regions.data?.length ? <div className="empty">Nog geen regio's.</div> : (
+        {regions.isLoading ? <Loading /> : !list.length ? <div className="empty">Geen eigen regio's. De 200 kaartgebieden worden automatisch gebruikt.</div> : (
           <table>
             <thead><tr><th>Naam</th><th>Postcodegebieden</th><th>Status</th></tr></thead>
             <tbody>
-              {regions.data.map((r) => (
-                <tr key={r.id} className={can("planning.manage") ? "clickable" : ""} onClick={() => can("planning.manage") && setEditing(r)}>
-                  <td><strong>{r.name}</strong></td>
+              {list.map((r) => (
+                <tr key={r.id} className={can("planning.manage") && !r.mapCode ? "clickable" : ""} onClick={() => can("planning.manage") && !r.mapCode && setEditing(r)}>
+                  <td><strong>{r.name}</strong>{r.mapCode && <span className="badge" style={{ marginLeft: 6 }}>kaart</span>}</td>
                   <td className="mono">{formatRanges(r.postalRanges)}</td>
                   <td><ActiveBadge active={r.isActive} /></td>
                 </tr>

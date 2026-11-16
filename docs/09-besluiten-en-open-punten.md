@@ -40,6 +40,7 @@
 | B35 | Partnerportaal: partner ziet alleen eigen afspraken; rapport met foto's; oplevering met handtekening klant; meerwerk alleen bij de schouw, via meerwerk-offerte ter akkoord bij klant | 2026-11-16 |
 | B36 | Vervaldatum aanbetaling uiterlijk X dagen (instelbaar, standaard 2) vóór de schouwdatum | 2026-11-16 |
 | B37 | Geplande schouw met onbetaalde aanbetaling wordt gesignaleerd (Planning → "Aanbetaling open", rode markering in de agenda); niet automatisch geannuleerd | 2026-11-16 |
+| B39 | Nederland standaard verdeeld in 200 kaartgebieden: aaneengesloten PC4-reeksen binnen een PC2-reeks, verdeeld naar aantal postcodes (bron: CBS/Kadaster PC4-vlakken, CC BY 4.0; opbouw in scripts/build-nl-gebieden.py). Partners kiezen hun werkgebied op de kaart | 2026-11-16 |
 | B38 | Partner niet gekomen: boete €250 (instelbaar), automatisch geregistreerd, kwijt te schelden met reden; verrekening via selfbilling | 2026-11-16 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 

@@ -258,6 +258,7 @@ describe("planning en partnerportaal", () => {
     const res = await call("PUT", "/partner/availability", { changes: [{ date: todayIso(), part: "afternoon", available: false }] }, partnerAHeaders);
     expect(res.json().error?.code, res.body).toBe("block_in_use");
     const outside = await projectReadyForSurvey("Buiten", "9999ZZ");
-    expect((await call("GET", `/planning/slots?projectId=${outside}&type=survey`)).json().message).toContain("geen enkele regio");
+    // Met de 200 kaartgebieden valt elk adres in een regio; zonder partner in dat gebied volgt een duidelijke melding
+    expect((await call("GET", `/planning/slots?projectId=${outside}&type=survey`)).json().message).toContain("werkt in deze regio");
   });
 });

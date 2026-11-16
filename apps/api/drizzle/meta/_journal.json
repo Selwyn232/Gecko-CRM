@@ -127,6 +127,13 @@
       "when": 1794815441128,
       "tag": "0017_drop_old_availability",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794815970274,
+      "tag": "0018_region_map_code",
+      "breakpoints": true
     }
   ]
 }

@@ -143,7 +143,9 @@ export const partnerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db
   /** Alle actieve regio's, met welke tot het werkgebied van deze partner horen. */
   app.get("/partner/regions", { preValidation: portal }, async (req) => {
     const mine = await getPartnerRegions(db, await partnerId(req));
-    return (await listRegions(db)).filter((r) => r.isActive).map((r) => ({ id: r.id, name: r.name, postalRanges: r.postalRanges, selected: mine.includes(r.id) }));
+    return (await listRegions(db))
+      .filter((r) => r.isActive)
+      .map((r) => ({ id: r.id, name: r.name, mapCode: r.mapCode, postalRanges: r.postalRanges, selected: mine.includes(r.id) }));
   });
   app.put("/partner/regions", { preValidation: portal, schema: { body: z.object({ regionIds: z.array(z.string().uuid()).max(200) }) } }, async (req) =>
     setPartnerRegions(db, req.actor, await partnerId(req), req.body.regionIds),

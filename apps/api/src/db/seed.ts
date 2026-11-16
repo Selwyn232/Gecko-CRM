@@ -6,6 +6,7 @@ import { rolePermissions, roles } from "../modules/auth/schema.js";
 import { productGroups, salesChannelProductGroups, salesChannels, vatCodes, vatRates } from "../modules/catalog/schema.js";
 import { organizations } from "../modules/organizations/schema.js";
 import { ensureDefaultJourneys } from "../modules/journeys/service.js";
+import { ensureMapRegions } from "../modules/planning/map-areas.js";
 
 /**
  * Basisgegevens die elk systeem nodig heeft. Idempotent: veilig om vaker te draaien;
@@ -151,6 +152,8 @@ export async function seed(db: Db) {
     ];
     // Klantreis per productgroep (alleen als die er nog niet is)
     await ensureDefaultJourneys(tx);
+    // De 200 kaartgebieden als regio's
+    await ensureMapRegions(tx);
 
     for (const c of channels) {
       const inserted = await tx.insert(salesChannels).values(c).onConflictDoNothing().returning();

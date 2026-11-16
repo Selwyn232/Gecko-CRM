@@ -188,3 +188,22 @@ td.mono, .mono { white-space: nowrap; }
   .avail-block { padding: 8px 2px; font-size: 11px; }
   .avail-day-label { font-size: 11px; }
 }
+
+/* Kaart werkgebied */
+.nlmap { position: relative; border: 1px solid var(--border); border-radius: 8px; background: #eaf2f7; overflow: hidden; }
+.nlmap svg { width: 100%; height: min(70vh, 640px); display: block; cursor: grab; user-select: none; }
+.nlmap-area { fill: #ffffff; stroke: #9aa6a0; stroke-width: 0.6; vector-effect: non-scaling-stroke; cursor: pointer; transition: fill 0.08s; }
+.nlmap-area.hover { fill: #cfe8da; }
+.nlmap-area.on { fill: var(--accent); stroke: #ffffff; }
+.nlmap-area.on.hover { fill: #186240; }
+.nlmap-controls { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; }
+.nlmap-info { position: absolute; left: 8px; bottom: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 13px; max-width: 80%; }
+.nlmap .muted { position: absolute; right: 8px; bottom: 4px; }
+.nlmap-search { position: absolute; z-index: 5; top: 100%; left: 0; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: var(--shadow); }
+.nlmap-search button { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 8px 12px; font: inherit; cursor: pointer; color: var(--text); }
+.nlmap-search button:hover { background: var(--surface-2); }
+@media (prefers-color-scheme: dark) {
+  .nlmap { background: #16232b; }
+  .nlmap-area { fill: #2a302c; stroke: #4a544d; }
+  .nlmap-area.hover { fill: #2f4a3b; }
+}
