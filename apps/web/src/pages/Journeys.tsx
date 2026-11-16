@@ -3,7 +3,8 @@ import { useState } from "react";
 import { api, type JourneyStatus } from "../api";
 import { useAuth } from "../auth";
 import { ErrorBox, Field, Loading, Modal, PageHead, StatusPill } from "../components/ui";
-import { useJourneys } from "../hooks";
+import { JOURNEY_EVENTS } from "../format";
+import { useJourneys, useProductGroups } from "../hooks";
 
 const INVOICE_TRIGGERS: Record<string, string> = { deposit: "Aanbetaling", final: "Eindfactuur" };
 const COLORS: Record<string, string> = { gray: "Grijs", blue: "Blauw", green: "Groen", yellow: "Geel", red: "Rood", purple: "Paars" };
@@ -35,9 +36,10 @@ export function JourneysPage() {
           </button>
         ))}
       </div>
+      <InstallationDays groupId={current.productGroup.id} />
       <div className="card flush">
         <table>
-          <thead><tr><th>Fase</th><th>Status</th><th>Mag door naar</th><th>Factuur</th><th className="num">Projecten</th></tr></thead>
+          <thead><tr><th>Fase</th><th>Status</th><th>Mag door naar</th><th>Automatisch bij</th><th>Factuur</th><th className="num">Projecten</th></tr></thead>
           <tbody>
             {statuses.map((s) => (
               <tr key={s.id} className={manage ? "clickable" : ""} onClick={() => manage && setEditing(s)} style={{ opacity: s.isActive ? 1 : 0.5 }}>
@@ -49,6 +51,7 @@ export function JourneysPage() {
                   {!s.isActive && <span className="badge" style={{ marginLeft: 6 }}>Inactief</span>}
                 </td>
                 <td style={{ fontSize: 13 }}>{s.nextStatusIds?.length ? s.nextStatusIds.map(name).join(", ") : <span className="muted">—</span>}</td>
+                <td style={{ fontSize: 12 }}>{s.autoOnEvents?.length ? s.autoOnEvents.map((e) => JOURNEY_EVENTS[e] ?? e).join(", ") : <span className="muted">—</span>}</td>
                 <td>{s.invoiceTrigger ? <span className="badge green">{INVOICE_TRIGGERS[s.invoiceTrigger]}</span> : <span className="muted">—</span>}</td>
                 <td className="num">{s.projectCount ?? 0}</td>
               </tr>
@@ -80,6 +83,7 @@ function StatusForm({ productGroupId, status, all, onClose }: { productGroupId: 
     isFinal: status?.isFinal ?? false,
     isActive: status?.isActive ?? true,
     invoiceTrigger: status?.invoiceTrigger ?? "",
+    autoOnEvents: status?.autoOnEvents ?? [],
   });
   const [next, setNext] = useState<string[]>(status?.nextStatusIds ?? []);
   const phases = [...new Set(all.map((s) => s.phase))];
@@ -122,6 +126,20 @@ function StatusForm({ productGroupId, status, all, onClose }: { productGroupId: 
             <option value="final">Eindfactuur</option>
           </select>
         </Field>
+        <Field label="Automatisch naar deze status bij">
+          <div style={{ border: "1px solid var(--border)", borderRadius: 6, padding: "4px 10px", maxHeight: 150, overflow: "auto" }}>
+            {Object.entries(JOURNEY_EVENTS).map(([k, v]) => (
+              <label key={k} className="checkbox" style={{ fontWeight: 400 }}>
+                <input
+                  type="checkbox"
+                  checked={form.autoOnEvents.includes(k)}
+                  onChange={() => setForm({ ...form, autoOnEvents: form.autoOnEvents.includes(k) ? form.autoOnEvents.filter((x) => x !== k) : [...form.autoOnEvents, k] })}
+                />
+                {v}
+              </label>
+            ))}
+          </div>
+        </Field>
         <Field label="Volgorde"><input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })} /></Field>
       </div>
       <label className="checkbox"><input type="checkbox" checked={form.isInitial} onChange={(e) => setForm({ ...form, isInitial: e.target.checked })} /> Startstatus voor nieuwe projecten</label>
@@ -146,5 +164,25 @@ function StatusForm({ productGroupId, status, all, onClose }: { productGroupId: 
         <button className="btn primary" onClick={() => save.mutate()} disabled={save.isPending}>Opslaan</button>
       </div>
     </Modal>
+  );
+}
+
+function InstallationDays({ groupId }: { groupId: string }) {
+  const { can } = useAuth();
+  const qc = useQueryClient();
+  const groups = useProductGroups();
+  const g = groups.data?.find((x) => x.id === groupId);
+  const save = useMutation({
+    mutationFn: (days: number) => api.patch(`/product-groups/${groupId}`, { installationDays: days }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["product-groups"] }),
+  });
+  if (!g) return null;
+  return (
+    <div className="row" style={{ marginBottom: 12 }}>
+      <span className="muted">Duur installatie {g.name.toLowerCase()}:</span>
+      <input key={g.installationDays} type="number" min={1} max={30} defaultValue={g.installationDays} disabled={!can("catalog.manage")} style={{ width: 70 }} onBlur={(e) => Number(e.target.value) !== g.installationDays && save.mutate(Number(e.target.value))} />
+      <span className="muted">werkdag(en)</span>
+      <ErrorBox error={save.error} />
+    </div>
   );
 }

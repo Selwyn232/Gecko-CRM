@@ -34,6 +34,11 @@
 | B29 | Aanbetaling (standaard 70%) per offerteregel; eindfactuur = volledige offerte minus aanbetaling per btw-tarief. Factuurmomenten per status in de klantreis instelbaar | 2026-11-16 |
 | B30 | Aanmaanflow: herinnering → 14-dagenbrief met WIK-kosten → overdracht incasso; termijnen instelbaar, pauze per factuur | 2026-11-16 |
 | B31 | Betalen via Mollie; zonder Mollie-sleutel testmodus met gesimuleerde betaalpagina. Exact voorlopig via CSV-export | 2026-11-16 |
+| B32 | Regio = set postcodegebieden (4 cijfers); capaciteit per partner per dag per regio, apart voor schouw en installatie; installatieduur per productgroep (dagen) | 2026-11-16 |
+| B33 | Installatie bij dezelfde partner als de schouw. Capaciteit kan niet lager dan geplande afspraken; dubbel boeken voorkomen met vergrendeling | 2026-11-16 |
+| B34 | Automatische statuswissels per gebeurtenis (schouw ingepland, rapport ingediend/goedgekeurd, meerwerk, betaald) instelbaar per status in de klantreis | 2026-11-16 |
+| B35 | Partnerportaal: partner ziet alleen eigen afspraken; rapport met foto's; oplevering met handtekening klant; meerwerk alleen bij de schouw, via meerwerk-offerte ter akkoord bij klant | 2026-11-16 |
+| B36 | Vervaldatum aanbetaling uiterlijk X dagen (instelbaar, standaard 2) vóór de schouwdatum | 2026-11-16 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten
@@ -43,19 +48,20 @@
 | O1 | Kan één offerte/order meerdere projecten bevatten (combikorting, gecombineerde schouw)? Eén of meerdere aanbetalingsfacturen? | Gecko (overleg) |
 | O2 | Fee-percentage(s) per kanaal en regels bij annulering/creditnota | Gecko |
 | O3 | Warmtefonds/SVN: hoe en wanneer keren zij uit, en in welke delen? | Gecko (navragen) |
-| O4 | Regio-definitie en capaciteitseenheid voor beschikbaarheid | Gecko |
 | O5 | Doet Gecko soms zelf de schouw? | Gecko |
 | O6 | Materiaallevering bij partner of bij klant | Gecko + partners |
 | O7 | Subsidies (ISDE) en aanmelding netbeheerder: onderdeel van ontzorging? | Gecko |
 | O8 | Gedrag bij oplevering met restpunten: eindfactuur wachten of deels factureren? | Gecko |
 | O9 | AVG-rollen en verwerkersovereenkomsten juridisch bevestigen | Jurist |
 | O10 | Zelffactureringsovereenkomsten met Greenteam en partners | Jurist / finance |
-| O11 | Vervaldatum aanbetaling: hoeveel dagen vóór de schouw (X)? Wat bij niet betalen? | Gecko |
+| O11 | Wat te doen als de aanbetaling niet vóór de schouw binnen is (schouw automatisch annuleren?) | Gecko |
 | O12 | Leverancier digitale handtekening, WhatsApp-BSP, telefonie | Te kiezen in v1/v2 |
 | O14 | 2FA weer verplicht maken voor alle beheerders zodra er echte klantdata in staat | Gecko |
 | O17 | Accepteert het Warmtefonds een gewone elektronische handtekening, of is een geavanceerde nodig? | Gecko (navragen) |
 | O16 | Bedrijfsgegevens Gecko BV (adres, KvK, btw-nummer, IBAN): nu FICTIEF ingevuld, vervangen via Organisaties → Gecko BV | Gecko |
 | O18 | Mollie-account (vereist zakelijke rekening); daarna MOLLIE_API_KEY in Render | Gecko |
 | O19 | Exact Online: administratie, grootboekrekeningen per productgroep, daarna API-koppeling | Gecko / finance |
-| O20 | Vervaldatum aanbetaling koppelen aan schouwdatum (O11) zodra afspraken/planning er zijn | Gecko |
+| O21 | Foto's staan nu in de database; bij volume naar object storage (S3/R2, EU) | Techniek |
+| O22 | Hoogte en verrekening van sancties bij niet-nakomen (nu alleen geregistreerd als "partner niet gekomen") | Gecko |
+| O23 | Checklists schouw/oplevering per productgroep inhoudelijk vaststellen (nu generiek) | Gecko + partners |
 | O13 | Verkoopprijs vast bij ondertekening, ook als inkoop stijgt tijdens lange wachttijd? | Gecko |

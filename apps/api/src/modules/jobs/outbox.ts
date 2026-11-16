@@ -3,6 +3,8 @@ import type { Db } from "../../db/client.js";
 import type { ActorContext } from "../../lib/context.js";
 import { outboxEvents } from "../events/schema.js";
 import { invoiceProjectAndSend, type BillingDeps } from "../invoices/service.js";
+import { applyJourneyEvent } from "../journeys/auto.js";
+import type { JourneyEvent } from "../journeys/events.js";
 import { journeyStatuses } from "../journeys/schema.js";
 import { projects } from "../projects/schema.js";
 
@@ -16,6 +18,19 @@ type Handler = (db: Db, deps: BillingDeps, payload: Record<string, unknown>) => 
  * (Later: door beheerders instelbare regels per status, zoals e-mail/WhatsApp-berichten.)
  */
 const HANDLERS: Record<string, Handler[]> = {
+  "invoice.paid": [
+    async (db, _deps, payload) => {
+      const type = payload.type as string;
+      if (payload.projectId && (type === "deposit" || type === "final")) {
+        await applyJourneyEvent(db, String(payload.projectId), type === "deposit" ? "deposit.paid" : "final.paid");
+      }
+    },
+  ],
+  "journey.event": [
+    async (db, _deps, payload) => {
+      await applyJourneyEvent(db, String(payload.projectId), payload.event as JourneyEvent);
+    },
+  ],
   "project.status_changed": [
     async (db, deps, payload) => {
       const [row] = await db

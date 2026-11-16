@@ -22,7 +22,7 @@ import {
 
 // ---------------------------------------------------------------- Productgroepen
 
-export type ProductGroupInput = { key: string; name: string; sortOrder?: number; isActive?: boolean };
+export type ProductGroupInput = { key: string; name: string; sortOrder?: number; installationDays?: number; isActive?: boolean };
 
 export const listProductGroups = (db: DbOrTx) =>
   db.select().from(productGroups).orderBy(asc(productGroups.sortOrder), asc(productGroups.name));

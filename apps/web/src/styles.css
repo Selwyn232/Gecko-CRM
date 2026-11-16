@@ -165,3 +165,4 @@ td.mono, .mono { white-space: nowrap; }
   .print-totals { width: 100%; }
   .print-meta { flex-direction: column; gap: 12px; }
 }
+.btn.primary .muted { color: rgba(255, 255, 255, 0.8); }

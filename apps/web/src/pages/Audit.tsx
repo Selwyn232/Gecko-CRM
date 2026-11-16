@@ -73,6 +73,15 @@ const ACTIONS: Record<string, string> = {
   "dunning.paused": "Aanmaningen gepauzeerd",
   "dunning.resumed": "Aanmaningen hervat",
   "setting.updated": "Instelling gewijzigd",
+  "region.created": "Regio aangemaakt",
+  "region.updated": "Regio gewijzigd",
+  "availability.updated": "Beschikbaarheid gewijzigd",
+  "appointment.scheduled": "Afspraak gepland",
+  "appointment.canceled": "Afspraak geannuleerd",
+  "appointment.partner_no_show": "Partner niet gekomen",
+  "report.submitted": "Rapport ingediend",
+  "report.approved": "Rapport goedgekeurd",
+  "report.rejected": "Rapport afgekeurd",
   "advisor.created": "Adviseur toegevoegd",
   "advisor.updated": "Adviseur gewijzigd",
 };
@@ -87,7 +96,7 @@ const FIELD_LABELS: Record<string, string> = {
 };
 /** Technische velden die in het logboek niets toevoegen. */
 const HIDDEN = new Set(["id", "productId", "createdAt", "createdBy", "lastLoginAt", "lockedUntil", "number", "customerId", "statusChangedAt", "statusId", "propertyId", "productGroupId", "salesChannelId", "country", "sortOrder"]);
-const ENTITY: Record<string, string> = { invoice: "Factuur", setting: "Instelling", quote: "Offerte", customer: "Klant", project: "Project", journey_status: "Klantreis", user: "Gebruiker", role: "Rol", organization: "Organisatie", product: "Product", sales_channel: "Kanaal", product_group: "Productgroep", vat_code: "Btw" };
+const ENTITY: Record<string, string> = { region: "Regio", invoice: "Factuur", setting: "Instelling", quote: "Offerte", customer: "Klant", project: "Project", journey_status: "Klantreis", user: "Gebruiker", role: "Rol", organization: "Organisatie", product: "Product", sales_channel: "Kanaal", product_group: "Productgroep", vat_code: "Btw" };
 
 const show = (key: string, v: unknown) => {
   if (v === null || v === undefined || v === "") return "—";

@@ -11,7 +11,11 @@ export type DomainEventType =
   | "quote.rejected"
   | "invoice.sent"
   | "invoice.paid"
-  | "invoice.collection";
+  | "invoice.collection"
+  | "journey.event"
+  | "appointment.scheduled"
+  | "appointment.canceled"
+  | "report.submitted";
 
 export async function emitEvent(
   tx: DbOrTx,

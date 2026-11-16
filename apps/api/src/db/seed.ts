@@ -15,6 +15,13 @@ import { ensureDefaultJourneys } from "../modules/journeys/service.js";
 const DEFAULT_ROLES: { key: string; name: string; description: string; isSystem?: boolean; permissions: Permission[] }[] = [
   { key: ADMIN_ROLE_KEY, name: "Beheerder", description: "Volledige toegang", isSystem: true, permissions: [] },
   {
+    key: "installatiepartner",
+    name: "Installatiepartner",
+    description: "Toegang tot het partnerportaal: eigen afspraken, beschikbaarheid en rapporten",
+    isSystem: true,
+    permissions: ["partner.portal"],
+  },
+  {
     key: "medewerker",
     name: "Medewerker",
     description: "Kan het hele CRM gebruiken, maar geen instellingen wijzigen",
@@ -26,6 +33,8 @@ const DEFAULT_ROLES: { key: string; name: string; description: string; isSystem?
       "quotes.read",
       "quotes.manage",
       "invoices.read",
+      "planning.read",
+      "planning.manage",
       "catalog.read",
       "purchase_prices.read",
       "organizations.read",
@@ -37,13 +46,13 @@ const DEFAULT_ROLES: { key: string; name: string; description: string; isSystem?
     key: "klantspecialist",
     name: "Klantspecialist",
     description: "Klantcontact en dossierbeheer",
-    permissions: ["catalog.read", "organizations.read", "users.read", "customers.read", "customers.manage", "projects.read", "projects.manage", "quotes.read", "quotes.manage"],
+    permissions: ["catalog.read", "organizations.read", "users.read", "customers.read", "customers.manage", "projects.read", "projects.manage", "quotes.read", "quotes.manage", "planning.read"],
   },
   {
     key: "planner",
     name: "Planner",
     description: "Planning van schouwen en installaties",
-    permissions: ["catalog.read", "organizations.read", "users.read", "customers.read", "projects.read", "projects.manage", "quotes.read"],
+    permissions: ["catalog.read", "organizations.read", "users.read", "customers.read", "projects.read", "projects.manage", "quotes.read", "planning.read", "planning.manage"],
   },
   {
     key: "finance",
@@ -62,6 +71,7 @@ const DEFAULT_ROLES: { key: string; name: string; description: string; isSystem?
       "customers.read",
       "projects.read",
       "quotes.read",
+      "planning.read",
     ],
   },
 ];

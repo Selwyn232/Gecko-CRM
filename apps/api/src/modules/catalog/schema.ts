@@ -69,6 +69,8 @@ export const productGroups = pgTable("product_groups", {
   key: text("key").notNull().unique(),
   name: text("name").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
+  /** Hoeveel werkdagen een installatie in deze productgroep standaard duurt (voor de planning). */
+  installationDays: integer("installation_days").notNull().default(1),
   isActive: boolean("is_active").notNull().default(true),
   ...timestamps(),
 });

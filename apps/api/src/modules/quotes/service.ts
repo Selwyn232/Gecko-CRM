@@ -12,6 +12,7 @@ import { customers, properties } from "../customers/schema.js";
 import { formatCustomerNumber } from "../customers/service.js";
 import { emitEvent } from "../events/service.js";
 import { advisors, organizations } from "../organizations/schema.js";
+import { emitJourneyEvent } from "../journeys/auto.js";
 import { createProjectInTx } from "../projects/service.js";
 import { quoteContentHash } from "./hash.js";
 import { quoteLines, quotes, type Quote, type QuoteLine } from "./schema.js";
@@ -20,6 +21,7 @@ export const formatQuoteNumber = (n: number) => `O-${String(n).padStart(6, "0")}
 
 /** Producttypen die op een offerte aan de klant mogen staan. Componenten en arbeid zitten in het pakket. */
 const QUOTABLE_TYPES = new Set(["package", "extra_work", "service"]);
+const EXTRA_WORK_TYPES = new Set(["extra_work", "service"]);
 
 const addDays = (iso: string, days: number) => {
   const d = new Date(`${iso}T12:00:00Z`);
@@ -82,7 +84,10 @@ async function priceLine(tx: DbOrTx, quote: Quote, productId: string, date: stri
   const [product] = await tx.select().from(products).where(eq(products.id, productId));
   if (!product) throw badRequest("unknown_product", "Product bestaat niet");
   if (product.productGroupId !== quote.productGroupId) throw badRequest("wrong_product_group", "Product hoort niet bij de productgroep van deze offerte");
-  if (!QUOTABLE_TYPES.has(product.type)) throw badRequest("not_quotable", "Alleen pakketten, meerwerk en diensten kunnen op een offerte");
+  const allowed = quote.kind === "extra_work" ? EXTRA_WORK_TYPES : QUOTABLE_TYPES;
+  if (!allowed.has(product.type)) {
+    throw badRequest("not_quotable", quote.kind === "extra_work" ? "Op een meerwerk-offerte kunnen alleen meerwerk en diensten" : "Alleen pakketten, meerwerk en diensten kunnen op een offerte");
+  }
   if (!product.isActive) throw badRequest("inactive_product", `Product ${product.code} is niet actief`);
   const price = await effectivePrice(tx, "sales", productId, quote.salesChannelId, date);
   if (!price) throw badRequest("no_sales_price", `Geen verkoopprijs voor ${product.code} in dit kanaal op ${date}`);
@@ -250,7 +255,11 @@ async function repriceLines(tx: DbOrTx, quote: Quote, date: string) {
 }
 
 export async function addLine(db: Db, actor: ActorContext, quoteId: string, input: { productId: string; quantity: number; description?: string | null }) {
-  return db.transaction(async (tx) => {
+  return db.transaction((tx) => addLineInTx(tx, actor, quoteId, input));
+}
+
+export async function addLineInTx(tx: DbOrTx, actor: ActorContext, quoteId: string, input: { productId: string; quantity: number; description?: string | null }) {
+  {
     const q = await loadDraft(tx, quoteId);
     const p = await priceLine(tx, q, input.productId, todayIso());
     const existing = await tx.select({ id: quoteLines.id }).from(quoteLines).where(eq(quoteLines.quoteId, quoteId));
@@ -269,7 +278,7 @@ export async function addLine(db: Db, actor: ActorContext, quoteId: string, inpu
       .returning();
     await recordAudit(tx, actor, { action: "quote.line_added", entityType: "quote", entityId: quoteId, after: { code: p.product.code, quantity: line!.quantity } });
     return getQuote(tx, quoteId);
-  });
+  }
 }
 
 export async function updateLine(db: Db, actor: ActorContext, lineId: string, input: { quantity?: number; description?: string }) {
@@ -330,6 +339,7 @@ export async function sendQuote(db: Db, actor: ActorContext, id: string) {
       after: { status: after!.status, validUntil: after!.validUntil, contentHash },
     });
     await emitEvent(tx, "quote.sent", { type: "quote", id }, { quoteId: id, customerId: q.customerId });
+    if (q.kind === "extra_work" && q.projectId) await emitJourneyEvent(tx, q.projectId, "extra_work.proposed");
     return getQuote(tx, id);
   });
 }
@@ -354,13 +364,18 @@ export async function acceptQuote(
   return db.transaction(async (tx) => {
     const q = await loadSent(tx, id);
     if (effectiveStatus(q) === "expired") throw conflict("quote_expired", "Offerte is verlopen; maak een nieuwe versie");
-    const project = await createProjectInTx(tx, actor, {
-      customerId: q.customerId,
-      propertyId: q.propertyId,
-      productGroupId: q.productGroupId,
-      salesChannelId: q.salesChannelId,
-      installationPartnerId: q.installationPartnerId,
-    });
+    // Meerwerk hoort bij een bestaand project; een hoofdofferte maakt het project aan.
+    const project =
+      q.kind === "extra_work" && q.projectId
+        ? { id: q.projectId }
+        : await createProjectInTx(tx, actor, {
+            customerId: q.customerId,
+            propertyId: q.propertyId,
+            productGroupId: q.productGroupId,
+            salesChannelId: q.salesChannelId,
+            installationPartnerId: q.installationPartnerId,
+          });
+    if (q.kind === "extra_work") await emitJourneyEvent(tx, project.id, "extra_work.accepted");
     await tx
       .update(quotes)
       .set({
@@ -414,6 +429,8 @@ export async function reviseQuote(db: Db, actor: ActorContext, id: string) {
         customerNote: q.customerNote,
         internalNote: q.internalNote,
         supersedesQuoteId: q.id,
+        kind: q.kind,
+        projectId: q.kind === "extra_work" ? q.projectId : null,
         createdBy: actor.userId,
       })
       .returning();

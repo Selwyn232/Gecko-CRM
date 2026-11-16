@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import type { Db } from "../../db/client.js";
 import { requirePermission } from "../../http/auth-plugin.js";
+import { JOURNEY_EVENTS } from "./events.js";
 import { createStatus, deleteStatus, getJourney, listJourneys, setTransitions, updateStatus } from "./service.js";
 
 const IdParams = z.object({ id: z.string().uuid() });
@@ -16,6 +17,7 @@ const StatusBody = z.object({
   isFinal: z.boolean().optional(),
   isActive: z.boolean().optional(),
   invoiceTrigger: z.enum(["deposit", "final"]).nullish(),
+  autoOnEvents: z.array(z.enum(JOURNEY_EVENTS)).optional(),
 });
 
 export const journeyRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {

@@ -40,6 +40,8 @@ export interface Me {
   name: string;
   mustChangePassword: boolean;
   organizationId: string;
+  organizationType: string | null;
+  organizationName: string | null;
   mfaEnabled: boolean;
   mfaVerified: boolean;
   permissions: string[];
@@ -64,6 +66,7 @@ export interface ProductGroup {
   key: string;
   name: string;
   sortOrder: number;
+  installationDays: number;
   isActive: boolean;
 }
 export interface SalesChannel {
@@ -181,6 +184,7 @@ export interface JourneyStatus {
   color: string;
   isActive: boolean;
   invoiceTrigger?: "deposit" | "final" | null;
+  autoOnEvents?: string[];
   nextStatusIds?: string[];
   projectCount?: number;
 }
@@ -356,4 +360,70 @@ export interface InvoiceDetail extends InvoiceSummary {
   payments: Payment[];
   dunning: { id: string; stage: string; outstandingCents: number; collectionCostsCents: number | null; deadline: string | null; createdAt: string }[];
   emails: { id: string; toAddress: string; template: string; status: string; error: string | null; createdAt: string }[];
+}
+
+export interface Region {
+  id: string;
+  name: string;
+  postalRanges: [number, number][];
+  isActive: boolean;
+}
+export interface AvailabilityRow {
+  id: string;
+  partnerOrganizationId: string;
+  regionId: string;
+  date: string;
+  surveySlots: number;
+  installationSlots: number;
+  surveyUsed: number;
+  installationUsed: number;
+}
+export interface Appointment {
+  id: string;
+  projectId: string;
+  projectNumber: string;
+  partnerOrganizationId: string;
+  partnerName: string;
+  regionName: string;
+  productGroupName: string;
+  type: "survey" | "installation";
+  date: string;
+  days: number;
+  timeWindow: "morning" | "afternoon" | "day";
+  status: "planned" | "completed" | "canceled" | "partner_no_show";
+  notes: string | null;
+  cancelReason: string | null;
+  address: string;
+  customer: { id: string; firstName: string | null; lastName: string; email: string | null; phone: string | null };
+  report: { id: string; review: "pending" | "approved" | "rejected"; positive: boolean; submittedAt: string } | null;
+}
+export interface ReportData {
+  remarks?: string;
+  checklist?: Record<string, boolean>;
+  serialNumbers?: string[];
+  extraWork?: { productId: string; quantity: number; note?: string }[];
+}
+export interface Report {
+  id: string;
+  appointmentId: string;
+  type: "survey" | "installation";
+  positive: boolean;
+  data: ReportData;
+  customerSignedName: string | null;
+  customerSignatureFileId: string | null;
+  submittedAt: string;
+  review: "pending" | "approved" | "rejected";
+  reviewNote: string | null;
+  appointment: Appointment;
+  files?: { id: string; filename: string; contentType: string }[];
+}
+export interface ToPlanItem {
+  projectId: string;
+  projectNumber: string;
+  customerName: string;
+  postalCode: string;
+  city: string;
+  productGroupName: string;
+  statusName: string;
+  waitingSince: string;
 }

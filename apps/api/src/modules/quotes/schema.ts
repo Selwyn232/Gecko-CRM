@@ -16,6 +16,8 @@ import { projects } from "../projects/schema.js";
  * "Verlopen" is geen opgeslagen status maar volgt uit valid_until.
  */
 export const quoteStatus = pgEnum("quote_status", ["draft", "sent", "accepted", "rejected", "superseded"]);
+/** Hoofdofferte (maakt bij akkoord het project) of meerwerk-offerte (hoort bij een bestaand project). */
+export const quoteKind = pgEnum("quote_kind", ["main", "extra_work"]);
 export const acceptanceMethod = pgEnum("acceptance_method", ["signed_paper", "signed_digital", "email", "verbal_confirmed"]);
 
 export const quotes = pgTable(
@@ -31,6 +33,7 @@ export const quotes = pgTable(
     advisorId: uuid("advisor_id").references(() => advisors.id),
     /** Beoogde installatiepartner; bepaalt het partnertarief in de kostprijs. */
     installationPartnerId: uuid("installation_partner_id").references(() => organizations.id),
+    kind: quoteKind("kind").notNull().default("main"),
     status: quoteStatus("status").notNull().default("draft"),
     /** Datum waarop prijzen zijn bepaald (bij versturen vastgezet). */
     priceDate: date("price_date"),

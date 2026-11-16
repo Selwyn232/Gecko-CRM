@@ -26,6 +26,11 @@ export const journeyStatuses = pgTable(
     color: text("color").notNull().default("gray"),
     /** Automatisch te maken en versturen factuur bij het bereiken van deze status. */
     invoiceTrigger: text("invoice_trigger"),
+    /**
+     * Automatisch naar deze status als een van deze gebeurtenissen optreedt én de overgang vanuit de huidige status
+     * is toegestaan. Bv. "survey.scheduled", "installation.report_submitted". Zie journeys/events.ts.
+     */
+    autoOnEvents: text("auto_on_events").array().notNull().default(sql`'{}'::text[]`),
     isActive: boolean("is_active").notNull().default(true),
     ...timestamps(),
   },

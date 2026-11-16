@@ -43,7 +43,13 @@ export const catalogRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db
   // ------------------------------------------------------------ Productgroepen
   app.get("/product-groups", { preValidation: read }, async () => listProductGroups(db));
 
-  const GroupBody = z.object({ key: Key, name: z.string().min(1).max(100), sortOrder: z.number().int().optional(), isActive: z.boolean().optional() });
+  const GroupBody = z.object({
+    key: Key,
+    name: z.string().min(1).max(100),
+    sortOrder: z.number().int().optional(),
+    installationDays: z.number().int().min(1).max(30).optional(),
+    isActive: z.boolean().optional(),
+  });
   app.post("/product-groups", { preValidation: manage, schema: { body: GroupBody } }, async (req, reply) => {
     reply.code(201);
     return createProductGroup(db, req.actor, req.body);

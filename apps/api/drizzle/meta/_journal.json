@@ -92,6 +92,20 @@
       "when": 1794811996355,
       "tag": "0012_gecko_contact_email",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794812356726,
+      "tag": "0013_planning_partner_portal",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794812357410,
+      "tag": "0014_planning_defaults_and_roles",
+      "breakpoints": true
     }
   ]
 }

@@ -18,6 +18,10 @@ import { InvoicePrintPage } from "./pages/InvoicePrint";
 import { InvoicesPage } from "./pages/Invoices";
 import { PublicInvoicePage } from "./pages/PublicInvoice";
 import { SettingsPage } from "./pages/Settings";
+import { PartnerApp } from "./partner/PartnerApp";
+import { PlanningPage } from "./pages/Planning";
+import { AvailabilityPage, RegionsPage } from "./pages/Regions";
+import { ReportReviewPage } from "./pages/ReportReview";
 import { TestPaymentPage } from "./pages/TestPayment";
 import { LoginPage } from "./pages/Login";
 import { OrganizationsPage } from "./pages/Organizations";
@@ -41,6 +45,7 @@ export function App() {
     );
   }
   if (!me || !me.mfaVerified || me.mustChangePassword) return <LoginPage />;
+  if (me.organizationType === "installation_partner") return <PartnerApp />;
   if (/^\/(offertes|facturen)\/[^/]+\/print$/.test(location.pathname)) {
     return (
       <Routes>
@@ -61,6 +66,7 @@ export function App() {
           {can("customers.read") && <NavLink to="/klanten">Klanten</NavLink>}
           {can("quotes.read") && <NavLink to="/offertes">Offertes</NavLink>}
           {can("projects.read") && <NavLink to="/projecten">Projecten</NavLink>}
+          {can("planning.read") && <NavLink to="/planning">Planning</NavLink>}
           {can("invoices.read") && <NavLink to="/facturen">Facturen</NavLink>}
           <div className="nav-section">Catalogus</div>
           {can("catalog.read") && <NavLink to="/producten">Producten</NavLink>}
@@ -68,6 +74,8 @@ export function App() {
           <div className="nav-section">Beheer</div>
           {can("organizations.read") && <NavLink to="/organisaties">Organisaties</NavLink>}
           {can("projects.read") && <NavLink to="/klantreizen">Klantreizen</NavLink>}
+          {can("planning.read") && <NavLink to="/regios">Regio's</NavLink>}
+          {can("planning.read") && <NavLink to="/beschikbaarheid">Beschikbaarheid</NavLink>}
           {can("users.read") && <NavLink to="/gebruikers">Gebruikers</NavLink>}
           {can("users.read") && <NavLink to="/rollen">Rollen &amp; rechten</NavLink>}
           {can("audit.read") && <NavLink to="/logboek">Logboek</NavLink>}
@@ -94,6 +102,10 @@ export function App() {
           <Route path="/facturen" element={<InvoicesPage />} />
           <Route path="/facturen/:id" element={<InvoiceDetailPage />} />
           <Route path="/instellingen" element={<SettingsPage />} />
+          <Route path="/planning" element={<PlanningPage />} />
+          <Route path="/rapporten/:id" element={<ReportReviewPage />} />
+          <Route path="/regios" element={<RegionsPage />} />
+          <Route path="/beschikbaarheid" element={<AvailabilityPage />} />
           <Route path="/offertes/:id" element={<QuoteDetailPage />} />
           <Route path="/producten" element={<ProductsPage />} />
           <Route path="/producten/:id" element={<ProductDetailPage />} />

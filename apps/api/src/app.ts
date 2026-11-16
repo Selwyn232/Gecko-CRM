@@ -27,6 +27,8 @@ import { paymentProviderFromConfig, type PaymentProvider } from "./modules/invoi
 import { invoiceRoutes } from "./modules/invoices/routes.js";
 import type { BillingDeps } from "./modules/invoices/service.js";
 import { settingsRoutes } from "./modules/settings/routes.js";
+import { partnerRoutes } from "./modules/partner/routes.js";
+import { planningRoutes } from "./modules/planning/routes.js";
 import { organizationRoutes } from "./modules/organizations/routes.js";
 import { roleRoutes } from "./modules/roles/routes.js";
 import { userRoutes } from "./modules/users/routes.js";
@@ -140,7 +142,7 @@ export async function buildApp({
   // Alle API-routes onder /api; de rest van de paden is voor de webapplicatie.
   await app.register(
     async (api) => {
-      await api.register(authRoutes, { authService, config });
+      await api.register(authRoutes, { authService, config, db });
       await api.register(userRoutes, { db });
       await api.register(roleRoutes, { db });
       await api.register(organizationRoutes, { db });
@@ -152,6 +154,8 @@ export async function buildApp({
       await api.register(quoteRoutes, { db, config, emailTransport });
       await api.register(invoiceRoutes, { db, deps: billing });
       await api.register(settingsRoutes, { db });
+      await api.register(planningRoutes, { db, emailTransport });
+      await api.register(partnerRoutes, { db });
     },
     { prefix: "/api" },
   );

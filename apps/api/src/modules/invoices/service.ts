@@ -19,6 +19,7 @@ import { getCompany } from "../quotes/links.js";
 import { quoteLines, quotes } from "../quotes/schema.js";
 import { calculateTotals } from "../quotes/service.js";
 import { getSetting } from "../settings/service.js";
+import { nextSurveyDate } from "../planning/service.js";
 import type { PaymentProvider } from "./payments-provider.js";
 import { invoiceLines, invoiceNumberSequences, invoices, payments, type Invoice } from "./schema.js";
 
@@ -103,7 +104,7 @@ export async function createInvoiceForProject(db: Db, actor: ActorContext, proje
       .where(and(eq(invoices.projectId, projectId), eq(invoices.type, type), ne(invoices.status, "credited")));
     if (existing) return { invoiceId: existing.id, created: false };
 
-    const [quote] = await tx.select().from(quotes).where(and(eq(quotes.projectId, projectId), eq(quotes.status, "accepted")));
+    const [quote] = await tx.select().from(quotes).where(and(eq(quotes.projectId, projectId), eq(quotes.status, "accepted"), eq(quotes.kind, "main")));
     if (!quote) throw badRequest("no_accepted_quote", "Dit project heeft geen geaccepteerde offerte om te factureren");
     const qLines = await tx.select().from(quoteLines).where(eq(quoteLines.quoteId, quote.id)).orderBy(asc(quoteLines.sortOrder));
     const quoteNumber = `O-${String(quote.number).padStart(6, "0")}`;
@@ -136,6 +137,24 @@ export async function createInvoiceForProject(db: Db, actor: ActorContext, proje
         lineTotalCents: multiplyCents(l.unitPriceCents, l.quantity),
         sortOrder: (i + 1) * 10,
       }));
+      // Geaccepteerd meerwerk (uit de schouw) komt erbij.
+      const extra = await tx.select().from(quotes).where(and(eq(quotes.projectId, projectId), eq(quotes.status, "accepted"), eq(quotes.kind, "extra_work")));
+      for (const eq_ of extra) {
+        const xl = await tx.select().from(quoteLines).where(eq(quoteLines.quoteId, eq_.id)).orderBy(asc(quoteLines.sortOrder));
+        const xNumber = `O-${String(eq_.number).padStart(6, "0")}`;
+        xl.forEach((l, i) =>
+          lines.push({
+            productId: l.productId,
+            productCode: null,
+            description: `Meerwerk: ${l.description} (offerte ${xNumber})`,
+            quantity: l.quantity,
+            unitPriceCents: l.unitPriceCents,
+            vatRateBasisPoints: l.vatRateBasisPoints,
+            lineTotalCents: multiplyCents(l.unitPriceCents, l.quantity),
+            sortOrder: 500 + i,
+          }),
+        );
+      }
       // Reeds gefactureerde aanbetaling in mindering, per btw-tarief.
       const [deposit] = await tx
         .select()
@@ -214,6 +233,17 @@ async function finalizeInTx(tx: DbOrTx, actor: ActorContext, invoiceId: string) 
   }
   const company = await getCompany(tx);
   const term = await getSetting(tx, "invoice.payment_term_days");
+  let dueDate = inv.type === "credit" ? today : addDays(today, term);
+  if (inv.type === "deposit" && inv.projectId) {
+    // Aanbetaling moet binnen zijn vóór de schouw: vervaldatum uiterlijk X dagen vóór de schouwdatum (maar niet vóór morgen).
+    const survey = await nextSurveyDate(tx, inv.projectId);
+    if (survey) {
+      const before = await getSetting(tx, "invoice.deposit_due_days_before_survey");
+      const latest = addDays(survey, -before);
+      const earliest = addDays(today, 1);
+      if (latest < dueDate) dueDate = latest < earliest ? earliest : latest;
+    }
+  }
   const token = randomToken();
 
   await tx
@@ -222,7 +252,7 @@ async function finalizeInTx(tx: DbOrTx, actor: ActorContext, invoiceId: string) 
       number,
       status: totals.totalCents <= 0 && inv.type === "credit" ? "paid" : "open",
       invoiceDate: today,
-      dueDate: inv.type === "credit" ? today : addDays(today, term),
+      dueDate,
       subtotalCents: totals.subtotalCents,
       vatCents: totals.vatCents,
       totalCents: totals.totalCents,

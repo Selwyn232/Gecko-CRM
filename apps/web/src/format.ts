@@ -79,3 +79,35 @@ export const DUNNING_STAGE: Record<string, string> = {
   collection: "Incasso",
 };
 export const PAYMENT_METHOD: Record<string, string> = { online: "Online (iDEAL)", bank_transfer: "Overschrijving", warmtefonds: "Warmtefonds", other: "Overig" };
+
+export const APPOINTMENT_TYPE: Record<string, string> = { survey: "Schouw", installation: "Installatie" };
+export const TIME_WINDOW: Record<string, string> = { morning: "Ochtend", afternoon: "Middag", day: "Hele dag" };
+export const APPOINTMENT_STATUS: Record<string, { label: string; color: string }> = {
+  planned: { label: "Gepland", color: "blue" },
+  completed: { label: "Uitgevoerd", color: "green" },
+  canceled: { label: "Geannuleerd", color: "gray" },
+  partner_no_show: { label: "Partner niet gekomen", color: "red" },
+};
+export const REPORT_REVIEW: Record<string, { label: string; color: string }> = {
+  pending: { label: "Te beoordelen", color: "yellow" },
+  approved: { label: "Goedgekeurd", color: "green" },
+  rejected: { label: "Afgekeurd", color: "red" },
+};
+export const JOURNEY_EVENTS: Record<string, string> = {
+  "deposit.paid": "Aanbetaling betaald",
+  "survey.scheduled": "Schouw ingepland",
+  "survey.report_submitted": "Schouwrapport ingediend",
+  "survey.report_approved": "Schouwrapport goedgekeurd (zonder meerwerk)",
+  "extra_work.proposed": "Meerwerk voorgesteld aan klant",
+  "extra_work.accepted": "Meerwerk geaccepteerd door klant",
+  "installation.scheduled": "Installatie ingepland",
+  "installation.report_submitted": "Opleverrapport ingediend",
+  "installation.report_approved": "Opleverrapport goedgekeurd",
+  "final.paid": "Eindfactuur betaald",
+};
+export const weekday = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" });
+export const addDaysIso = (iso: string, d: number) => {
+  const x = new Date(`${iso}T12:00:00Z`);
+  x.setUTCDate(x.getUTCDate() + d);
+  return x.toISOString().slice(0, 10);
+};

@@ -1,14 +1,17 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import type { Config } from "../../config.js";
+import type { Db } from "../../db/client.js";
+import { organizations } from "../organizations/schema.js";
 import { SESSION_COOKIE } from "../../http/auth-plugin.js";
 import { forbidden, unauthorized } from "../../lib/errors.js";
 import type { AuthService } from "./service.js";
 import { PERMISSIONS } from "./permissions.js";
 
-export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; config: Config }> = async (
+export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; config: Config; db: Db }> = async (
   app,
-  { authService, config },
+  { authService, config, db },
 ) => {
   const cookieOptions = {
     path: "/",
@@ -45,6 +48,7 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
 
   app.get("/auth/me", { config: { auth: "password" } }, async (req) => {
     const { user, mfaVerified } = req.auth!;
+    const [org] = await db.select({ type: organizations.type, name: organizations.name }).from(organizations).where(eq(organizations.id, user.organizationId));
     return {
       id: user.id,
       email: user.email,
@@ -52,6 +56,8 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
       name: user.name,
       mustChangePassword: user.mustChangePassword,
       organizationId: user.organizationId,
+      organizationType: org?.type ?? null,
+      organizationName: org?.name ?? null,
       mfaEnabled: user.totpEnabledAt !== null,
       mfaVerified,
       permissions: [...req.actor.permissions].sort(),

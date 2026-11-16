@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, type InvoiceSummary, type JourneyStatus, type ProjectDetail, type QuoteListItem } from "../api";
+import { AppointmentsTable, CancelModal, PlanModal } from "./Planning";
+import { api, type Appointment, type InvoiceSummary, type JourneyStatus, type ProjectDetail, type QuoteListItem } from "../api";
 import { InvoicesTable } from "./Invoices";
 import { QuotesTable } from "./Quotes";
 import { useAuth } from "../auth";
@@ -19,6 +20,13 @@ export function ProjectDetailPage() {
   const journeys = useJourneys();
   const [target, setTarget] = useState<JourneyStatus | null>(null);
   const project = useQuery({ queryKey: ["project", id], queryFn: () => api.get<ProjectDetail>(`/projects/${id}`) });
+  const [planType, setPlanType] = useState<"survey" | "installation" | null>(null);
+  const [cancelling, setCancelling] = useState<Appointment | null>(null);
+  const appointments = useQuery({
+    queryKey: ["appointments", "project", id],
+    queryFn: () => api.get<Appointment[]>(`/appointments?projectId=${id}`),
+    enabled: can("planning.read"),
+  });
   const invoices = useQuery({
     queryKey: ["invoices", "project", id],
     queryFn: () => api.get<InvoiceSummary[]>(`/invoices?projectId=${id}`),
@@ -117,9 +125,25 @@ export function ProjectDetailPage() {
           </ul>
         </div>
       </div>
+      {can("planning.read") && (
+        <div className="card flush">
+          <div className="row" style={{ justifyContent: "space-between", padding: "16px 20px 8px" }}>
+            <h2 style={{ margin: 0 }}>Afspraken</h2>
+            {can("planning.manage") && (
+              <div className="row">
+                <button className="btn small" onClick={() => setPlanType("survey")}>Schouw plannen</button>
+                <button className="btn small" onClick={() => setPlanType("installation")}>Installatie plannen</button>
+              </div>
+            )}
+          </div>
+          {!appointments.data?.length ? <div className="empty">Nog geen afspraken.</div> : <AppointmentsTable items={appointments.data} onCancel={can("planning.manage") ? setCancelling : undefined} />}
+        </div>
+      )}
+      {planType && <PlanModal projectId={p.id} type={planType} title={`${planType === "survey" ? "Schouw" : "Installatie"} plannen`} onClose={() => setPlanType(null)} />}
+      {cancelling && <CancelModal appointment={cancelling} onClose={() => setCancelling(null)} />}
       {can("quotes.read") && quotes.data && quotes.data.length > 0 && (
         <div className="card flush">
-          <div style={{ padding: "16px 20px 8px" }}><h2 style={{ margin: 0 }}>Offerte</h2></div>
+          <div style={{ padding: "16px 20px 8px" }}><h2 style={{ margin: 0 }}>Offertes</h2></div>
           <QuotesTable items={quotes.data} showCustomer={false} />
         </div>
       )}
@@ -142,7 +166,7 @@ export function ProjectDetailPage() {
           )}
         </div>
       )}
-      <p className="muted" style={{ fontSize: 13 }}>Afspraken en communicatie komen in de volgende stappen op deze pagina.</p>
+      <p className="muted" style={{ fontSize: 13 }}>Communicatie (inbox) komt in een volgende stap op deze pagina.</p>
 
       {target && <StatusModal project={p} target={target} onClose={() => setTarget(null)} />}
     </>
