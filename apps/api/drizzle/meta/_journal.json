@@ -85,6 +85,13 @@
       "when": 1794809547162,
       "tag": "0011_outbox_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794811996355,
+      "tag": "0012_gecko_contact_email",
+      "breakpoints": true
     }
   ]
 }

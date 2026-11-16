@@ -102,7 +102,7 @@ export async function seed(db: Db) {
           kvkNumber: "00000000",
           vatNumber: "NL000000000B01",
           iban: "NL00BANK0000000000",
-          email: gecko.email ?? "info@gecko.example",
+          email: gecko.email ?? "selwyn@gecko.nl",
           phone: gecko.phone ?? "+31300000000",
         })
         .where(eq(organizations.id, gecko.id));
