@@ -172,7 +172,7 @@ export async function changeStatus(
   db: Db,
   actor: ActorContext,
   id: string,
-  input: { toStatusId: string; expectedStatusId?: string; note?: string | null },
+  input: { toStatusId: string; expectedStatusId?: string; note?: string | null; /** Alleen voor annuleren: vanuit elke niet-eindstatus. */ allowFromAnyOpen?: boolean },
 ) {
   return db.transaction(async (tx) => {
     const [p] = await tx.select().from(projects).where(eq(projects.id, id)).for("update");
@@ -182,7 +182,8 @@ export async function changeStatus(
     }
     const [to] = await tx.select().from(journeyStatuses).where(eq(journeyStatuses.id, input.toStatusId));
     if (!to || to.productGroupId !== p.productGroupId || !to.isActive) throw badRequest("invalid_status", "Ongeldige status");
-    if (!(await isTransitionAllowed(tx, p.statusId, to.id))) {
+    const [current] = await tx.select().from(journeyStatuses).where(eq(journeyStatuses.id, p.statusId));
+    if (!(input.allowFromAnyOpen && !current?.isFinal) && !(await isTransitionAllowed(tx, p.statusId, to.id))) {
       throw badRequest("transition_not_allowed", "Deze statusovergang is niet toegestaan in de klantreis");
     }
     const [from] = await tx.select().from(journeyStatuses).where(eq(journeyStatuses.id, p.statusId));

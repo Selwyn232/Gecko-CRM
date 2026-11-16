@@ -54,6 +54,8 @@ export const vatModeFor = (org: { type: string; selfBillingVatMode: string | nul
 /** Project is voldoende betaald: aanbetaling (of eindfactuur) betaald, resp. eindfactuur betaald. */
 const paid = (type: "deposit" | "final") =>
   sql`EXISTS (SELECT 1 FROM ${invoices} WHERE ${invoices.projectId} = ${projects.id} AND ${invoices.type} = ${type} AND ${invoices.status} = 'paid')`;
+/** Geannuleerde projecten leveren (nog niet afgerekende) fee en installatie niet op; correcties gaan handmatig. */
+const notCanceled = sql`NOT EXISTS (SELECT 1 FROM journey_statuses js WHERE js.id = ${projects.statusId} AND js.key = 'geannuleerd')`;
 const alreadyBilled = (kind: LineKind, column: "quote_id" | "project_id", value: unknown) =>
   sql`NOT EXISTS (SELECT 1 FROM ${selfBillingLines} WHERE ${selfBillingLines.kind} = ${kind} AND ${sql.raw(`self_billing_lines.${column}`)} = ${value})`;
 
@@ -113,7 +115,7 @@ export async function openItems(db: DbOrTx, onlyPartnerId?: string) {
     .from(quotes)
     .innerJoin(salesChannels, eq(salesChannels.id, quotes.salesChannelId))
     .innerJoin(projects, eq(projects.id, quotes.projectId))
-    .where(and(eq(quotes.status, "accepted"), isNotNull(salesChannels.salesPartnerOrganizationId), sql`(${paid("deposit")} OR ${paid("final")})`, alreadyBilled("fee", "quote_id", quotes.id)))
+    .where(and(eq(quotes.status, "accepted"), isNotNull(salesChannels.salesPartnerOrganizationId), sql`(${paid("deposit")} OR ${paid("final")})`, alreadyBilled("fee", "quote_id", quotes.id), notCanceled))
     .orderBy(asc(quotes.number));
   for (const q of feeQuotes) {
     if (onlyPartnerId && q.partnerId !== onlyPartnerId) continue;
@@ -140,7 +142,7 @@ export async function openItems(db: DbOrTx, onlyPartnerId?: string) {
   const finished = await db
     .select({ id: projects.id, partnerId: projects.installationPartnerId })
     .from(projects)
-    .where(and(isNotNull(projects.installationPartnerId), paid("final")));
+    .where(and(isNotNull(projects.installationPartnerId), paid("final"), notCanceled));
   for (const p of finished) {
     if (onlyPartnerId && p.partnerId !== onlyPartnerId) continue;
     const accepted = await db

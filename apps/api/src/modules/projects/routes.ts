@@ -3,12 +3,15 @@ import { z } from "zod";
 import type { Db } from "../../db/client.js";
 import { requirePermission } from "../../http/auth-plugin.js";
 import { projectCalculation } from "./calculation.js";
+import { cancellationPreview, cancelProject } from "./cancel.js";
+import { forbidden } from "../../lib/errors.js";
+import type { EmailTransport } from "../email/transport.js";
 import { paymentMethod } from "./schema.js";
 import { changeStatus, createProject, getProject, listProjects, statusCounts, updateProject } from "./service.js";
 
 const IdParams = z.object({ id: z.string().uuid() });
 
-export const projectRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
+export const projectRoutes: FastifyPluginAsyncZod<{ db: Db; emailTransport: EmailTransport | null }> = async (app, { db, emailTransport }) => {
   const read = requirePermission("projects.read");
   const manage = requirePermission("projects.manage");
 
@@ -37,6 +40,18 @@ export const projectRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db
     async (req) => statusCounts(db, req.query.productGroupId),
   );
   app.get("/projects/:id", { preValidation: read, schema: { params: IdParams } }, async (req) => getProject(db, req.params.id));
+  app.get("/projects/:id/cancellation", { preValidation: manage, schema: { params: IdParams } }, async (req) => cancellationPreview(db, req.params.id));
+  app.post(
+    "/projects/:id/cancel",
+    {
+      preValidation: manage,
+      schema: { params: IdParams, body: z.object({ reason: z.string().trim().min(3, "Geef een reden").max(1000), creditInvoiceIds: z.array(z.string().uuid()).max(20) }) },
+    },
+    async (req) => {
+      if (req.body.creditInvoiceIds.length && !req.actor.permissions.has("invoices.manage")) throw forbidden("no_invoice_rights", "Crediteren vraagt het recht om facturen te beheren");
+      return cancelProject(db, emailTransport, req.actor, req.params.id, req.body);
+    },
+  );
   /** Voor- en nacalculatie; alleen met recht op inkoopprijzen (B24). */
   app.get("/projects/:id/calculation", { preValidation: requirePermission("purchase_prices.read"), schema: { params: IdParams } }, async (req) =>
     projectCalculation(db, req.params.id),

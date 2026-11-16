@@ -8,7 +8,7 @@ import { QuotesTable } from "./Quotes";
 import { useAuth } from "../auth";
 import { ProjectCalculation } from "../components/Calculation";
 import { ErrorBox, Field, Loading, Modal, StatusPill } from "../components/ui";
-import { customerName, daysSince, formatAddress, formatDateTime, PAYMENT_METHODS } from "../format";
+import { customerName, daysSince, formatAddress, formatCents, formatDateTime, PAYMENT_METHODS } from "../format";
 import { nameById, useChannels, useJourneys, useOrganizations, useProductGroups } from "../hooks";
 
 export function ProjectDetailPage() {
@@ -169,7 +169,8 @@ export function ProjectDetailPage() {
       )}
       {can("purchase_prices.read") && <ProjectCalculation projectId={p.id} />}
 
-      {target && <StatusModal project={p} target={target} onClose={() => setTarget(null)} />}
+      {target && target.key === "geannuleerd" && <CancelProjectModal project={p} onClose={() => setTarget(null)} />}
+      {target && target.key !== "geannuleerd" && <StatusModal project={p} target={target} onClose={() => setTarget(null)} />}
     </>
   );
 }
@@ -195,6 +196,84 @@ function StatusModal({ project, target, onClose }: { project: ProjectDetail; tar
         <button className="btn" onClick={onClose}>Annuleren</button>
         <button className="btn primary" onClick={() => save.mutate()} disabled={save.isPending}>Wijzigen</button>
       </div>
+    </Modal>
+  );
+}
+
+interface CancellationPreview {
+  projectNumber: string;
+  canCancel: boolean;
+  reasonIfNot: string | null;
+  appointments: { id: string; type: string; date: string }[];
+  invoices: { id: string; number: string | null; type: string; status: string; totalCents: number; paidCents: number }[];
+  quotes: { id: string; number: string; kind: string }[];
+  selfBilling: { number: string | null; kind: string; amountCents: number }[];
+}
+
+/** Annuleren in één keer: laat zien wat er gebeurt en laat per factuur kiezen of die wordt gecrediteerd. */
+function CancelProjectModal({ project, onClose }: { project: ProjectDetail; onClose: () => void }) {
+  const qc = useQueryClient();
+  const { can } = useAuth();
+  const preview = useQuery({ queryKey: ["cancellation", project.id], queryFn: () => api.get<CancellationPreview>(`/projects/${project.id}/cancellation`) });
+  const [reason, setReason] = useState("");
+  const [credit, setCredit] = useState<string[] | null>(null);
+  const chosen = credit ?? preview.data?.invoices.map((i) => i.id) ?? [];
+  const cancel = useMutation({
+    mutationFn: () => api.post<{ creditNotes: { number: string }[]; refundCents: number; selfBillingToCorrect: unknown[] }>(`/projects/${project.id}/cancel`, { reason, creditInvoiceIds: chosen }),
+    onSuccess: async () => {
+      await qc.invalidateQueries();
+    },
+  });
+  const d = preview.data;
+  const done = cancel.data;
+  return (
+    <Modal title={`Project ${project.displayNumber} annuleren`} onClose={onClose}>
+      <ErrorBox error={preview.error ?? cancel.error} />
+      {!d ? <Loading /> : done ? (
+        <>
+          <div className="alert info">Het project is geannuleerd.</div>
+          <ul style={{ paddingLeft: 18 }}>
+            {done.creditNotes.length > 0 && <li>Creditnota's: {done.creditNotes.map((c) => c.number).join(", ")}</li>}
+            {done.refundCents > 0 && <li><strong>Terugbetalen: {formatCents(done.refundCents)}</strong> (was al betaald). Doe dit handmatig of via Mollie.</li>}
+            {done.selfBillingToCorrect.length > 0 && <li>Er is al selfbilling afgerekend voor dit project; corrigeer dat met een correctieregel bij de volgende uitbetaling.</li>}
+          </ul>
+          <div className="modal-actions"><button className="btn primary" onClick={onClose}>Sluiten</button></div>
+        </>
+      ) : !d.canCancel ? (
+        <div className="alert warning">{d.reasonIfNot}</div>
+      ) : (
+        <>
+          <p>Wat er gebeurt:</p>
+          <ul style={{ paddingLeft: 18, marginTop: 0 }}>
+            <li>{d.appointments.length ? `${d.appointments.length} geplande afspraak/afspraken vervallen (de installateur ziet ze verdwijnen).` : "Geen geplande afspraken."}</li>
+            {d.quotes.length > 0 && <li>Openstaande offertes worden afgewezen: {d.quotes.map((q) => q.number).join(", ")}.</li>}
+            <li>Nog niet afgerekende fee en installatie worden niet meer uitbetaald.</li>
+            <li>De klant krijgt het bericht "Uw project is geannuleerd" als dat aan staat bij Klantberichten.</li>
+          </ul>
+          {d.invoices.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div className="field">Facturen crediteren</div>
+              {d.invoices.map((i) => (
+                <label key={i.id} className="checkbox">
+                  <input
+                    type="checkbox"
+                    disabled={!can("invoices.manage")}
+                    checked={chosen.includes(i.id)}
+                    onChange={(e) => setCredit(e.target.checked ? [...chosen, i.id] : chosen.filter((x) => x !== i.id))}
+                  />
+                  <span>{i.number} ({i.type === "deposit" ? "aanbetaling" : "eindfactuur"}) — {formatCents(i.totalCents)}{i.paidCents > 0 && <strong> · {formatCents(i.paidCents)} al betaald → terugbetalen</strong>}</span>
+                </label>
+              ))}
+            </div>
+          )}
+          {d.selfBilling.length > 0 && <div className="alert warning">Er is al selfbilling afgerekend voor dit project ({d.selfBilling.map((s) => s.number).join(", ")}); dat moet handmatig worden gecorrigeerd.</div>}
+          <Field label="Reden (komt in de historie en op de creditnota)"><textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
+          <div className="modal-actions">
+            <button className="btn" onClick={onClose}>Terug</button>
+            <button className="btn danger" disabled={reason.trim().length < 3 || cancel.isPending} onClick={() => cancel.mutate()}>Project annuleren</button>
+          </div>
+        </>
+      )}
     </Modal>
   );
 }

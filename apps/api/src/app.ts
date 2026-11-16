@@ -156,7 +156,7 @@ export async function buildApp({
       await api.register(auditRoutes, { db });
       await api.register(catalogRoutes, { db });
       await api.register(customerRoutes, { db });
-      await api.register(projectRoutes, { db });
+      await api.register(projectRoutes, { db, emailTransport });
       await api.register(journeyRoutes, { db });
       await api.register(quoteRoutes, { db, config, emailTransport });
       await api.register(invoiceRoutes, { db, deps: billing });
