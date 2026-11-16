@@ -9,6 +9,14 @@ export interface SendEmailInput extends EmailMessage {
   related?: { type: string; id: string };
 }
 
+/** Uitkomst van elke verzending in de serverlogs (zonder inhoud of ontvanger), voor diagnose. */
+function logEmail(level: "info" | "error", data: Record<string, unknown>) {
+  if (process.env.NODE_ENV === "test") return;
+  const line = JSON.stringify({ level: level === "error" ? 50 : 30, time: Date.now(), msg: "email", ...data });
+  if (level === "error") console.error(line);
+  else console.log(line);
+}
+
 /**
  * Legt de e-mail vast en verstuurt hem (als er een transport is ingesteld).
  * Een mislukte verzending gooit geen fout naar de gebruiker; de status wordt "failed" met de reden.
@@ -32,6 +40,7 @@ export async function sendEmail(db: DbOrTx, transport: EmailTransport | null, in
   if (!transport) return row!;
   try {
     const { providerMessageId } = await transport.send(input);
+    logEmail("info", { emailId: row!.id, template: input.template, status: "sent", provider: transport.name, providerMessageId });
     const [sent] = await db
       .update(outboundEmails)
       .set({ status: "sent", providerMessageId, sentAt: new Date() })
@@ -39,6 +48,7 @@ export async function sendEmail(db: DbOrTx, transport: EmailTransport | null, in
       .returning();
     return sent!;
   } catch (err) {
+    logEmail("error", { emailId: row!.id, template: input.template, status: "failed", provider: transport.name, error: err instanceof Error ? err.message : String(err) });
     const [failed] = await db
       .update(outboundEmails)
       .set({ status: "failed", error: err instanceof Error ? err.message.slice(0, 1000) : String(err) })
