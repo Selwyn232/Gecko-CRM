@@ -83,3 +83,9 @@ Eenmalig bij een lege database: `BOOTSTRAP_ADMIN_EMAIL` en `BOOTSTRAP_ADMIN_PASS
 herstel-test, en de duur van point-in-time recovery controleren (hangt af van het Render-werkruimteplan).
 
 `ENCRYPTION_KEY` nooit wijzigen of kwijtraken: daarmee zijn de 2FA-geheimen versleuteld.
+
+## Inkomende e-mail (inbox)
+
+Mailgun-route `forward("https://crm.gecko.nl/api/public/inbound/mailgun")` voor het serviceadres. Het CRM controleert de handtekening met `MAILGUN_WEBHOOK_SIGNING_KEY` (Mailgun → Settings → Webhooks → HTTP webhook signing key). Zonder die variabele is de inbox uit.
+
+Overige nieuwe variabele: `TRUST_PROXY_HOPS` (aantal vertrouwde proxy's; zie O27).

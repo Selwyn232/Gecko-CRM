@@ -40,6 +40,7 @@ import { salesRoutes } from "./modules/sales/routes.js";
 import { exportRoutes } from "./modules/exports/routes.js";
 import { taskRoutes } from "./modules/tasks/routes.js";
 import { privacyRoutes } from "./modules/privacy/routes.js";
+import { inboundWebhook, inboxRoutes } from "./modules/inbox/routes.js";
 import { portalRoutes } from "./modules/portal/routes.js";
 import { organizationRoutes } from "./modules/organizations/routes.js";
 import { roleRoutes } from "./modules/roles/routes.js";
@@ -181,6 +182,8 @@ export async function buildApp({
       await api.register(exportRoutes, { db });
       await api.register(taskRoutes, { db });
       await api.register(privacyRoutes, { db });
+      await api.register(inboxRoutes, { db, emailTransport });
+      await api.register(inboundWebhook, { db, config });
       await api.register(portalRoutes, { db, config, deps: billing });
     },
     { prefix: "/api" },

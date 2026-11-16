@@ -13,6 +13,7 @@ import { JourneysPage } from "./pages/Journeys";
 import { MessagesPage } from "./pages/Messages";
 import { WorkPage } from "./pages/Work";
 import { HelpPage } from "./pages/Help";
+import { InboxPage } from "./pages/Inbox";
 import { SalesApp } from "./sales/SalesApp";
 import { GlobalSearch } from "./components/GlobalSearch";
 import { NotificationBell } from "./components/Notifications";
@@ -109,6 +110,7 @@ export function App() {
         <nav className="nav">
           <div className="nav-section">Klanten</div>
           <NavLink to="/werk">Mijn werk</NavLink>
+          {can("customers.read") && <NavLink to="/inbox">Inbox</NavLink>}
           <NavLink to="/hulp">Handleiding</NavLink>
           {can("customers.read") && <NavLink to="/klanten">Klanten</NavLink>}
           {can("quotes.read") && <NavLink to="/offertes">Offertes</NavLink>}
@@ -148,6 +150,7 @@ export function App() {
           <Route path="/" element={<Navigate to="/werk" replace />} />
           <Route path="/werk" element={<WorkPage />} />
           <Route path="/hulp" element={<HelpPage />} />
+          <Route path="/inbox" element={<InboxPage />} />
           <Route path="/klanten" element={<CustomersPage />} />
           <Route path="/klanten/:id" element={<CustomerDetailPage />} />
           <Route path="/projecten" element={<ProjectsPage />} />

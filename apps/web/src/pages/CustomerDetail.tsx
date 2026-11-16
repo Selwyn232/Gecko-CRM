@@ -132,6 +132,7 @@ const EMAIL_KINDS: Record<string, string> = {
   "invoice.final": "Eindfactuur",
   "invoice.credit": "Creditnota",
   "portal.login": "Inloglink Mijn Gecko",
+  "inbox.reply": "Antwoord op e-mail",
   "project.status": "Statusbericht",
   "appointment.scheduled": "Afspraak ingepland",
   "appointment.scheduled.survey": "Schouw ingepland",

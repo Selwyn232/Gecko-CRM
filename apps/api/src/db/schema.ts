@@ -19,3 +19,4 @@ export * from "../modules/checklists/schema.js";
 export * from "../modules/portal/schema.js";
 export * from "../modules/timeline/schema.js";
 export * from "../modules/tasks/schema.js";
+export * from "../modules/inbox/schema.js";

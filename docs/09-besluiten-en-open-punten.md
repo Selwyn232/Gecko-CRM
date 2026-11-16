@@ -62,6 +62,7 @@
 | B57 | AVG op de klantkaart (knop Privacy): inzage-export (JSON met alle vastgelegde gegevens) en anonimiseren — naam, contact, adres (op PC4 na), notities, e-mailinhoud, foto's en handtekeningnaam gewist; facturen 7 jaar bewaard, offertes als bewijs. Alleen zonder lopend project of open factuur; beide gelogd. Juridisch te bevestigen (O9) | 2026-11-16 |
 | B58 | Groei getest met 100.000 klanten en 33.000 projecten: lijsten, startpagina en rapportages < 0,2 s, zoekbalk ~0,01 s (trigram-indexen, pg_trgm), export alle klanten ~1 s | 2026-11-16 |
 | B59 | API-sleutels voor koppelingen (Gebruikers → API-sleutels): sleutel handelt als een koppelgebruiker met diens rechten (zonder 2FA; de sleutel is het geheim), alleen hash bewaard, intrekbaar, gelogd. Greenteam-API = de verkoopportaal-endpoints (docs/11-api.md) | 2026-11-16 |
+| B60 | Inbox voor binnenkomende e-mail via Mailgun (route "forward" naar /api/public/inbound/mailgun, met handtekeningcontrole): gekoppeld aan klant (afzender) en project (P-nummer in onderwerp), melding, op Mijn werk en in de tijdlijn; antwoorden vanuit het CRM (vastgelegd), afhandelen. Bijlagen worden (nog) niet opgeslagen | 2026-11-16 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten
@@ -89,4 +90,5 @@
 | O25 | Btw bij selfbilling installateurs: standaard "verlegd" (onderaanneming). Laten bevestigen door de accountant, per partner aan te passen bij Organisaties | Accountant |
 | O26 | ~~Selfbilling wekelijks bundelen~~ — gebouwd als instelling (B55), standaard uit | Gecko |
 | O27 | IP-adres achter de proxy van Render: aantal hops controleren (logregel "login proxy chain") en TRUST_PROXY_HOPS instellen; tot dan is het IP (pogingenlimiet, bewijs bij akkoorden) te vervalsen | Techniek |
+| O28 | Inbox aanzetten: in Mailgun een Route maken (match_recipient("service@mail.gecko.nl") → forward("https://crm.gecko.nl/api/public/inbound/mailgun")) en de "HTTP webhook signing key" als MAILGUN_WEBHOOK_SIGNING_KEY in Render zetten. Eventueel service@gecko.nl laten doorsturen naar service@mail.gecko.nl | Gecko |
 | O13 | Verkoopprijs vast bij ondertekening, ook als inkoop stijgt tijdens lange wachttijd? | Gecko |

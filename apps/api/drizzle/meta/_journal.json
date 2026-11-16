@@ -218,6 +218,13 @@
       "when": 1794844684982,
       "tag": "0030_api_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1794844888492,
+      "tag": "0031_inbox",
+      "breakpoints": true
     }
   ]
 }

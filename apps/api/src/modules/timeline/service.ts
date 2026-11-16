@@ -16,6 +16,7 @@ import { formatProjectNumber } from "../projects/service.js";
 import { quotes } from "../quotes/schema.js";
 import { formatQuoteNumber } from "../quotes/service.js";
 import { customerNotes } from "./schema.js";
+import { inboundEmails } from "../inbox/schema.js";
 
 export interface TimelineEntry {
   at: string;
@@ -49,6 +50,8 @@ export async function customerTimeline(db: DbOrTx, actor: ActorContext, customer
     .where(eq(customerNotes.customerId, customerId));
   for (const { n, by } of notes) out.push({ at: iso(n.createdAt)!, kind: n.kind === "call" ? "call" : "note", title: n.kind === "call" ? "Telefoongesprek" : "Notitie", detail: n.body, by, projectNumber: pn(n.projectId) });
 
+  const inbound = await db.select().from(inboundEmails).where(eq(inboundEmails.customerId, customerId));
+  for (const m of inbound) out.push({ at: iso(m.receivedAt)!, kind: "email", title: `E-mail van klant: ${m.subject}`, detail: m.text.slice(0, 1000), href: `/inbox?id=${m.id}`, projectNumber: pn(m.projectId) });
   const emails = await db.select().from(outboundEmails).where(eq(outboundEmails.customerId, customerId));
   for (const e of emails) out.push({ at: iso(e.createdAt)!, kind: "email", title: `E-mail: ${e.subject}`, detail: e.status === "failed" ? `Niet afgeleverd: ${e.error ?? ""}` : e.status === "not_sent" ? "Vastgelegd, niet verstuurd" : `Aan ${e.toAddress}` });
 

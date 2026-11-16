@@ -15,6 +15,7 @@ import { formatQuoteNumber } from "../quotes/service.js";
 import { selfBillingInvoices } from "../selfbilling/schema.js";
 import { openItems } from "../selfbilling/service.js";
 import { dueTasks } from "../tasks/service.js";
+import { inboundEmails } from "../inbox/schema.js";
 
 export interface WorkItem {
   label: string;
@@ -61,6 +62,19 @@ export async function myWork(db: DbOrTx, actor: ActorContext) {
         date: t.dueDate,
       })),
       href: "/werk",
+    });
+  }
+
+  if (can("customers.read")) {
+    const inbox = await db.select().from(inboundEmails).where(eq(inboundEmails.status, "new")).orderBy(asc(inboundEmails.receivedAt));
+    add({
+      key: "inbox",
+      title: "Inbox: nieuwe e-mails",
+      hint: "Binnengekomen e-mails van klanten; beantwoord of handel af.",
+      severity: inbox.some((m) => Date.now() - m.receivedAt.getTime() > 2 * 86_400_000) ? "high" : "normal",
+      count: inbox.length,
+      items: inbox.slice(0, LIMIT).map((m) => ({ label: m.fromName ?? m.fromAddress, detail: m.subject, href: `/inbox?id=${m.id}`, date: m.receivedAt.toISOString() })),
+      href: "/inbox",
     });
   }
 
