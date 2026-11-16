@@ -23,6 +23,8 @@ const DEFAULT_ROLES: { key: string; name: string; description: string; isSystem?
       "customers.manage",
       "projects.read",
       "projects.manage",
+      "quotes.read",
+      "quotes.manage",
       "catalog.read",
       "purchase_prices.read",
       "organizations.read",
@@ -34,13 +36,13 @@ const DEFAULT_ROLES: { key: string; name: string; description: string; isSystem?
     key: "klantspecialist",
     name: "Klantspecialist",
     description: "Klantcontact en dossierbeheer",
-    permissions: ["catalog.read", "organizations.read", "users.read", "customers.read", "customers.manage", "projects.read", "projects.manage"],
+    permissions: ["catalog.read", "organizations.read", "users.read", "customers.read", "customers.manage", "projects.read", "projects.manage", "quotes.read", "quotes.manage"],
   },
   {
     key: "planner",
     name: "Planner",
     description: "Planning van schouwen en installaties",
-    permissions: ["catalog.read", "organizations.read", "users.read", "customers.read", "projects.read", "projects.manage"],
+    permissions: ["catalog.read", "organizations.read", "users.read", "customers.read", "projects.read", "projects.manage", "quotes.read"],
   },
   {
     key: "finance",
@@ -56,6 +58,7 @@ const DEFAULT_ROLES: { key: string; name: string; description: string; isSystem?
       "purchase_prices.manage",
       "customers.read",
       "projects.read",
+      "quotes.read",
     ],
   },
 ];

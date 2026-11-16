@@ -1,4 +1,4 @@
-import { boolean, index, pgEnum, pgTable, text } from "drizzle-orm/pg-core";
+import { boolean, index, pgEnum, pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { id, timestamps } from "../../db/columns.js";
 
 /**
@@ -29,4 +29,22 @@ export const organizations = pgTable(
   (t) => [index("organizations_type_idx").on(t.type)],
 );
 
+/** Adviseur van een verkooppartner (bv. Greenteam). Per offerte vastgelegd voor de fee-specificatie. */
+export const advisors = pgTable(
+  "advisors",
+  {
+    id: id(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    name: text("name").notNull(),
+    email: text("email"),
+    phone: text("phone"),
+    isActive: boolean("is_active").notNull().default(true),
+    ...timestamps(),
+  },
+  (t) => [index("advisors_org_idx").on(t.organizationId)],
+);
+
 export type Organization = typeof organizations.$inferSelect;
+export type Advisor = typeof advisors.$inferSelect;

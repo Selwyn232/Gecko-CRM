@@ -2,7 +2,13 @@ import type { DbOrTx } from "../../db/client.js";
 import { outboxEvents } from "./schema.js";
 
 /** Alle gebeurtenistypen. Nieuwe types hier toevoegen, zodat automatiseringen weten waarop ze kunnen reageren. */
-export type DomainEventType = "customer.created" | "project.created" | "project.status_changed";
+export type DomainEventType =
+  | "customer.created"
+  | "project.created"
+  | "project.status_changed"
+  | "quote.sent"
+  | "quote.accepted"
+  | "quote.rejected";
 
 export async function emitEvent(
   tx: DbOrTx,

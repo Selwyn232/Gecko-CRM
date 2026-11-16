@@ -120,7 +120,12 @@ export async function getProject(db: DbOrTx, id: string) {
 }
 
 export async function createProject(db: Db, actor: ActorContext, input: ProjectInput) {
-  return db.transaction(async (tx) => {
+  return db.transaction((tx) => createProjectInTx(tx, actor, input));
+}
+
+/** Zelfde als createProject, maar binnen een bestaande transactie (bv. bij het accepteren van een offerte). */
+export async function createProjectInTx(tx: DbOrTx, actor: ActorContext, input: ProjectInput) {
+  {
     const [prop] = await tx.select().from(properties).where(eq(properties.id, input.propertyId));
     if (!prop || prop.customerId !== input.customerId) throw badRequest("invalid_property", "Woning hoort niet bij deze klant");
     const [group] = await tx.select().from(productGroups).where(eq(productGroups.id, input.productGroupId));
@@ -140,7 +145,7 @@ export async function createProject(db: Db, actor: ActorContext, input: ProjectI
     await recordAudit(tx, actor, { action: "project.created", entityType: "project", entityId: p!.id, after: p });
     await emitEvent(tx, "project.created", { type: "project", id: p!.id }, { projectId: p!.id, statusKey: start.key, productGroupKey: group.key });
     return getProject(tx, p!.id);
-  });
+  }
 }
 
 export async function updateProject(

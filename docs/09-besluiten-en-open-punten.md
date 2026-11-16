@@ -25,6 +25,9 @@
 | B19 | Inloggen met e-mail of gebruikersnaam. 2FA standaard verplicht, per gebruiker uit te zetten door een beheerder (afgeraden). Startwachtwoorden moeten bij eerste login worden vervangen | 2026-11-16 |
 | B20 | Accounts selwyn, renee, barry, jurriaan: beheerder, zonder 2FA (op verzoek, tegen advies in) | 2026-11-16 |
 | B21 | Klantreis per productgroep: statussen met fase, start/eind, en expliciet toegestane overgangen; volledig instelbaar | 2026-11-16 |
+| B23 | Offerte per productgroep; akkoord maakt automatisch het project aan. Prijzen/btw/kostprijs/fee vastgezet bij definitief maken; wijzigen via nieuwe versie | 2026-11-16 |
+| B24 | Kostprijs en marge alleen zichtbaar met recht op inkoopprijzen. Fee per verkoopkanaal instelbaar (basispunten) | 2026-11-16 |
+| B25 | Akkoord voorlopig handmatig geregistreerd (naam, wijze); digitale handtekening en e-mailverzending volgen | 2026-11-16 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten
@@ -44,4 +47,6 @@
 | O11 | Vervaldatum aanbetaling: hoeveel dagen vóór de schouw (X)? Wat bij niet betalen? | Gecko |
 | O12 | Leverancier digitale handtekening, WhatsApp-BSP, telefonie | Te kiezen in v1/v2 |
 | O14 | 2FA weer verplicht maken voor alle beheerders zodra er echte klantdata in staat | Gecko |
+| O15 | Leverancier digitale handtekening offertes (bv. via e-mail-link met akkoordknop of externe partij) | Gecko |
+| O16 | Bedrijfsgegevens Gecko BV (adres, KvK, btw-nummer, IBAN) voor offerte en factuur | Gecko |
 | O13 | Verkoopprijs vast bij ondertekening, ook als inkoop stijgt tijdens lange wachttijd? | Gecko |

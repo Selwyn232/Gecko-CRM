@@ -23,6 +23,8 @@ export const PERMISSIONS = {
   "projects.read": "Projecten en hun status bekijken",
   "projects.manage": "Projecten aanmaken, wijzigen en status aanpassen",
   "journeys.manage": "Klantreizen (statussen en overgangen) instellen",
+  "quotes.read": "Offertes bekijken",
+  "quotes.manage": "Offertes maken, versturen en akkoord registreren",
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

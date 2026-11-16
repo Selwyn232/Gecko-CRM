@@ -4,7 +4,7 @@ import { api, type Organization } from "../api";
 import { useAuth } from "../auth";
 import { ActiveBadge, ErrorBox, Field, Loading, Modal, PageHead } from "../components/ui";
 import { ORG_TYPES } from "../format";
-import { useOrganizations } from "../hooks";
+import { useAdvisors, useOrganizations } from "../hooks";
 
 export function OrganizationsPage() {
   const { can } = useAuth();
@@ -88,10 +88,49 @@ function OrgForm({ org, onClose }: { org?: Organization; onClose: () => void }) 
       </div>
       <Field label="E-mail"><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
       <label className="checkbox"><input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Actief</label>
+      {org?.type === "sales_partner" && <AdvisorsSection organizationId={org.id} />}
       <div className="modal-actions">
         <button className="btn" onClick={onClose}>Annuleren</button>
         <button className="btn primary" onClick={() => save.mutate()} disabled={save.isPending}>Opslaan</button>
       </div>
     </Modal>
+  );
+}
+
+/** Adviseurs van een verkooppartner: per offerte vastgelegd, voor de fee-specificatie. */
+function AdvisorsSection({ organizationId }: { organizationId: string }) {
+  const qc = useQueryClient();
+  const advisors = useAdvisors(organizationId);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["advisors"] });
+  const add = useMutation({
+    mutationFn: () => api.post("/advisors", { organizationId, name, email: email || null }),
+    onSuccess: async () => {
+      setName("");
+      setEmail("");
+      await invalidate();
+    },
+  });
+  const toggle = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => api.patch(`/advisors/${id}`, { isActive }),
+    onSuccess: invalidate,
+  });
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div className="field">Adviseurs</div>
+      <ErrorBox error={add.error ?? toggle.error} />
+      {advisors.data?.map((a) => (
+        <div key={a.id} className="row" style={{ justifyContent: "space-between", padding: "4px 0", opacity: a.isActive ? 1 : 0.5 }}>
+          <span>{a.name} <span className="muted">{a.email}</span></span>
+          <button className="btn small" onClick={() => toggle.mutate({ id: a.id, isActive: !a.isActive })}>{a.isActive ? "Deactiveren" : "Activeren"}</button>
+        </div>
+      ))}
+      <div className="row" style={{ marginTop: 6, flexWrap: "nowrap" }}>
+        <input placeholder="Naam" value={name} onChange={(e) => setName(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+        <input placeholder="E-mail (optioneel)" value={email} onChange={(e) => setEmail(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+        <button className="btn small" disabled={!name} onClick={() => add.mutate()}>Toevoegen</button>
+      </div>
+    </div>
   );
 }

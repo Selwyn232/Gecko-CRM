@@ -21,6 +21,7 @@ import { catalogRoutes } from "./modules/catalog/routes.js";
 import { customerRoutes } from "./modules/customers/routes.js";
 import { journeyRoutes } from "./modules/journeys/routes.js";
 import { projectRoutes } from "./modules/projects/routes.js";
+import { quoteRoutes } from "./modules/quotes/routes.js";
 import { organizationRoutes } from "./modules/organizations/routes.js";
 import { roleRoutes } from "./modules/roles/routes.js";
 import { userRoutes } from "./modules/users/routes.js";
@@ -132,6 +133,7 @@ export async function buildApp({ config, db, webDistDir }: AppDeps) {
       await api.register(customerRoutes, { db });
       await api.register(projectRoutes, { db });
       await api.register(journeyRoutes, { db });
+      await api.register(quoteRoutes, { db });
     },
     { prefix: "/api" },
   );

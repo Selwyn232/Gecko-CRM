@@ -47,6 +47,17 @@ const ACTIONS: Record<string, string> = {
   "journey_status.updated": "Status gewijzigd",
   "journey_status.deleted": "Status verwijderd",
   "journey_status.transitions_set": "Overgangen gewijzigd",
+  "quote.created": "Offerte aangemaakt",
+  "quote.updated": "Offerte gewijzigd",
+  "quote.line_added": "Offerteregel toegevoegd",
+  "quote.line_updated": "Offerteregel gewijzigd",
+  "quote.line_removed": "Offerteregel verwijderd",
+  "quote.sent": "Offerte definitief gemaakt",
+  "quote.accepted": "Offerte geaccepteerd",
+  "quote.rejected": "Offerte afgewezen",
+  "quote.revised": "Nieuwe offerteversie",
+  "advisor.created": "Adviseur toegevoegd",
+  "advisor.updated": "Adviseur gewijzigd",
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -55,11 +66,11 @@ const FIELD_LABELS: Record<string, string> = {
   type: "Type", vatCode: "Btw", unit: "Eenheid", description: "Omschrijving", permissions: "Rechten",
   productGroupIds: "Productgroepen", bom: "Stuklijst", mfaEnabled: "2FA", status: "Status", firstName: "Voornaam",
   lastName: "Achternaam", phone: "Telefoon", street: "Straat", houseNumber: "Huisnummer", postalCode: "Postcode", city: "Plaats",
-  installationPartnerId: "Installatiepartner", paymentMethod: "Betaalwijze", next: "Vervolgstatussen", phase: "Fase", mfaRequired: "2FA verplicht", username: "Gebruikersnaam",
+  installationPartnerId: "Installatiepartner", validUntil: "Geldig tot", quantity: "Aantal", acceptedByName: "Akkoord door", method: "Wijze", reason: "Reden", feeBasisPoints: "Fee", advisorId: "Adviseur", customerNote: "Tekst klant", internalNote: "Interne notitie", paymentMethod: "Betaalwijze", next: "Vervolgstatussen", phase: "Fase", mfaRequired: "2FA verplicht", username: "Gebruikersnaam",
 };
 /** Technische velden die in het logboek niets toevoegen. */
 const HIDDEN = new Set(["id", "productId", "createdAt", "createdBy", "lastLoginAt", "lockedUntil", "number", "customerId", "statusChangedAt", "statusId", "propertyId", "productGroupId", "salesChannelId", "country", "sortOrder"]);
-const ENTITY: Record<string, string> = { customer: "Klant", project: "Project", journey_status: "Klantreis", user: "Gebruiker", role: "Rol", organization: "Organisatie", product: "Product", sales_channel: "Kanaal", product_group: "Productgroep", vat_code: "Btw" };
+const ENTITY: Record<string, string> = { quote: "Offerte", customer: "Klant", project: "Project", journey_status: "Klantreis", user: "Gebruiker", role: "Rol", organization: "Organisatie", product: "Product", sales_channel: "Kanaal", product_group: "Productgroep", vat_code: "Btw" };
 
 const show = (key: string, v: unknown) => {
   if (v === null || v === undefined || v === "") return "—";
@@ -93,6 +104,7 @@ export function AuditPage() {
         <select value={entityType} onChange={(e) => setEntityType(e.target.value)}>
           <option value="">Alles</option>
           <option value="customer">Klanten</option>
+          <option value="quote">Offertes</option>
           <option value="project">Projecten</option>
           <option value="journey_status">Klantreizen</option>
           <option value="user">Gebruikers</option>

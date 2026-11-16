@@ -22,12 +22,13 @@ export function ChannelsPage() {
       <div className="card flush">
         {channels.isLoading ? <Loading /> : (
           <table>
-            <thead><tr><th>Naam</th><th>Verkooppartner</th><th>Productgroepen</th><th>Status</th></tr></thead>
+            <thead><tr><th>Naam</th><th>Verkooppartner</th><th>Fee</th><th>Productgroepen</th><th>Status</th></tr></thead>
             <tbody>
               {channels.data?.map((c) => (
                 <tr key={c.id} className={can("catalog.manage") ? "clickable" : ""} onClick={() => can("catalog.manage") && setEditing(c)}>
                   <td><strong>{c.name}</strong> <span className="muted mono">{c.key}</span></td>
                   <td>{c.salesPartnerOrganizationId ? nameById(orgs.data, c.salesPartnerOrganizationId) : <span className="muted">Eigen kanaal</span>}</td>
+                  <td>{c.feeBasisPoints == null ? <span className="muted">—</span> : `${c.feeBasisPoints / 100}%`}</td>
                   <td>{c.productGroupIds.map((id) => <span key={id} className="badge" style={{ marginRight: 4 }}>{nameById(groups.data, id)}</span>)}</td>
                   <td><ActiveBadge active={c.isActive} /></td>
                 </tr>
@@ -49,12 +50,17 @@ function ChannelForm({ channel, onClose }: { channel?: SalesChannel; onClose: ()
     key: channel?.key ?? "",
     name: channel?.name ?? "",
     salesPartnerOrganizationId: channel?.salesPartnerOrganizationId ?? "",
+    fee: channel?.feeBasisPoints == null ? "" : String(channel.feeBasisPoints / 100).replace(".", ","),
+    quoteValidityDays: channel?.quoteValidityDays ?? 30,
     isActive: channel?.isActive ?? true,
     productGroupIds: channel?.productGroupIds ?? [],
   });
   const save = useMutation({
     mutationFn: () => {
-      const body = { ...form, salesPartnerOrganizationId: form.salesPartnerOrganizationId || null };
+      const { fee, ...rest } = form;
+      const feeNum = fee.trim() === "" ? null : Math.round(Number(fee.replace(",", ".")) * 100);
+      if (feeNum !== null && (Number.isNaN(feeNum) || feeNum < 0 || feeNum > 10000)) throw new Error("Ongeldig fee-percentage");
+      const body = { ...rest, feeBasisPoints: feeNum, salesPartnerOrganizationId: form.salesPartnerOrganizationId || null };
       if (channel) {
         const { key: _key, ...rest } = body;
         return api.patch(`/sales-channels/${channel.id}`, rest);
@@ -82,6 +88,10 @@ function ChannelForm({ channel, onClose }: { channel?: SalesChannel; onClose: ()
           {orgs.data?.filter((o) => o.type === "sales_partner").map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
       </Field>
+      <div className="grid-2">
+        <Field label="Fee verkooppartner (% over orderwaarde ex btw)"><input value={form.fee} onChange={(e) => setForm({ ...form, fee: e.target.value })} placeholder="bv. 5" /></Field>
+        <Field label="Geldigheid offerte (dagen)"><input type="number" min={1} max={365} value={form.quoteValidityDays} onChange={(e) => setForm({ ...form, quoteValidityDays: Number(e.target.value) })} /></Field>
+      </div>
       <div className="field">Productgroepen</div>
       {groups.data?.map((g) => (
         <label key={g.id} className="checkbox"><input type="checkbox" checked={form.productGroupIds.includes(g.id)} onChange={() => toggle(g.id)} /> {g.name}</label>

@@ -43,6 +43,20 @@
       "when": 1794803142428,
       "tag": "0005_role_medewerker",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794803404475,
+      "tag": "0006_quotes_advisors",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794803405104,
+      "tag": "0007_grant_quote_permissions",
+      "breakpoints": true
     }
   ]
 }

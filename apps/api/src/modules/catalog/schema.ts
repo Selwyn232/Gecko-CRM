@@ -80,6 +80,10 @@ export const salesChannels = pgTable("sales_channels", {
   name: text("name").notNull(),
   /** De verkooppartner achter dit kanaal (bv. Greenteam), voor fee en selfbilling. Leeg voor eigen kanalen. */
   salesPartnerOrganizationId: uuid("sales_partner_organization_id").references(() => organizations.id),
+  /** Fee voor de verkooppartner in basispunten over orderwaarde ex btw (500 = 5%). Leeg = nog niet ingesteld. */
+  feeBasisPoints: integer("fee_basis_points"),
+  /** Standaard geldigheid van offertes in dagen. */
+  quoteValidityDays: integer("quote_validity_days").notNull().default(30),
   isActive: boolean("is_active").notNull().default(true),
   ...timestamps(),
 });

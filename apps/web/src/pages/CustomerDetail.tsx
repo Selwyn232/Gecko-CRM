@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, type CustomerDetail, type ProjectDetail } from "../api";
+import { api, type CustomerDetail, type ProjectDetail, type Quote, type QuoteListItem } from "../api";
+import { QuotesTable } from "./Quotes";
 import { useAuth } from "../auth";
 import { ErrorBox, Field, Loading, Modal, StatusPill } from "../components/ui";
 import { customerName, formatAddress, formatDate, PAYMENT_METHODS } from "../format";
-import { nameById, useChannels, useOrganizations, useProductGroups } from "../hooks";
+import { nameById, useAdvisors, useChannels, useOrganizations, useProductGroups } from "../hooks";
 import { AddressFields, CustomerForm } from "./Customers";
 
 export function CustomerDetailPage() {
@@ -17,7 +18,13 @@ export function CustomerDetailPage() {
   const [editing, setEditing] = useState(false);
   const [addingProperty, setAddingProperty] = useState(false);
   const [addingProject, setAddingProject] = useState(false);
+  const [addingQuote, setAddingQuote] = useState(false);
   const customer = useQuery({ queryKey: ["customer", id], queryFn: () => api.get<CustomerDetail>(`/customers/${id}`) });
+  const quotes = useQuery({
+    queryKey: ["quotes", "customer", id],
+    queryFn: () => api.get<QuoteListItem[]>(`/quotes?customerId=${id}`),
+    enabled: can("quotes.read"),
+  });
 
   if (customer.isLoading) return <Loading />;
   if (!customer.data) return <ErrorBox error={customer.error ?? "Niet gevonden"} />;
@@ -76,10 +83,20 @@ export function CustomerDetailPage() {
           </table>
         )}
       </div>
-      <p className="muted" style={{ fontSize: 13 }}>Marge per klant en communicatie volgen zodra offertes, facturen en de inbox er zijn.</p>
+      {can("quotes.read") && (
+        <div className="card flush">
+          <div className="row" style={{ justifyContent: "space-between", padding: "16px 20px 8px" }}>
+            <h2 style={{ margin: 0 }}>Offertes</h2>
+            {can("quotes.manage") && <button className="btn primary small" onClick={() => setAddingQuote(true)}>Nieuwe offerte</button>}
+          </div>
+          {!quotes.data?.length ? <div className="empty">Nog geen offertes.</div> : <QuotesTable items={quotes.data} showCustomer={false} />}
+        </div>
+      )}
+      <p className="muted" style={{ fontSize: 13 }}>Facturen, marge na oplevering en communicatie volgen in de volgende stappen.</p>
 
       {editing && <CustomerForm customer={c} onClose={() => setEditing(false)} />}
       {addingProperty && <PropertyForm customerId={c.id} onClose={() => setAddingProperty(false)} />}
+      {addingQuote && <QuoteForm customer={c} onClose={() => setAddingQuote(false)} onSaved={(q) => navigate(`/offertes/${q.id}`)} />}
       {addingProject && <ProjectForm customer={c} onClose={() => setAddingProject(false)} onSaved={(p) => navigate(`/projecten/${p.id}`)} />}
     </>
   );
@@ -169,6 +186,75 @@ function ProjectForm({ customer, onClose, onSaved }: { customer: CustomerDetail;
         <div className="modal-actions">
           <button type="button" className="btn" onClick={onClose}>Annuleren</button>
           <button className="btn primary" disabled={save.isPending}>Aanmaken</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function QuoteForm({ customer, onClose, onSaved }: { customer: CustomerDetail; onClose: () => void; onSaved: (q: Quote) => void }) {
+  const qc = useQueryClient();
+  const groups = useProductGroups();
+  const channels = useChannels();
+  const orgs = useOrganizations();
+  const [form, setForm] = useState({
+    propertyId: customer.properties[0]?.id ?? "",
+    salesChannelId: customer.salesChannelId ?? "",
+    productGroupId: "",
+    advisorId: "",
+    installationPartnerId: "",
+  });
+  const channel = channels.data?.find((c) => c.id === form.salesChannelId);
+  const advisors = useAdvisors(channel?.salesPartnerOrganizationId ?? null);
+  const save = useMutation({
+    mutationFn: () =>
+      api.post<Quote>("/quotes", { ...form, customerId: customer.id, advisorId: form.advisorId || null, installationPartnerId: form.installationPartnerId || null }),
+    onSuccess: async (q) => {
+      await qc.invalidateQueries({ queryKey: ["quotes"] });
+      onSaved(q);
+    },
+  });
+  return (
+    <Modal title="Nieuwe offerte" onClose={onClose}>
+      <form onSubmit={(e: FormEvent) => { e.preventDefault(); save.mutate(); }}>
+        <ErrorBox error={save.error} />
+        <p className="muted" style={{ fontSize: 13 }}>Eén offerte per productgroep. Na akkoord wordt het project automatisch aangemaakt.</p>
+        <Field label="Woning">
+          <select value={form.propertyId} onChange={(e) => setForm({ ...form, propertyId: e.target.value })} required>
+            {customer.properties.map((p) => <option key={p.id} value={p.id}>{formatAddress(p)}</option>)}
+          </select>
+        </Field>
+        <div className="grid-2">
+          <Field label="Verkoopkanaal">
+            <select value={form.salesChannelId} onChange={(e) => setForm({ ...form, salesChannelId: e.target.value, productGroupId: "", advisorId: "" })} required>
+              <option value="">Kies…</option>
+              {channels.data?.filter((c) => c.isActive).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Productgroep">
+            <select value={form.productGroupId} onChange={(e) => setForm({ ...form, productGroupId: e.target.value })} required>
+              <option value="">Kies…</option>
+              {(groups.data ?? []).filter((g) => !channel || channel.productGroupIds.includes(g.id)).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          </Field>
+          {channel?.salesPartnerOrganizationId && (
+            <Field label="Adviseur">
+              <select value={form.advisorId} onChange={(e) => setForm({ ...form, advisorId: e.target.value })}>
+                <option value="">—</option>
+                {advisors.data?.filter((a) => a.isActive).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </Field>
+          )}
+          <Field label="Installatiepartner (voor kostprijs)">
+            <select value={form.installationPartnerId} onChange={(e) => setForm({ ...form, installationPartnerId: e.target.value })}>
+              <option value="">Nog niet bekend</option>
+              {orgs.data?.filter((o) => o.type === "installation_partner" && o.isActive).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+          </Field>
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="btn" onClick={onClose}>Annuleren</button>
+          <button className="btn primary" disabled={save.isPending}>Offerte aanmaken</button>
         </div>
       </form>
     </Modal>

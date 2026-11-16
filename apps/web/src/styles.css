@@ -137,3 +137,21 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .phase-strip button.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
 .phase-strip .count { color: var(--muted); margin-left: 4px; }
 td.mono, .mono { white-space: nowrap; }
+
+.print-page { max-width: 800px; margin: 0 auto; padding: 32px; background: #fff; color: #1c211d; min-height: 100%; }
+.print-actions { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; }
+.print-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1f7a4d; padding-bottom: 16px; }
+.print-head .brand { padding: 0 0 4px; }
+.print-meta { display: flex; justify-content: space-between; gap: 24px; margin-top: 20px; }
+.print-table th { background: #f0f2ef; color: #5f6b62; }
+.print-table td, .print-table th { border-bottom: 1px solid #dfe3dd; }
+.print-totals { width: 320px; margin: 16px 0 0 auto; grid-template-columns: 1fr auto; }
+.print-totals dd { text-align: right; }
+.print-sign { display: grid; grid-template-columns: 2fr 1fr; gap: 32px; margin-top: 48px; font-size: 13px; }
+.sign-line { border-bottom: 1px solid #1c211d; height: 48px; }
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+  .print-page { padding: 0; }
+  @page { margin: 18mm; }
+}

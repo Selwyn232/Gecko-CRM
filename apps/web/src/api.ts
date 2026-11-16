@@ -65,6 +65,8 @@ export interface SalesChannel {
   key: string;
   name: string;
   salesPartnerOrganizationId: string | null;
+  feeBasisPoints: number | null;
+  quoteValidityDays: number;
   isActive: boolean;
   productGroupIds: string[];
 }
@@ -220,4 +222,77 @@ export interface ProjectDetail extends ProjectSummary {
 export interface Paged<T> {
   total: number;
   items: T[];
+}
+
+export type QuoteStatus = "draft" | "sent" | "accepted" | "rejected" | "superseded" | "expired";
+export interface Advisor {
+  id: string;
+  organizationId: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  isActive: boolean;
+}
+export interface QuoteLine {
+  id: string;
+  productId: string;
+  productCode: string;
+  productType: string;
+  unit: string;
+  description: string;
+  quantity: string;
+  unitPriceCents: number;
+  vatRateBasisPoints: number;
+  unitCostCents: number | null;
+  lineTotalCents: number;
+}
+export interface QuoteTotals {
+  subtotalCents: number;
+  vat: { rateBasisPoints: number; baseCents: number; vatCents: number }[];
+  vatCents: number;
+  totalCents: number;
+}
+export interface Quote {
+  id: string;
+  displayNumber: string;
+  status: Exclude<QuoteStatus, "expired">;
+  effectiveStatus: QuoteStatus;
+  customerId: string;
+  propertyId: string;
+  productGroupId: string;
+  salesChannelId: string;
+  advisorId: string | null;
+  installationPartnerId: string | null;
+  priceDate: string | null;
+  validUntil: string | null;
+  sentAt: string | null;
+  acceptedAt: string | null;
+  acceptedByName: string | null;
+  acceptanceMethod: string | null;
+  rejectionReason: string | null;
+  supersedesQuoteId: string | null;
+  projectId: string | null;
+  customerNote: string | null;
+  internalNote: string | null;
+  createdAt: string;
+  customer: CustomerSummary;
+  property: Property;
+  salesChannel: SalesChannel;
+  productGroup: ProductGroup;
+  advisor: Advisor | null;
+  lines: QuoteLine[];
+  totals: QuoteTotals;
+  margin: { costCents: number | null; feeCents: number | null; marginCents: number | null; marginBasisPoints: number | null; complete: boolean } | null;
+}
+export interface QuoteListItem {
+  id: string;
+  displayNumber: string;
+  effectiveStatus: QuoteStatus;
+  productGroupId: string;
+  validUntil: string | null;
+  createdAt: string;
+  projectId: string | null;
+  customer: { id: string; firstName: string | null; lastName: string; displayNumber: string };
+  property: Property;
+  totals: QuoteTotals;
 }

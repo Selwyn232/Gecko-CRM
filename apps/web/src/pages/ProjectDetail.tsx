@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, type JourneyStatus, type ProjectDetail } from "../api";
+import { api, type JourneyStatus, type ProjectDetail, type QuoteListItem } from "../api";
+import { QuotesTable } from "./Quotes";
 import { useAuth } from "../auth";
 import { ErrorBox, Field, Loading, Modal, StatusPill } from "../components/ui";
 import { customerName, daysSince, formatAddress, formatDateTime, PAYMENT_METHODS } from "../format";
@@ -17,6 +18,11 @@ export function ProjectDetailPage() {
   const journeys = useJourneys();
   const [target, setTarget] = useState<JourneyStatus | null>(null);
   const project = useQuery({ queryKey: ["project", id], queryFn: () => api.get<ProjectDetail>(`/projects/${id}`) });
+  const quotes = useQuery({
+    queryKey: ["quotes", "project", id],
+    queryFn: () => api.get<QuoteListItem[]>(`/quotes?projectId=${id}`),
+    enabled: can("quotes.read"),
+  });
 
   const update = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.patch(`/projects/${id}`, body),
@@ -100,7 +106,13 @@ export function ProjectDetailPage() {
           </ul>
         </div>
       </div>
-      <p className="muted" style={{ fontSize: 13 }}>Offerte, facturen, marge, afspraken en communicatie komen in de volgende stappen op deze pagina.</p>
+      {can("quotes.read") && quotes.data && quotes.data.length > 0 && (
+        <div className="card flush">
+          <div style={{ padding: "16px 20px 8px" }}><h2 style={{ margin: 0 }}>Offerte</h2></div>
+          <QuotesTable items={quotes.data} showCustomer={false} />
+        </div>
+      )}
+      <p className="muted" style={{ fontSize: 13 }}>Facturen, afspraken en communicatie komen in de volgende stappen op deze pagina.</p>
 
       {target && <StatusModal project={p} target={target} onClose={() => setTarget(null)} />}
     </>

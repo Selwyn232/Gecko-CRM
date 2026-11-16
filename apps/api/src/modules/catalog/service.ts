@@ -51,6 +51,8 @@ export type SalesChannelInput = {
   key: string;
   name: string;
   salesPartnerOrganizationId?: string | null;
+  feeBasisPoints?: number | null;
+  quoteValidityDays?: number;
   isActive?: boolean;
   productGroupIds: string[];
 };
@@ -351,4 +353,27 @@ export async function calculateCost(
     complete: missing.length === 0,
     missingPrices: missing,
   };
+}
+
+/**
+ * Kostprijs per eenheid van een product op een datum:
+ * - met stuklijst: som van de stuklijst (zie calculateCost)
+ * - arbeid/meerwerk zonder stuklijst: tarief van de installatiepartner
+ * - overig: inkoopprijs bij de standaardleverancier
+ * Null als er een prijs ontbreekt — dan is de marge onbekend, niet "100%".
+ */
+export async function unitCost(db: DbOrTx, productId: string, date: string, partnerOrganizationId?: string | null): Promise<number | null> {
+  const [p] = await db.select().from(products).where(eq(products.id, productId));
+  if (!p) return null;
+  const [hasBom] = await db.select({ id: bomItems.id }).from(bomItems).where(eq(bomItems.parentProductId, productId)).limit(1);
+  if (hasBom) {
+    const cost = await calculateCost(db, productId, { date, partnerOrganizationId: partnerOrganizationId ?? undefined });
+    return cost.complete ? cost.totalCents : null;
+  }
+  if (p.type === "labor" || p.type === "extra_work" || p.type === "service") {
+    if (!partnerOrganizationId) return null;
+    return (await effectivePrice(db, "partner", productId, partnerOrganizationId, date))?.priceCents ?? null;
+  }
+  if (!p.defaultSupplierOrganizationId) return null;
+  return (await effectivePrice(db, "purchase", productId, p.defaultSupplierOrganizationId, date))?.priceCents ?? null;
 }

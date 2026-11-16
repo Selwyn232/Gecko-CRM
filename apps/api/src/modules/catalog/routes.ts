@@ -62,6 +62,8 @@ export const catalogRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db
     key: Key,
     name: z.string().min(1).max(100),
     salesPartnerOrganizationId: z.string().uuid().nullish(),
+    feeBasisPoints: z.number().int().min(0).max(10000).nullish(),
+    quoteValidityDays: z.number().int().min(1).max(365).optional(),
     isActive: z.boolean().optional(),
     productGroupIds: z.array(z.string().uuid()).default([]),
   });

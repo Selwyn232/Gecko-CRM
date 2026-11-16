@@ -16,3 +16,11 @@ export const nameById = <T extends { id: string; name: string }>(list: T[] | und
 import type { JourneyStatus, ProductGroup as PG } from "./api";
 export const useJourneys = () =>
   useQuery({ queryKey: ["journeys"], queryFn: () => api.get<{ productGroup: PG; statuses: JourneyStatus[] }[]>("/journeys") });
+
+import type { Advisor } from "./api";
+export const useAdvisors = (organizationId?: string | null) =>
+  useQuery({
+    queryKey: ["advisors", organizationId ?? "all"],
+    queryFn: () => api.get<Advisor[]>(`/advisors${organizationId ? `?organizationId=${organizationId}` : ""}`),
+    enabled: organizationId !== null,
+  });

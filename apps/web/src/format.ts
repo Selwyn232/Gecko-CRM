@@ -43,3 +43,24 @@ export const formatAddress = (p: { street: string; houseNumber: string; houseNum
 export const PAYMENT_METHODS: Record<string, string> = { direct: "Direct (iDEAL/overschrijving)", warmtefonds: "Warmtefonds" };
 
 export const daysSince = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+
+export const QUOTE_STATUS: Record<string, { label: string; color: string }> = {
+  draft: { label: "Concept", color: "gray" },
+  sent: { label: "Verstuurd", color: "blue" },
+  accepted: { label: "Geaccepteerd", color: "green" },
+  rejected: { label: "Afgewezen", color: "red" },
+  superseded: { label: "Vervangen", color: "gray" },
+  expired: { label: "Verlopen", color: "yellow" },
+};
+
+export const ACCEPTANCE_METHODS: Record<string, string> = {
+  signed_paper: "Getekend op papier",
+  signed_digital: "Digitaal getekend",
+  email: "Akkoord per e-mail",
+  verbal_confirmed: "Mondeling, schriftelijk bevestigd",
+};
+
+export const formatPercent = (bp: number | null | undefined) =>
+  bp == null ? "—" : `${(bp / 100).toLocaleString("nl-NL", { maximumFractionDigits: 1 })}%`;
+
+export const formatQty = (q: string | number) => Number(q).toLocaleString("nl-NL", { maximumFractionDigits: 3 });

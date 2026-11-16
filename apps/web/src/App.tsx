@@ -1,4 +1,4 @@
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "./auth";
 import { ChangePasswordModal } from "./components/ChangePassword";
@@ -9,6 +9,9 @@ import { CustomersPage } from "./pages/Customers";
 import { JourneysPage } from "./pages/Journeys";
 import { ProjectDetailPage } from "./pages/ProjectDetail";
 import { ProjectsPage } from "./pages/Projects";
+import { QuoteDetailPage } from "./pages/QuoteDetail";
+import { QuotePrintPage } from "./pages/QuotePrint";
+import { QuotesPage } from "./pages/Quotes";
 import { LoginPage } from "./pages/Login";
 import { OrganizationsPage } from "./pages/Organizations";
 import { ProductDetailPage } from "./pages/ProductDetail";
@@ -19,7 +22,15 @@ import { UsersPage } from "./pages/Users";
 export function App() {
   const { me, can, logout } = useAuth();
   const [changingPassword, setChangingPassword] = useState(false);
+  const location = useLocation();
   if (!me || !me.mfaVerified || me.mustChangePassword) return <LoginPage />;
+  if (/^\/offertes\/[^/]+\/print$/.test(location.pathname)) {
+    return (
+      <Routes>
+        <Route path="/offertes/:id/print" element={<QuotePrintPage />} />
+      </Routes>
+    );
+  }
 
   return (
     <div className="shell">
@@ -30,6 +41,7 @@ export function App() {
         <nav className="nav">
           <div className="nav-section">Klanten</div>
           {can("customers.read") && <NavLink to="/klanten">Klanten</NavLink>}
+          {can("quotes.read") && <NavLink to="/offertes">Offertes</NavLink>}
           {can("projects.read") && <NavLink to="/projecten">Projecten</NavLink>}
           <div className="nav-section">Catalogus</div>
           {can("catalog.read") && <NavLink to="/producten">Producten</NavLink>}
@@ -58,6 +70,8 @@ export function App() {
           <Route path="/projecten" element={<ProjectsPage />} />
           <Route path="/projecten/:id" element={<ProjectDetailPage />} />
           <Route path="/klantreizen" element={<JourneysPage />} />
+          <Route path="/offertes" element={<QuotesPage />} />
+          <Route path="/offertes/:id" element={<QuoteDetailPage />} />
           <Route path="/producten" element={<ProductsPage />} />
           <Route path="/producten/:id" element={<ProductDetailPage />} />
           <Route path="/verkoopkanalen" element={<ChannelsPage />} />

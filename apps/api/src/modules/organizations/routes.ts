@@ -3,7 +3,15 @@ import { z } from "zod";
 import type { Db } from "../../db/client.js";
 import { requirePermission } from "../../http/auth-plugin.js";
 import { organizationType } from "./schema.js";
-import { createOrganization, getOrganization, listOrganizations, updateOrganization } from "./service.js";
+import {
+  createAdvisor,
+  createOrganization,
+  getOrganization,
+  listAdvisors,
+  listOrganizations,
+  updateAdvisor,
+  updateOrganization,
+} from "./service.js";
 
 const OrgBody = z.object({
   name: z.string().min(1).max(200),
@@ -47,5 +55,27 @@ export const organizationRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app,
     "/organizations/:id",
     { preValidation: manage, schema: { params: IdParams, body: OrgBody.omit({ type: true }).partial() } },
     async (req) => updateOrganization(db, req.actor, req.params.id, req.body),
+  );
+
+  const AdvisorBody = z.object({
+    organizationId: z.string().uuid(),
+    name: z.string().min(1).max(200),
+    email: z.string().email().nullish().or(z.literal("").transform(() => null)),
+    phone: z.string().max(30).nullish(),
+    isActive: z.boolean().optional(),
+  });
+  app.get(
+    "/advisors",
+    { preValidation: read, schema: { querystring: z.object({ organizationId: z.string().uuid().optional() }) } },
+    async (req) => listAdvisors(db, req.query.organizationId),
+  );
+  app.post("/advisors", { preValidation: manage, schema: { body: AdvisorBody } }, async (req, reply) => {
+    reply.code(201);
+    return createAdvisor(db, req.actor, req.body);
+  });
+  app.patch(
+    "/advisors/:id",
+    { preValidation: manage, schema: { params: IdParams, body: AdvisorBody.omit({ organizationId: true }).partial() } },
+    async (req) => updateAdvisor(db, req.actor, req.params.id, req.body),
   );
 };
