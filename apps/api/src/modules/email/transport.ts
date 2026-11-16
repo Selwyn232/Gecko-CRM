@@ -20,6 +20,7 @@ export class MailgunTransport implements EmailTransport {
     private readonly domain: string,
     private readonly region: "eu" | "us",
     private readonly from: string,
+    private readonly replyTo?: string,
   ) {}
 
   async send(message: EmailMessage) {
@@ -30,6 +31,12 @@ export class MailgunTransport implements EmailTransport {
     body.set("subject", message.subject);
     body.set("html", message.html);
     body.set("text", message.text);
+    // Transactionele mail: geen klik-/open-tracking. Herschreven links en volgpixels verlagen de
+    // betrouwbaarheid bij spamfilters (vooral Outlook) en zijn voor offertes/facturen niet nodig.
+    body.set("o:tracking", "no");
+    body.set("o:tracking-clicks", "no");
+    body.set("o:tracking-opens", "no");
+    if (this.replyTo) body.set("h:Reply-To", this.replyTo);
     const res = await fetch(`${host}/v3/${encodeURIComponent(this.domain)}/messages`, {
       method: "POST",
       headers: { authorization: `Basic ${Buffer.from(`api:${this.apiKey}`).toString("base64")}` },
@@ -45,7 +52,7 @@ export class MailgunTransport implements EmailTransport {
 export function transportFromConfig(config: Config): EmailTransport | null {
   if (!config.MAILGUN_API_KEY || !config.MAILGUN_DOMAIN) return null;
   const from = config.MAIL_FROM ?? `Gecko <noreply@${config.MAILGUN_DOMAIN}>`;
-  return new MailgunTransport(config.MAILGUN_API_KEY, config.MAILGUN_DOMAIN, config.MAILGUN_REGION, from);
+  return new MailgunTransport(config.MAILGUN_API_KEY, config.MAILGUN_DOMAIN, config.MAILGUN_REGION, from, config.MAIL_REPLY_TO);
 }
 
 /** Voor tests: onthoudt verstuurde berichten. */

@@ -27,6 +27,8 @@ const ConfigSchema = z.object({
   MAILGUN_REGION: z.enum(["eu", "us"]).default("eu"),
   /** Afzender, bv. "Gecko <noreply@mail.gecko.nl>". Standaard noreply@MAILGUN_DOMAIN. */
   MAIL_FROM: z.string().optional(),
+  /** Antwoordadres dat iemand leest, bv. klantenservice@gecko.nl. Verbetert ook de bezorging. */
+  MAIL_REPLY_TO: z.string().email().optional(),
   /** Mollie. Zonder sleutel draait betalen in testmodus (gesimuleerde betaalpagina). */
   MOLLIE_API_KEY: z.string().optional(),
   /** Achtergrondtaken (automatiseringen, aanmaningen) draaien in dit proces. Uit in tests. */
