@@ -21,7 +21,7 @@ const BASIS: Record<string, { label: string; cls: string }> = {
 
 /** Afwijking met teken; positief = beter dan verwacht. */
 export const Deviation = ({ cents }: { cents: number }) =>
-  cents === 0 ? <span className="muted">—</span> : <span style={{ color: cents < 0 ? "var(--danger)" : "var(--accent)", fontWeight: 600 }}>{cents > 0 ? "+" : ""}{formatCents(cents)}</span>;
+  cents === 0 ? <span className="muted">—</span> : <span style={{ color: cents < 0 ? "var(--danger)" : "var(--success)", fontWeight: 600 }}>{cents > 0 ? "+" : ""}{formatCents(cents)}</span>;
 
 /** Voor- en nacalculatie op de projectkaart (alleen met recht op inkoopprijzen). */
 export function ProjectCalculation({ projectId }: { projectId: string }) {
