@@ -5,6 +5,9 @@ import { useAuth } from "../auth";
 import { ActiveBadge, ErrorBox, Field, Loading, Modal, PageHead } from "../components/ui";
 import { nameById, useChannels, useOrganizations, useProductGroups } from "../hooks";
 
+/** Basispunten als Nederlands percentage: 650 → "6,5%". */
+const pctLabel = (bp: number) => `${String(bp / 100).replace(".", ",")}%`;
+
 export function ChannelsPage() {
   const { can } = useAuth();
   const channels = useChannels();
@@ -22,17 +25,24 @@ export function ChannelsPage() {
       <div className="card flush">
         {channels.isLoading ? <Loading /> : (
           <table>
-            <thead><tr><th>Naam</th><th>Verkooppartner</th><th>Fee</th><th>Productgroepen</th><th>Status</th></tr></thead>
+            <thead><tr><th>Naam</th><th>Verkooppartner</th><th>Fee</th><th>Productgroepen en fee</th><th>Status</th></tr></thead>
             <tbody>
               {channels.data?.map((c) => (
                 <tr key={c.id} className={can("catalog.manage") ? "clickable" : ""} onClick={() => can("catalog.manage") && setEditing(c)}>
                   <td><strong>{c.name}</strong> <span className="muted mono">{c.key}</span></td>
                   <td>{c.salesPartnerOrganizationId ? nameById(orgs.data, c.salesPartnerOrganizationId) : <span className="muted">Eigen kanaal</span>}</td>
+                  <td>{c.feeBasisPoints == null ? <span className="muted">—</span> : `${pctLabel(c.feeBasisPoints)} standaard`}</td>
                   <td>
-                    {c.feeBasisPoints == null ? <span className="muted">—</span> : `${c.feeBasisPoints / 100}%`}
-                    {Object.values(c.groupFees ?? {}).some((v) => v != null) && <span className="badge" style={{ marginLeft: 6 }}>per productgroep</span>}
+                    {c.productGroupIds.map((id) => {
+                      const own = c.groupFees?.[id] ?? null;
+                      const fee = own ?? c.feeBasisPoints;
+                      return (
+                        <span key={id} className={`badge ${own != null ? "green" : ""}`} style={{ marginRight: 4 }} title={own != null ? "Eigen fee voor deze productgroep" : "Standaard fee van het kanaal"}>
+                          {nameById(groups.data, id)}{fee != null && ` · ${pctLabel(fee)}`}
+                        </span>
+                      );
+                    })}
                   </td>
-                  <td>{c.productGroupIds.map((id) => <span key={id} className="badge" style={{ marginRight: 4 }}>{nameById(groups.data, id)}</span>)}</td>
                   <td><ActiveBadge active={c.isActive} /></td>
                 </tr>
               ))}
@@ -105,14 +115,14 @@ function ChannelForm({ channel, onClose }: { channel?: SalesChannel; onClose: ()
         </select>
       </Field>
       <div className="grid-2">
-        <Field label="Standaard fee verkooppartner (% over orderwaarde ex btw)"><input value={form.fee} onChange={(e) => setForm({ ...form, fee: e.target.value })} placeholder="bv. 5" /></Field>
+        <Field label="Standaard fee (% over orderwaarde ex btw)"><input value={form.fee} onChange={(e) => setForm({ ...form, fee: e.target.value })} placeholder="bv. 5" /></Field>
         <Field label="Geldigheid offerte (dagen)"><input type="number" min={1} max={365} value={form.quoteValidityDays} onChange={(e) => setForm({ ...form, quoteValidityDays: Number(e.target.value) })} /></Field>
       </div>
-      <div className="field">Productgroepen{form.salesPartnerOrganizationId && " en fee per productgroep"}</div>
+      <div className="field">Productgroepen en fee per productgroep</div>
       {groups.data?.map((g) => (
         <div key={g.id} className="row" style={{ justifyContent: "space-between", flexWrap: "nowrap", marginBottom: 4 }}>
           <label className="checkbox" style={{ margin: 0 }}><input type="checkbox" checked={form.productGroupIds.includes(g.id)} onChange={() => toggle(g.id)} /> {g.name}</label>
-          {form.salesPartnerOrganizationId && form.productGroupIds.includes(g.id) && (
+          {form.productGroupIds.includes(g.id) && (
             <span className="row" style={{ gap: 4, flexWrap: "nowrap" }}>
               <input
                 aria-label={`Fee ${g.name}`}
@@ -126,7 +136,7 @@ function ChannelForm({ channel, onClose }: { channel?: SalesChannel; onClose: ()
           )}
         </div>
       ))}
-      {form.salesPartnerOrganizationId && <p className="muted" style={{ fontSize: 12, margin: "4px 0 0" }}>Leeg = de standaard fee hierboven. De fee wordt per offerte vastgelegd bij het versturen.</p>}
+      <p className="muted" style={{ fontSize: 12, margin: "4px 0 0" }}>Vink een productgroep aan om de fee in te vullen. Leeg = de standaard fee hierboven. De fee wordt per offerte vastgelegd bij het versturen; wijzigen geldt dus voor nieuwe offertes.</p>
       <label className="checkbox" style={{ marginTop: 8 }}><input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Actief</label>
       <div className="modal-actions">
         <button className="btn" onClick={onClose}>Annuleren</button>
