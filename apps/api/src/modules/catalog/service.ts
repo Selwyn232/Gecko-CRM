@@ -5,7 +5,7 @@ import { todayIso } from "../../lib/dates.js";
 import { badRequest, conflict, notFound } from "../../lib/errors.js";
 import { multiplyCents } from "../../lib/money.js";
 import { recordAudit } from "../audit/service.js";
-import { effectivePrice } from "./prices.js";
+import { effectivePrice, laborRate } from "./prices.js";
 import {
   bomItems,
   partnerRates,
@@ -299,7 +299,8 @@ export interface CostLine {
   name: string;
   type: Product["type"];
   quantity: string;
-  source: "purchase" | "partner" | null;
+  /** "standard" = standaard partnertarief (nog geen installateur, of die heeft geen eigen tarief). */
+  source: "purchase" | "partner" | "standard" | null;
   unitCostCents: number | null;
   totalCents: number | null;
 }
@@ -324,9 +325,10 @@ export async function calculateCost(
     const isLabor = component!.type === "labor" || component!.type === "extra_work";
     let price = null;
     let source: CostLine["source"] = null;
-    if (isLabor && opts.partnerOrganizationId) {
-      price = await effectivePrice(db, "partner", component!.id, opts.partnerOrganizationId, date);
-      source = "partner";
+    if (isLabor) {
+      const r = await laborRate(db, component!.id, opts.partnerOrganizationId, date);
+      price = r?.price ?? null;
+      source = r?.source ?? "partner";
     } else if (!isLabor && component!.defaultSupplierOrganizationId) {
       price = await effectivePrice(db, "purchase", component!.id, component!.defaultSupplierOrganizationId, date);
       source = "purchase";
@@ -371,8 +373,7 @@ export async function unitCost(db: DbOrTx, productId: string, date: string, part
     return cost.complete ? cost.totalCents : null;
   }
   if (p.type === "labor" || p.type === "extra_work" || p.type === "service") {
-    if (!partnerOrganizationId) return null;
-    return (await effectivePrice(db, "partner", productId, partnerOrganizationId, date))?.priceCents ?? null;
+    return (await laborRate(db, productId, partnerOrganizationId, date))?.price.priceCents ?? null;
   }
   if (!p.defaultSupplierOrganizationId) return null;
   return (await effectivePrice(db, "purchase", productId, p.defaultSupplierOrganizationId, date))?.priceCents ?? null;

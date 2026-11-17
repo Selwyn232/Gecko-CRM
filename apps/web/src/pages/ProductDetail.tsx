@@ -49,9 +49,9 @@ export function ProductDetailPage() {
 // ------------------------------------------------------------ Prijzen
 
 const KINDS = {
-  sales: { label: "Verkoopprijzen", path: "sales-prices", scopeLabel: "Verkoopkanaal", read: "catalog.read", manage: "sales_prices.manage" },
-  purchase: { label: "Inkoopprijzen", path: "purchase-prices", scopeLabel: "Leverancier", read: "purchase_prices.read", manage: "purchase_prices.manage" },
-  partner: { label: "Partnertarieven", path: "partner-rates", scopeLabel: "Installatiepartner", read: "purchase_prices.read", manage: "purchase_prices.manage" },
+  sales: { single: "verkoopprijs", label: "Verkoopprijzen", path: "sales-prices", scopeLabel: "Verkoopkanaal", read: "catalog.read", manage: "sales_prices.manage" },
+  purchase: { single: "inkoopprijs", label: "Inkoopprijzen", path: "purchase-prices", scopeLabel: "Leverancier", read: "purchase_prices.read", manage: "purchase_prices.manage" },
+  partner: { single: "partnertarief", label: "Partnertarieven", path: "partner-rates", scopeLabel: "Installatiepartner", read: "purchase_prices.read", manage: "purchase_prices.manage" },
 } as const;
 type Kind = keyof typeof KINDS;
 
@@ -89,7 +89,13 @@ function PriceTable({ product, kind }: { product: ProductDetail; kind: Kind }) {
   const scopes: { id: string; name: string }[] =
     kind === "sales"
       ? (channels.data ?? []).filter((c) => c.productGroupIds.includes(product.productGroupId))
-      : (orgs.data ?? []).filter((o) => o.type === (kind === "purchase" ? "supplier" : "installation_partner"));
+      : kind === "purchase"
+        ? (orgs.data ?? []).filter((o) => o.type === "supplier")
+        : [
+            // Standaardtarief (op Gecko zelf): geldt zolang er geen installateur is of die geen eigen tarief heeft.
+            ...(orgs.data ?? []).filter((o) => o.type === "gecko").map((o) => ({ id: o.id, name: "Standaard (alle partners)" })),
+            ...(orgs.data ?? []).filter((o) => o.type === "installation_partner"),
+          ];
 
   const today = todayIso();
   const remove = useMutation({
@@ -143,7 +149,7 @@ function PriceTable({ product, kind }: { product: ProductDetail; kind: Kind }) {
       )}
       {adding && (
         <PriceForm
-          title={`Nieuwe ${cfg.label.toLowerCase().replace(/en$/, "")}`}
+          title={`Nieuw ${cfg.single}`}
           scopeLabel={cfg.scopeLabel}
           scopes={scopes}
           onClose={() => setAdding(false)}
@@ -289,10 +295,12 @@ function CostCard({ product }: { product: ProductDetail }) {
   return (
     <div className="card">
       <h2>Kostprijs</h2>
-      <p className="muted" style={{ fontSize: 13 }}>Inkoop bij de standaardleverancier + tarief van de gekozen installatiepartner voor arbeid, op de gekozen datum. Basis voor de voorcalculatie.</p>
+      <p className="muted" style={{ fontSize: 13 }}>
+        Materiaal: inkoopprijs bij de standaardleverancier. Arbeid: tarief van de gekozen installatiepartner; zonder installatiepartner (of als die geen eigen tarief heeft) het standaardtarief. Op de gekozen datum. Basis voor de voorcalculatie.
+      </p>
       <div className="row" style={{ marginBottom: 12 }}>
         <select value={partnerId} onChange={(e) => setPartnerId(e.target.value)}>
-          <option value="">Geen installatiepartner</option>
+          <option value="">Standaardtarief (nog geen installatiepartner)</option>
           {partners.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
         </select>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -305,7 +313,10 @@ function CostCard({ product }: { product: ProductDetail }) {
             <tbody>
               {cost.data.lines.map((l) => (
                 <tr key={l.productId}>
-                  <td><span className="mono">{l.code}</span> <span className="muted">{l.name}</span></td>
+                  <td>
+                    <span className="mono">{l.code}</span> <span className="muted">{l.name}</span>
+                    {l.source === "standard" && <span className="badge" style={{ marginLeft: 6 }} title="Standaard partnertarief">standaardtarief</span>}
+                  </td>
                   <td className="num">{Number(l.quantity).toLocaleString("nl-NL")}</td>
                   <td className="num">{formatCents(l.unitCostCents)}</td>
                   <td className="num">{formatCents(l.totalCents)}</td>

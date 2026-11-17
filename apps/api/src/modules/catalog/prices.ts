@@ -74,6 +74,8 @@ async function assertScopeValid(db: DbOrTx, kind: PriceKind, productId: string, 
 
   const expectedType = kind === "purchase" ? "supplier" : "installation_partner";
   const [org] = await db.select().from(organizations).where(eq(organizations.id, scopeId));
+  // Partnertarief "Standaard (alle partners)" staat op Gecko zelf; geldt zolang er geen (tarief van een) installateur is.
+  if (kind === "partner" && org?.type === "gecko") return;
   if (!org || org.type !== expectedType) {
     throw badRequest(
       "invalid_scope_organization",
@@ -166,4 +168,21 @@ export async function effectivePrice(
     .orderBy(desc(table.validFrom))
     .limit(1);
   return row ? toVersion(kind, row) : null;
+}
+
+/** Scope van het standaard partnertarief: de organisatie van Gecko zelf. */
+export async function standardRateScope(db: DbOrTx) {
+  const [org] = await db.select({ id: organizations.id }).from(organizations).where(eq(organizations.type, "gecko")).limit(1);
+  return org?.id ?? null;
+}
+
+/** Arbeidstarief: dat van de installateur; ontbreekt dat (of is er nog geen installateur), dan het standaardtarief. */
+export async function laborRate(db: DbOrTx, productId: string, partnerId: string | null | undefined, date: string) {
+  if (partnerId) {
+    const own = await effectivePrice(db, "partner", productId, partnerId, date);
+    if (own) return { price: own, source: "partner" as const };
+  }
+  const scope = await standardRateScope(db);
+  const std = scope ? await effectivePrice(db, "partner", productId, scope, date) : null;
+  return std ? { price: std, source: "standard" as const } : null;
 }

@@ -63,6 +63,7 @@
 | B58 | Groei getest met 100.000 klanten en 33.000 projecten: lijsten, startpagina en rapportages < 0,2 s, zoekbalk ~0,01 s (trigram-indexen, pg_trgm), export alle klanten ~1 s | 2026-11-16 |
 | B59 | API-sleutels voor koppelingen (Gebruikers → API-sleutels): sleutel handelt als een koppelgebruiker met diens rechten (zonder 2FA; de sleutel is het geheim), alleen hash bewaard, intrekbaar, gelogd. Greenteam-API = de verkoopportaal-endpoints (docs/11-api.md) | 2026-11-16 |
 | B60 | Inbox voor binnenkomende e-mail via Mailgun (route "forward" naar /api/public/inbound/mailgun, met handtekeningcontrole): gekoppeld aan klant (afzender) en project (P-nummer in onderwerp), melding, op Mijn werk en in de tijdlijn; antwoorden vanuit het CRM (vastgelegd), afhandelen. Bijlagen worden (nog) niet opgeslagen | 2026-11-16 |
+| B61 | Standaard partnertarief per arbeidsproduct (Producten → Partnertarieven → "Standaard (alle partners)"): gebruikt voor kostprijs en voorcalculatie zolang de installateur niet bekend is of geen eigen tarief heeft. Uitbetalen (selfbilling) gebeurt altijd tegen het eigen tarief van de installateur; ontbreekt dat, dan blokkeert de uitbetaling | 2026-11-17 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten

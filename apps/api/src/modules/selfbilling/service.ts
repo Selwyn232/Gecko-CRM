@@ -86,8 +86,9 @@ export async function partnerAmount(db: DbOrTx, productId: string, quantity: str
   const [hasBom] = await db.select({ id: bomItems.id }).from(bomItems).where(eq(bomItems.parentProductId, productId)).limit(1);
   if (hasBom) {
     const cost = await calculateCost(db, productId, { date, partnerOrganizationId: partnerId });
-    const labor = cost.lines.filter((l) => l.source === "partner");
-    const missing = labor.filter((l) => l.totalCents === null).map((l) => l.code);
+    // Uitbetalen alleen tegen het eigen tarief van de installateur, nooit tegen het standaardtarief.
+    const labor = cost.lines.filter((l) => l.source === "partner" || l.source === "standard");
+    const missing = labor.filter((l) => l.totalCents === null || l.source === "standard").map((l) => l.code);
     return { cents: multiplyCents(labor.reduce((s, l) => s + (l.totalCents ?? 0), 0), quantity), missing };
   }
   if (product && (product.type === "labor" || product.type === "extra_work" || product.type === "service")) return { cents: 0, missing: [product.code] };

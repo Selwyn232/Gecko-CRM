@@ -3,7 +3,7 @@ import type { DbOrTx } from "../../db/client.js";
 import { todayIso } from "../../lib/dates.js";
 import { notFound } from "../../lib/errors.js";
 import { multiplyCents } from "../../lib/money.js";
-import { effectivePrice } from "../catalog/prices.js";
+import { effectivePrice, laborRate } from "../catalog/prices.js";
 import { bomItems, products } from "../catalog/schema.js";
 import { calculateCost } from "../catalog/service.js";
 import { invoices } from "../invoices/schema.js";
@@ -28,6 +28,23 @@ async function materialAmount(db: DbOrTx, productId: string, quantity: string, d
   if (!p.defaultSupplierOrganizationId) return { cents: 0, missing: [p.code] };
   const price = await effectivePrice(db, "purchase", productId, p.defaultSupplierOrganizationId, date);
   return price ? { cents: multiplyCents(price.priceCents, quantity), missing: [] } : { cents: 0, missing: [p.code] };
+}
+
+/** Arbeid voor een offerteregel tegen het standaard partnertarief (zolang de installateur niet bekend is). */
+async function estimatedLabor(db: DbOrTx, productId: string, quantity: string, date: string) {
+  const [p] = await db.select().from(products).where(eq(products.id, productId));
+  if (!p) return { cents: 0, missing: [] as string[] };
+  const [hasBom] = await db.select({ id: bomItems.id }).from(bomItems).where(eq(bomItems.parentProductId, productId)).limit(1);
+  if (hasBom) {
+    const cost = await calculateCost(db, productId, { date });
+    const labor = cost.lines.filter((l) => l.type === "labor" || l.type === "extra_work" || l.type === "service");
+    return { cents: multiplyCents(labor.reduce((s, l) => s + (l.totalCents ?? 0), 0), quantity), missing: labor.filter((l) => l.totalCents === null).map((l) => l.code) };
+  }
+  if (p.type === "labor" || p.type === "extra_work" || p.type === "service") {
+    const r = await laborRate(db, productId, null, date);
+    return r ? { cents: multiplyCents(r.price.priceCents, quantity), missing: [] } : { cents: 0, missing: [p.code] };
+  }
+  return { cents: 0, missing: [] };
 }
 
 export interface CalcComponent {
@@ -74,10 +91,17 @@ export async function projectCalculation(db: DbOrTx, projectId: string) {
       const p = await quotePartnerAmount(db, q.id, project.installationPartnerId, date);
       partner += p.cents;
       missing.push(...p.missing.map((c) => `partnertarief ${c}`));
+    } else {
+      // Nog geen installateur: schatting met de standaard partnertarieven.
+      for (const l of lines) {
+        const e = await estimatedLabor(db, l.productId, l.quantity, date);
+        partner += e.cents;
+        missing.push(...e.missing.map((c) => `standaardtarief ${c}`));
+      }
     }
     fee += Math.round((qRevenue * (q.feeBasisPoints ?? 0)) / 10_000);
   }
-  if (!project.installationPartnerId && accepted.length) missing.push("installateur nog niet bekend");
+
 
   // Werkelijk: facturen (incl. creditnota's), selfbilling en boetes.
   const [inv] = await db
@@ -118,7 +142,7 @@ export async function projectCalculation(db: DbOrTx, projectId: string) {
   const components: CalcComponent[] = [
     { key: "revenue", label: "Omzet", plannedCents: revenue, actualCents: revenueActual, basis: finalInvoiced ? "actual" : invoiced ? "partial" : "planned", note: finalInvoiced ? "gefactureerd, incl. creditnota's" : invoiced ? "nog niet volledig gefactureerd" : undefined },
     { key: "material", label: "Materiaal (inkoop)", plannedCents: -material, actualCents: -material, basis: "planned", note: "werkelijke inkoop volgt via Exact" },
-    { key: "partner", label: "Installateur", plannedCents: -partner, actualCents: -partnerActual, basis: partnerSettled ? "actual" : "planned", note: partnerSettled ? "via selfbilling" : undefined },
+    { key: "partner", label: "Installateur", plannedCents: -partner, actualCents: -partnerActual, basis: partnerSettled ? "actual" : "planned", note: partnerSettled ? "via selfbilling" : project.installationPartnerId ? undefined : "schatting met standaardtarief (installateur nog niet bekend)" },
     { key: "penalties", label: "Boetes installateur", plannedCents: 0, actualCents: penalties, basis: penalties ? "actual" : "planned" },
     { key: "fee", label: "Fee verkoopkanaal", plannedCents: -fee, actualCents: -feeActual, basis: feeSettled ? "actual" : "planned", note: feeSettled ? "via selfbilling" : undefined },
   ];
