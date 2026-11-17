@@ -58,6 +58,7 @@ export const ACCEPTANCE_METHODS: Record<string, string> = {
   signed_digital: "Digitaal getekend",
   email: "Akkoord per e-mail",
   verbal_confirmed: "Mondeling, schriftelijk bevestigd",
+  sales_partner: "Getekend bij verkooppartner (offerte ingelezen)",
 };
 
 export const formatPercent = (bp: number | null | undefined) =>

@@ -399,6 +399,85 @@ export async function acceptQuote(
   });
 }
 
+/**
+ * Offerte die de klant al bij de verkooppartner heeft getekend (bv. een ingelezen Greenteam-offerte):
+ * direct vastleggen als geaccepteerd, met de afgesproken prijzen per regel (de prijs van de partner is leidend,
+ * niet de catalogus), en het project aanmaken. Er gaat geen "offerte ter akkoord"-mail naar de klant.
+ * Regels mogen ook componenten en arbeid zijn: de offerte van de partner noemt die los.
+ */
+export async function createPartnerSignedQuoteInTx(
+  tx: DbOrTx,
+  actor: ActorContext,
+  input: QuoteInput & {
+    lines: { productId: string; quantity: number; description: string; unitPriceCents: number }[];
+    priceDate: string;
+    validUntil: string | null;
+    acceptedAt: Date;
+    acceptedByName: string;
+    evidence: Record<string, unknown>;
+    paymentMethod: "direct" | "warmtefonds";
+  },
+) {
+  const { lines, priceDate, validUntil, acceptedAt, acceptedByName, evidence, paymentMethod, ...head } = input;
+  await assertQuoteRefs(tx, head);
+  if (!lines.length) throw badRequest("quote_empty", "Een offerte zonder regels kan niet worden vastgelegd");
+  const [q] = await tx
+    .insert(quotes)
+    .values({
+      ...head,
+      status: "accepted",
+      priceDate,
+      validUntil,
+      feeBasisPoints: await effectiveFeeBasisPoints(tx, head.salesChannelId, head.productGroupId),
+      sentAt: null, // Gecko heeft niets verstuurd; de klant tekende bij de partner.
+      acceptedAt,
+      acceptedByName,
+      acceptanceMethod: "sales_partner",
+      acceptanceEvidence: evidence,
+      createdBy: actor.userId,
+    })
+    .returning();
+  let sort = 0;
+  for (const l of lines) {
+    const [product] = await tx.select().from(products).where(eq(products.id, l.productId));
+    if (!product) throw badRequest("unknown_product", "Product bestaat niet");
+    if (product.productGroupId !== head.productGroupId) throw badRequest("wrong_product_group", `Product ${product.code} hoort niet bij de productgroep van deze offerte`);
+    const vat = await effectiveVatRate(tx, product.vatCode, priceDate);
+    if (vat === null) throw badRequest("no_vat_rate", `Geen btw-tarief voor code ${product.vatCode}`);
+    await tx.insert(quoteLines).values({
+      quoteId: q!.id,
+      productId: product.id,
+      description: l.description.trim() || product.name,
+      quantity: String(l.quantity),
+      unitPriceCents: l.unitPriceCents,
+      vatRateBasisPoints: vat,
+      unitCostCents: await unitCost(tx, product.id, priceDate, head.installationPartnerId ?? null),
+      sortOrder: (sort += 10),
+    });
+  }
+  const project = await createProjectInTx(tx, actor, {
+    customerId: head.customerId,
+    propertyId: head.propertyId,
+    productGroupId: head.productGroupId,
+    salesChannelId: head.salesChannelId,
+    installationPartnerId: head.installationPartnerId ?? null,
+    paymentMethod,
+  });
+  await tx.update(quotes).set({ projectId: project.id }).where(eq(quotes.id, q!.id));
+  const contentHash = quoteContentHash(await getQuote(tx, q!.id));
+  await tx.update(quotes).set({ contentHash }).where(eq(quotes.id, q!.id));
+  await recordAudit(tx, actor, { action: "quote.created", entityType: "quote", entityId: q!.id, after: q });
+  await recordAudit(tx, actor, {
+    action: "quote.accepted",
+    entityType: "quote",
+    entityId: q!.id,
+    after: { status: "accepted", acceptedByName, method: "sales_partner", projectId: project.id, contentHash },
+    metadata: evidence,
+  });
+  await emitEvent(tx, "quote.accepted", { type: "quote", id: q!.id }, { quoteId: q!.id, projectId: project.id, customerId: head.customerId });
+  return { quote: await getQuote(tx, q!.id), projectId: project.id };
+}
+
 export async function rejectQuote(db: Db, actor: ActorContext, id: string, reason: string | null) {
   return db.transaction(async (tx) => {
     await loadSent(tx, id);

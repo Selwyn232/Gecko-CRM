@@ -18,7 +18,8 @@ import { projects } from "../projects/schema.js";
 export const quoteStatus = pgEnum("quote_status", ["draft", "sent", "accepted", "rejected", "superseded"]);
 /** Hoofdofferte (maakt bij akkoord het project) of meerwerk-offerte (hoort bij een bestaand project). */
 export const quoteKind = pgEnum("quote_kind", ["main", "extra_work"]);
-export const acceptanceMethod = pgEnum("acceptance_method", ["signed_paper", "signed_digital", "email", "verbal_confirmed"]);
+/** "sales_partner" = getekend bij de verkooppartner (bv. Greenteam-offerte ingelezen). */
+export const acceptanceMethod = pgEnum("acceptance_method", ["signed_paper", "signed_digital", "email", "verbal_confirmed", "sales_partner"]);
 
 export const quotes = pgTable(
   "quotes",

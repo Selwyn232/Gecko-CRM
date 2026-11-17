@@ -264,7 +264,7 @@ function AcceptModal({ quote, onClose, onSaved }: { quote: Quote; onClose: () =>
       <Field label="Akkoord gegeven door"><input value={name} onChange={(e) => setName(e.target.value)} /></Field>
       <Field label="Hoe">
         <select value={method} onChange={(e) => setMethod(e.target.value)}>
-          {Object.entries(ACCEPTANCE_METHODS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          {Object.entries(ACCEPTANCE_METHODS).filter(([k]) => k !== "sales_partner").map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </Field>
       <div className="modal-actions">
@@ -378,6 +378,7 @@ function EmailsCard({ quoteId }: { quoteId: string }) {
 }
 
 function EvidenceCard({ evidence }: { evidence: Record<string, unknown> }) {
+  if (evidence.source === "greenteam") return <PartnerEvidenceCard evidence={evidence} />;
   const e = evidence as { email?: string; acceptedAt?: string; typedName?: string; ip?: string; userAgent?: string; contentHash?: string };
   return (
     <div className="card">
@@ -389,6 +390,23 @@ function EvidenceCard({ evidence }: { evidence: Record<string, unknown> }) {
         <dt>IP-adres</dt><dd className="mono">{e.ip ?? "—"}</dd>
         <dt>Apparaat</dt><dd style={{ fontSize: 12 }}>{e.userAgent ?? "—"}</dd>
         <dt>Kenmerk inhoud</dt><dd className="mono" style={{ fontSize: 12 }}>{e.contentHash?.slice(0, 32)}…</dd>
+      </dl>
+    </div>
+  );
+}
+
+/** Akkoord via de verkooppartner: de getekende offerte (PDF) is het bewijs. */
+function PartnerEvidenceCard({ evidence }: { evidence: Record<string, unknown> }) {
+  const e = evidence as { externalNumber?: string; externalQuoteId?: string; signedDate?: string | null; pdfSha256?: string };
+  return (
+    <div className="card">
+      <h2>Bewijs van akkoord</h2>
+      <dl className="kv">
+        <dt>Getekend bij</dt><dd>Greenteam (offerte #{e.externalNumber})</dd>
+        <dt>Ondertekend</dt><dd>{e.signedDate ? formatDate(e.signedDate) : "datum niet op de PDF"}</dd>
+        <dt>Origineel</dt>
+        <dd>{e.externalQuoteId ? <a href={`/api/external-quotes/${e.externalQuoteId}/pdf`} target="_blank" rel="noreferrer">Getekende offerte (PDF)</a> : "—"}</dd>
+        <dt>Kenmerk PDF</dt><dd className="mono" style={{ fontSize: 12 }}>{e.pdfSha256?.slice(0, 32)}…</dd>
       </dl>
     </div>
   );
