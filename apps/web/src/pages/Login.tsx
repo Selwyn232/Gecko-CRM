@@ -39,7 +39,52 @@ export function LoginPage() {
   );
 }
 
+/** "Wachtwoord vergeten?": e-mailadres invullen, herstellink per e-mail. Zegt nooit of het adres bestaat. */
+function ForgotStep({ initialEmail, onBack }: { initialEmail: string; onBack: () => void }) {
+  const [email, setEmail] = useState(initialEmail.includes("@") ? initialEmail : "");
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      await api.post("/public/password-reset", { email });
+      setSent(true);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (sent) {
+    return (
+      <div>
+        <h2>Kijk in je mailbox</h2>
+        <p className="muted">
+          Als {email} bij een account hoort, ontvang je binnen een paar minuten een e-mail met een link om een nieuw wachtwoord in te stellen. De link is 1 uur geldig. Geen e-mail? Kijk in je spam, of vraag een beheerder om je wachtwoord te resetten.
+        </p>
+        <button className="btn" onClick={onBack} style={{ width: "100%", justifyContent: "center" }}>Terug naar inloggen</button>
+      </div>
+    );
+  }
+  return (
+    <form onSubmit={submit}>
+      <h2>Wachtwoord vergeten</h2>
+      <p className="muted">Vul het e-mailadres van je account in. Je krijgt een link om een nieuw wachtwoord in te stellen.</p>
+      <ErrorBox error={error} />
+      <Field label="E-mailadres">
+        <input type="email" autoCapitalize="none" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+      </Field>
+      <button className="btn primary" disabled={busy} style={{ width: "100%", justifyContent: "center" }}>{busy ? "Versturen…" : "Stuur herstellink"}</button>
+      <div style={{ marginTop: 12 }}><button type="button" className="btn small" onClick={onBack}>Terug</button></div>
+    </form>
+  );
+}
+
 function PasswordStep({ onDone }: { onDone: () => Promise<void> }) {
+  const [forgot, setForgot] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<unknown>(null);
@@ -59,6 +104,7 @@ function PasswordStep({ onDone }: { onDone: () => Promise<void> }) {
     }
   };
 
+  if (forgot) return <ForgotStep initialEmail={email} onBack={() => setForgot(false)} />;
   return (
     <form onSubmit={submit}>
       <h2>Inloggen</h2>
@@ -69,6 +115,9 @@ function PasswordStep({ onDone }: { onDone: () => Promise<void> }) {
       <Field label="Wachtwoord">
         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
       </Field>
+      <div style={{ textAlign: "right", margin: "-4px 0 12px" }}>
+        <button type="button" className="link" onClick={() => setForgot(true)} style={{ fontSize: 13 }}>Wachtwoord vergeten?</button>
+      </div>
       <button className="btn primary" disabled={busy} style={{ width: "100%", justifyContent: "center" }}>
         {busy ? "Bezig…" : "Inloggen"}
       </button>

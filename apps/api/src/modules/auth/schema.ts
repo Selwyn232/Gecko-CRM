@@ -166,6 +166,8 @@ export const accountInvites = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     tokenHash: text("token_hash").notNull().unique(),
+    /** "invite" (account activeren, 7 dagen) of "reset" (wachtwoord vergeten, 1 uur). */
+    purpose: text("purpose").notNull().default("invite"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     usedAt: timestamp("used_at", { withTimezone: true }),
     createdBy: uuid("created_by"),

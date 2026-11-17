@@ -9,9 +9,10 @@ interface InviteInfo {
   email: string | null;
   organizationName: string;
   mfaRequired: boolean;
+  purpose?: "invite" | "reset";
 }
 
-/** Account activeren via de uitnodiging: zelf een wachtwoord instellen (daarna inloggen en 2FA instellen). */
+/** Account activeren via de uitnodiging, of nieuw wachtwoord via "wachtwoord vergeten" (zelfde link-mechanisme). */
 export function AccountActivatePage() {
   const { token = "" } = useParams();
   const info = useQuery({ queryKey: ["invite", token], queryFn: () => api.get<InviteInfo>(`/public/invites/${token}`), retry: false });
@@ -33,14 +34,21 @@ export function AccountActivatePage() {
           <ErrorBox error={info.error} />
         ) : accept.isSuccess ? (
           <>
-            <h2>Account geactiveerd</h2>
-            <p>Log in met {info.data!.email} en uw nieuwe wachtwoord.{info.data!.mfaRequired && " U stelt daarna tweestapsverificatie in met een authenticator-app (bijvoorbeeld Google Authenticator of Microsoft Authenticator)."}</p>
+            <h2>{info.data!.purpose === "reset" ? "Wachtwoord gewijzigd" : "Account geactiveerd"}</h2>
+            <p>
+              Log in met {info.data!.email} en uw nieuwe wachtwoord.
+              {info.data!.purpose === "reset"
+                ? " Daarna bevestigt u zoals altijd met Face ID, uw authenticator-app of een sms-code. Andere apparaten zijn afgemeld."
+                : info.data!.mfaRequired && " Daarna stelt u tweestapsverificatie in, bijvoorbeeld met Face ID of een authenticator-app."}
+            </p>
             <a className="btn primary" href="/" style={{ display: "block", textAlign: "center" }}>Naar inloggen</a>
           </>
         ) : (
           <form onSubmit={submit}>
-            <h2>Welkom, {info.data!.name}</h2>
-            <p className="muted">Stel een wachtwoord in voor uw account bij {info.data!.organizationName}. Uw inlognaam is {info.data!.email}.</p>
+            <h2>{info.data!.purpose === "reset" ? "Nieuw wachtwoord" : `Welkom, ${info.data!.name}`}</h2>
+            <p className="muted">
+              {info.data!.purpose === "reset" ? "Kies een nieuw wachtwoord" : `Stel een wachtwoord in voor uw account bij ${info.data!.organizationName}`}. Uw inlognaam is {info.data!.email}.
+            </p>
             <ErrorBox error={accept.error} />
             <Field label="Nieuw wachtwoord (minimaal 12 tekens)">
               <input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
