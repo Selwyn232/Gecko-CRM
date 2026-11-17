@@ -1,0 +1,1 @@
+ALTER TABLE "sales_channel_product_groups" ADD COLUMN "fee_basis_points" integer;

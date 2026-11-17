@@ -52,6 +52,8 @@ export type SalesChannelInput = {
   name: string;
   salesPartnerOrganizationId?: string | null;
   feeBasisPoints?: number | null;
+  /** Fee per productgroep (basispunten); ontbreekt of null = fee van het kanaal. */
+  groupFees?: Record<string, number | null>;
   quoteValidityDays?: number;
   isActive?: boolean;
   productGroupIds: string[];
@@ -61,10 +63,10 @@ async function channelSnapshot(db: DbOrTx, id: string) {
   const [ch] = await db.select().from(salesChannels).where(eq(salesChannels.id, id));
   if (!ch) return null;
   const groups = await db
-    .select({ id: salesChannelProductGroups.productGroupId })
+    .select({ id: salesChannelProductGroups.productGroupId, fee: salesChannelProductGroups.feeBasisPoints })
     .from(salesChannelProductGroups)
     .where(eq(salesChannelProductGroups.salesChannelId, id));
-  return { ...ch, productGroupIds: groups.map((g) => g.id).sort() };
+  return { ...ch, productGroupIds: groups.map((g) => g.id).sort(), groupFees: Object.fromEntries(groups.map((g) => [g.id, g.fee])) };
 }
 
 export async function listSalesChannels(db: DbOrTx) {
@@ -73,6 +75,7 @@ export async function listSalesChannels(db: DbOrTx) {
   return channels.map((c) => ({
     ...c,
     productGroupIds: links.filter((l) => l.salesChannelId === c.id).map((l) => l.productGroupId).sort(),
+    groupFees: Object.fromEntries(links.filter((l) => l.salesChannelId === c.id).map((l) => [l.productGroupId, l.feeBasisPoints])),
   }));
 }
 
@@ -82,23 +85,41 @@ export async function getSalesChannel(db: DbOrTx, id: string) {
   return ch;
 }
 
-async function setChannelGroups(tx: DbOrTx, channelId: string, groupIds: string[]) {
+/** Productgroepen van een kanaal instellen; bestaande fees per productgroep blijven staan tenzij `fees` ze wijzigt. */
+async function setChannelGroups(tx: DbOrTx, channelId: string, groupIds: string[], fees?: Record<string, number | null>) {
   const unique = [...new Set(groupIds)];
   if (unique.length) {
     const found = await tx.select({ id: productGroups.id }).from(productGroups).where(inArray(productGroups.id, unique));
     if (found.length !== unique.length) throw badRequest("unknown_product_group", "Een of meer productgroepen bestaan niet");
   }
+  const current = await tx.select().from(salesChannelProductGroups).where(eq(salesChannelProductGroups.salesChannelId, channelId));
   await tx.delete(salesChannelProductGroups).where(eq(salesChannelProductGroups.salesChannelId, channelId));
   if (unique.length) {
-    await tx.insert(salesChannelProductGroups).values(unique.map((productGroupId) => ({ salesChannelId: channelId, productGroupId })));
+    await tx.insert(salesChannelProductGroups).values(
+      unique.map((productGroupId) => ({
+        salesChannelId: channelId,
+        productGroupId,
+        feeBasisPoints: fees && productGroupId in fees ? fees[productGroupId] : (current.find((c) => c.productGroupId === productGroupId)?.feeBasisPoints ?? null),
+      })),
+    );
   }
 }
 
+/** Geldende fee voor een kanaal en productgroep: die van de productgroep, anders die van het kanaal (basispunten of null). */
+export async function effectiveFeeBasisPoints(db: DbOrTx, salesChannelId: string, productGroupId: string) {
+  const [row] = await db
+    .select({ groupFee: salesChannelProductGroups.feeBasisPoints, channelFee: salesChannels.feeBasisPoints })
+    .from(salesChannels)
+    .leftJoin(salesChannelProductGroups, and(eq(salesChannelProductGroups.salesChannelId, salesChannels.id), eq(salesChannelProductGroups.productGroupId, productGroupId)))
+    .where(eq(salesChannels.id, salesChannelId));
+  return row ? (row.groupFee ?? row.channelFee ?? null) : null;
+}
+
 export async function createSalesChannel(db: Db, actor: ActorContext, input: SalesChannelInput) {
-  const { productGroupIds, ...data } = input;
+  const { productGroupIds, groupFees, ...data } = input;
   return db.transaction(async (tx) => {
     const [row] = await tx.insert(salesChannels).values(data).returning();
-    await setChannelGroups(tx, row!.id, productGroupIds);
+    await setChannelGroups(tx, row!.id, productGroupIds, groupFees);
     const after = (await channelSnapshot(tx, row!.id))!;
     await recordAudit(tx, actor, { action: "sales_channel.created", entityType: "sales_channel", entityId: row!.id, after });
     return after;
@@ -106,12 +127,12 @@ export async function createSalesChannel(db: Db, actor: ActorContext, input: Sal
 }
 
 export async function updateSalesChannel(db: Db, actor: ActorContext, id: string, input: Partial<Omit<SalesChannelInput, "key">>) {
-  const { productGroupIds, ...data } = input;
+  const { productGroupIds, groupFees, ...data } = input;
   return db.transaction(async (tx) => {
     const before = await channelSnapshot(tx, id);
     if (!before) throw notFound("Verkoopkanaal");
     if (Object.keys(data).length) await tx.update(salesChannels).set(data).where(eq(salesChannels.id, id));
-    if (productGroupIds) await setChannelGroups(tx, id, productGroupIds);
+    if (productGroupIds || groupFees) await setChannelGroups(tx, id, productGroupIds ?? before.productGroupIds, groupFees);
     const after = (await channelSnapshot(tx, id))!;
     await recordAudit(tx, actor, { action: "sales_channel.updated", entityType: "sales_channel", entityId: id, before, after });
     return after;

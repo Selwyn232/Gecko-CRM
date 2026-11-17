@@ -28,7 +28,10 @@ export function ChannelsPage() {
                 <tr key={c.id} className={can("catalog.manage") ? "clickable" : ""} onClick={() => can("catalog.manage") && setEditing(c)}>
                   <td><strong>{c.name}</strong> <span className="muted mono">{c.key}</span></td>
                   <td>{c.salesPartnerOrganizationId ? nameById(orgs.data, c.salesPartnerOrganizationId) : <span className="muted">Eigen kanaal</span>}</td>
-                  <td>{c.feeBasisPoints == null ? <span className="muted">—</span> : `${c.feeBasisPoints / 100}%`}</td>
+                  <td>
+                    {c.feeBasisPoints == null ? <span className="muted">—</span> : `${c.feeBasisPoints / 100}%`}
+                    {Object.values(c.groupFees ?? {}).some((v) => v != null) && <span className="badge" style={{ marginLeft: 6 }}>per productgroep</span>}
+                  </td>
                   <td>{c.productGroupIds.map((id) => <span key={id} className="badge" style={{ marginRight: 4 }}>{nameById(groups.data, id)}</span>)}</td>
                   <td><ActiveBadge active={c.isActive} /></td>
                 </tr>
@@ -55,12 +58,25 @@ function ChannelForm({ channel, onClose }: { channel?: SalesChannel; onClose: ()
     isActive: channel?.isActive ?? true,
     productGroupIds: channel?.productGroupIds ?? [],
   });
+  const pct = (bp: number | null | undefined) => (bp == null ? "" : String(bp / 100).replace(".", ","));
+  const [groupFees, setGroupFees] = useState<Record<string, string>>(
+    Object.fromEntries(Object.entries(channel?.groupFees ?? {}).map(([k, v]) => [k, pct(v)])),
+  );
   const save = useMutation({
     mutationFn: () => {
       const { fee, ...rest } = form;
       const feeNum = fee.trim() === "" ? null : Math.round(Number(fee.replace(",", ".")) * 100);
       if (feeNum !== null && (Number.isNaN(feeNum) || feeNum < 0 || feeNum > 10000)) throw new Error("Ongeldig fee-percentage");
-      const body = { ...rest, feeBasisPoints: feeNum, salesPartnerOrganizationId: form.salesPartnerOrganizationId || null };
+      const parse = (v: string, label: string) => {
+        if (v.trim() === "") return null;
+        const n = Math.round(Number(v.replace(",", ".")) * 100);
+        if (Number.isNaN(n) || n < 0 || n > 10000) throw new Error(`Ongeldig fee-percentage bij ${label}`);
+        return n;
+      };
+      const fees = Object.fromEntries(
+        form.productGroupIds.map((id) => [id, parse(groupFees[id] ?? "", groups.data?.find((g) => g.id === id)?.name ?? "productgroep")]),
+      );
+      const body = { ...rest, feeBasisPoints: feeNum, groupFees: fees, salesPartnerOrganizationId: form.salesPartnerOrganizationId || null };
       if (channel) {
         const { key: _key, ...rest } = body;
         return api.patch(`/sales-channels/${channel.id}`, rest);
@@ -89,13 +105,28 @@ function ChannelForm({ channel, onClose }: { channel?: SalesChannel; onClose: ()
         </select>
       </Field>
       <div className="grid-2">
-        <Field label="Fee verkooppartner (% over orderwaarde ex btw)"><input value={form.fee} onChange={(e) => setForm({ ...form, fee: e.target.value })} placeholder="bv. 5" /></Field>
+        <Field label="Standaard fee verkooppartner (% over orderwaarde ex btw)"><input value={form.fee} onChange={(e) => setForm({ ...form, fee: e.target.value })} placeholder="bv. 5" /></Field>
         <Field label="Geldigheid offerte (dagen)"><input type="number" min={1} max={365} value={form.quoteValidityDays} onChange={(e) => setForm({ ...form, quoteValidityDays: Number(e.target.value) })} /></Field>
       </div>
-      <div className="field">Productgroepen</div>
+      <div className="field">Productgroepen{form.salesPartnerOrganizationId && " en fee per productgroep"}</div>
       {groups.data?.map((g) => (
-        <label key={g.id} className="checkbox"><input type="checkbox" checked={form.productGroupIds.includes(g.id)} onChange={() => toggle(g.id)} /> {g.name}</label>
+        <div key={g.id} className="row" style={{ justifyContent: "space-between", flexWrap: "nowrap", marginBottom: 4 }}>
+          <label className="checkbox" style={{ margin: 0 }}><input type="checkbox" checked={form.productGroupIds.includes(g.id)} onChange={() => toggle(g.id)} /> {g.name}</label>
+          {form.salesPartnerOrganizationId && form.productGroupIds.includes(g.id) && (
+            <span className="row" style={{ gap: 4, flexWrap: "nowrap" }}>
+              <input
+                aria-label={`Fee ${g.name}`}
+                style={{ width: 80, textAlign: "right" }}
+                value={groupFees[g.id] ?? ""}
+                placeholder={form.fee ? form.fee : "—"}
+                onChange={(e) => setGroupFees({ ...groupFees, [g.id]: e.target.value })}
+              />
+              <span className="muted">%</span>
+            </span>
+          )}
+        </div>
       ))}
+      {form.salesPartnerOrganizationId && <p className="muted" style={{ fontSize: 12, margin: "4px 0 0" }}>Leeg = de standaard fee hierboven. De fee wordt per offerte vastgelegd bij het versturen.</p>}
       <label className="checkbox" style={{ marginTop: 8 }}><input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Actief</label>
       <div className="modal-actions">
         <button className="btn" onClick={onClose}>Annuleren</button>

@@ -74,7 +74,7 @@ export const salesRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; emailT
     const s = await scope(req);
     const groups = s.channelIds.length
       ? await db
-          .select({ channelId: salesChannelProductGroups.salesChannelId, id: productGroups.id, name: productGroups.name })
+          .select({ channelId: salesChannelProductGroups.salesChannelId, id: productGroups.id, name: productGroups.name, fee: salesChannelProductGroups.feeBasisPoints })
           .from(salesChannelProductGroups)
           .innerJoin(productGroups, eq(productGroups.id, salesChannelProductGroups.productGroupId))
           .where(and(inArray(salesChannelProductGroups.salesChannelId, s.channelIds), eq(productGroups.isActive, true)))
@@ -84,7 +84,7 @@ export const salesRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; emailT
       organization: { id: s.org.id, name: s.org.name },
       advisorId: s.advisorId,
       advisors: advs.filter((a) => !s.advisorId || a.id === s.advisorId).map((a) => ({ id: a.id, name: a.name })),
-      channels: s.channels.map((c) => ({ id: c.id, name: c.name, feeBasisPoints: c.feeBasisPoints, productGroups: groups.filter((g) => g.channelId === c.id).map((g) => ({ id: g.id, name: g.name })) })),
+      channels: s.channels.map((c) => ({ id: c.id, name: c.name, feeBasisPoints: c.feeBasisPoints, productGroups: groups.filter((g) => g.channelId === c.id).map((g) => ({ id: g.id, name: g.name, feeBasisPoints: g.fee ?? c.feeBasisPoints })) })),
     };
   });
 

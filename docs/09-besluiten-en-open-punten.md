@@ -64,6 +64,7 @@
 | B59 | API-sleutels voor koppelingen (Gebruikers → API-sleutels): sleutel handelt als een koppelgebruiker met diens rechten (zonder 2FA; de sleutel is het geheim), alleen hash bewaard, intrekbaar, gelogd. Greenteam-API = de verkoopportaal-endpoints (docs/11-api.md) | 2026-11-16 |
 | B60 | Inbox voor binnenkomende e-mail via Mailgun (route "forward" naar /api/public/inbound/mailgun, met handtekeningcontrole): gekoppeld aan klant (afzender) en project (P-nummer in onderwerp), melding, op Mijn werk en in de tijdlijn; antwoorden vanuit het CRM (vastgelegd), afhandelen. Bijlagen worden (nog) niet opgeslagen | 2026-11-16 |
 | B61 | Standaard partnertarief per arbeidsproduct (Producten → Partnertarieven → "Standaard (alle partners)"): gebruikt voor kostprijs en voorcalculatie zolang de installateur niet bekend is of geen eigen tarief heeft. Uitbetalen (selfbilling) gebeurt altijd tegen het eigen tarief van de installateur; ontbreekt dat, dan blokkeert de uitbetaling | 2026-11-17 |
+| B62 | Fee verkooppartner per productgroep (Verkoopkanalen → kanaal → fee per productgroep); leeg = standaard fee van het kanaal. Vastgelegd per offerte bij versturen; gebruikt in voorcalculatie, nacalculatie, rapportages en selfbilling | 2026-11-17 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten
@@ -71,7 +72,7 @@
 | # | Vraag | Eigenaar |
 |---|---|---|
 | O1 | Kan één offerte/order meerdere projecten bevatten (combikorting, gecombineerde schouw)? Eén of meerdere aanbetalingsfacturen? | Gecko (overleg) |
-| O2 | Fee-percentage(s) per kanaal (in te stellen bij Verkoopkanalen; zonder percentage geen uitbetaling) en regels bij annulering/creditnota (nu via correctieregel) | Gecko |
+| O2 | Fee-percentage(s) per productgroep (in te stellen bij Verkoopkanalen, B62; zonder percentage geen uitbetaling) en regels bij annulering/creditnota (nu via correctieregel) | Gecko |
 | O3 | Warmtefonds/SVN: hoe en wanneer keren zij uit, en in welke delen? | Gecko (navragen) |
 | O5 | Doet Gecko soms zelf de schouw? | Gecko |
 | O6 | Materiaallevering bij partner of bij klant | Gecko + partners |

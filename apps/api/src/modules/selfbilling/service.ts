@@ -9,7 +9,7 @@ import { multiplyCents } from "../../lib/money.js";
 import { recordAudit } from "../audit/service.js";
 import { effectivePrice } from "../catalog/prices.js";
 import { bomItems, productGroups, products, salesChannels } from "../catalog/schema.js";
-import { calculateCost, effectiveVatRate } from "../catalog/service.js";
+import { calculateCost, effectiveFeeBasisPoints, effectiveVatRate } from "../catalog/service.js";
 import { properties } from "../customers/schema.js";
 import { button, escapeHtml, layout, type Company } from "../email/layout.js";
 import { sendEmail } from "../email/service.js";
@@ -114,7 +114,7 @@ export async function openItems(db: DbOrTx, onlyPartnerId?: string) {
 
   // Fee verkooppartner: per geaccepteerde offerte (ook meerwerk), zodra de aanbetaling is betaald.
   const feeQuotes = await db
-    .select({ id: quotes.id, projectId: quotes.projectId, feeBp: quotes.feeBasisPoints, channelFeeBp: salesChannels.feeBasisPoints, partnerId: salesChannels.salesPartnerOrganizationId })
+    .select({ id: quotes.id, projectId: quotes.projectId, feeBp: quotes.feeBasisPoints, channelId: quotes.salesChannelId, groupId: quotes.productGroupId, partnerId: salesChannels.salesPartnerOrganizationId })
     .from(quotes)
     .innerJoin(salesChannels, eq(salesChannels.id, quotes.salesChannelId))
     .innerJoin(projects, eq(projects.id, quotes.projectId))
@@ -125,7 +125,7 @@ export async function openItems(db: DbOrTx, onlyPartnerId?: string) {
     const view = await getQuote(db, q.id);
     const { number, label } = await projectLabel(db, q.projectId!);
     // Fee vastgezet bij versturen; was die toen nog niet ingesteld, dan geldt de huidige fee van het kanaal.
-    const bp = q.feeBp ?? q.channelFeeBp;
+    const bp = q.feeBp ?? (await effectiveFeeBasisPoints(db, q.channelId, q.groupId));
     const basis = view.totals.subtotalCents;
     add(q.partnerId!, {
       kind: "fee",
@@ -137,7 +137,7 @@ export async function openItems(db: DbOrTx, onlyPartnerId?: string) {
       basisCents: basis,
       feeBasisPoints: bp,
       amountCents: bp === null ? null : Math.round((basis * bp) / 10_000),
-      missing: bp === null ? "Fee-percentage van het verkoopkanaal is niet ingesteld (Verkoopkanalen)" : null,
+      missing: bp === null ? "Fee-percentage voor deze productgroep is niet ingesteld (Verkoopkanalen)" : null,
     });
   }
 

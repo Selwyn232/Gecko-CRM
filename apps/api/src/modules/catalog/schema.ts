@@ -99,6 +99,8 @@ export const salesChannelProductGroups = pgTable(
     productGroupId: uuid("product_group_id")
       .notNull()
       .references(() => productGroups.id, { onDelete: "cascade" }),
+    /** Fee van de verkooppartner voor deze productgroep (basispunten); leeg = fee van het kanaal. */
+    feeBasisPoints: integer("fee_basis_points"),
   },
   (t) => [primaryKey({ columns: [t.salesChannelId, t.productGroupId] })],
 );

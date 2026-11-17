@@ -83,6 +83,8 @@ export interface SalesChannel {
   quoteValidityDays: number;
   isActive: boolean;
   productGroupIds: string[];
+  /** Fee per productgroep (basispunten); null = fee van het kanaal. */
+  groupFees?: Record<string, number | null>;
 }
 export type ProductType = "package" | "component" | "labor" | "extra_work" | "service";
 export interface Product {

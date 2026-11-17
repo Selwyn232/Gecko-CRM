@@ -7,7 +7,7 @@ import { multiplyCents } from "../../lib/money.js";
 import { recordAudit } from "../audit/service.js";
 import { effectivePrice } from "../catalog/prices.js";
 import { productGroups, products, salesChannelProductGroups, salesChannels } from "../catalog/schema.js";
-import { effectiveVatRate, unitCost } from "../catalog/service.js";
+import { effectiveFeeBasisPoints, effectiveVatRate, unitCost } from "../catalog/service.js";
 import { customers, properties } from "../customers/schema.js";
 import { formatCustomerNumber } from "../customers/service.js";
 import { emitEvent } from "../events/service.js";
@@ -123,7 +123,7 @@ export async function getQuote(db: DbOrTx, id: string) {
     .where(eq(quoteLines.quoteId, id))
     .orderBy(asc(quoteLines.sortOrder), asc(quoteLines.createdAt));
   const plain = lines.map((l) => l.line);
-  const feeBp = row.quote.status === "draft" ? row.channel.feeBasisPoints : row.quote.feeBasisPoints;
+  const feeBp = row.quote.status === "draft" ? await effectiveFeeBasisPoints(db, row.quote.salesChannelId, row.quote.productGroupId) : row.quote.feeBasisPoints;
   return {
     ...row.quote,
     displayNumber: formatQuoteNumber(row.quote.number),
@@ -326,7 +326,7 @@ export async function sendQuote(db: Db, actor: ActorContext, id: string) {
     const [ch] = await tx.select().from(salesChannels).where(eq(salesChannels.id, q.salesChannelId));
     const [after] = await tx
       .update(quotes)
-      .set({ status: "sent", sentAt: new Date(), priceDate: today, validUntil: addDays(today, ch!.quoteValidityDays), feeBasisPoints: ch!.feeBasisPoints })
+      .set({ status: "sent", sentAt: new Date(), priceDate: today, validUntil: addDays(today, ch!.quoteValidityDays), feeBasisPoints: await effectiveFeeBasisPoints(tx, q.salesChannelId, q.productGroupId) })
       .where(eq(quotes.id, id))
       .returning();
     const contentHash = quoteContentHash(await getQuote(tx, id));
