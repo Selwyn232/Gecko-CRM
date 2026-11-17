@@ -8,6 +8,7 @@ import { ADMIN_SESSION_COOKIE, requirePermission, SESSION_COOKIE } from "../../h
 import { users } from "./schema.js";
 import { forbidden, unauthorized } from "../../lib/errors.js";
 import { loadPermissions } from "./access.js";
+import { PasskeyService } from "./passkeys.js";
 import { maskPhone, mfaMethod, type AuthService } from "./service.js";
 import { PERMISSIONS } from "./permissions.js";
 
@@ -15,6 +16,7 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
   app,
   { authService, config, db },
 ) => {
+  const passkeys = new PasskeyService(db, config, authService);
   const cookieOptions = {
     path: "/",
     httpOnly: true,
@@ -98,6 +100,9 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
       /** Mag deze gebruiker 2FA via sms kiezen (recht mfa.sms én sms ingesteld)? */
       smsAllowed: authService.smsAvailable && (await loadPermissions(db, user.id)).has("mfa.sms"),
       smsPhone: user.smsPhone ? maskPhone(user.smsPhone) : null,
+      hasPasskey: user.passkeyEnabledAt !== null,
+      /** Domein waarop passkeys werken (bv. crm.gecko.nl). */
+      passkeyDomain: passkeys.rpID,
       permissions: [...req.actor.permissions].sort(),
       impersonatedBy: req.auth!.impersonatorUserId
         ? (await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.id, req.auth!.impersonatorUserId)))[0] ?? null
@@ -149,6 +154,57 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
   app.post("/auth/mfa/sms/send", { config: { auth: "password", rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (req) =>
     authService.sendLoginSms(req.auth!.user, req.actor),
   );
+
+  // ---------------------------------------------------------------- Passkeys (Face ID e.d.)
+  const WebAuthnResponse = z.looseObject({ id: z.string().min(1).max(1024), type: z.literal("public-key"), response: z.looseObject({}) });
+  const PasskeyBody = z.object({ challengeId: z.string().uuid(), response: WebAuthnResponse });
+
+  app.post("/auth/passkeys/register/options", { config: { auth: "password", rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (req) => {
+    const { user, mfaVerified, impersonatorUserId } = req.auth!;
+    if (impersonatorUserId) selfOnly();
+    // Wie al 2FA heeft, moet eerst volledig ingelogd zijn om een passkey toe te voegen.
+    if (mfaMethod(user) && !mfaVerified) throw forbidden("mfa_required", "Log eerst volledig in");
+    return passkeys.registrationOptions(user);
+  });
+  app.post(
+    "/auth/passkeys/register",
+    { config: { auth: "password", rateLimit: { max: 10, timeWindow: "1 minute" } }, schema: { body: PasskeyBody.extend({ name: z.string().max(80).default("") }) } },
+    async (req) => {
+      const { user, mfaVerified, impersonatorUserId, sessionId } = req.auth!;
+      if (impersonatorUserId) selfOnly();
+      if (mfaMethod(user) && !mfaVerified) throw forbidden("mfa_required", "Log eerst volledig in");
+      return passkeys.register(user, sessionId, req.body as never, req.actor);
+    },
+  );
+  /** Inloggen met een passkey, zonder wachtwoord. */
+  app.post("/auth/passkeys/login/options", { config: { auth: "public", rateLimit: { max: 20, timeWindow: "1 minute" } } }, async () => passkeys.loginOptions());
+  app.post(
+    "/auth/passkeys/login",
+    { config: { auth: "public", rateLimit: { max: 10, timeWindow: "1 minute" } }, schema: { body: PasskeyBody } },
+    async (req, reply) => {
+      const result = await passkeys.login(req.body as never, { ip: req.ip, userAgent: req.headers["user-agent"], requestId: req.id });
+      reply.setCookie(SESSION_COOKIE, result.token, cookieOptions);
+      return { token: result.token, mfa: "none" };
+    },
+  );
+  /** 2FA-stap na het wachtwoord met een passkey. */
+  app.post("/auth/passkeys/verify/options", { config: { auth: "password", rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (req) =>
+    passkeys.verifyOptions(req.auth!.user),
+  );
+  app.post(
+    "/auth/passkeys/verify",
+    { config: { auth: "password", rateLimit: { max: 10, timeWindow: "1 minute" } }, schema: { body: PasskeyBody } },
+    async (req) => {
+      await passkeys.verify(req.auth!.user, req.auth!.sessionId, req.body as never, req.actor);
+      return { ok: true };
+    },
+  );
+  app.get("/auth/passkeys", async (req) => passkeys.list(req.auth!.user.id));
+  app.delete("/auth/passkeys/:id", { schema: { params: z.object({ id: z.string().uuid() }) } }, async (req) => {
+    if (req.auth!.impersonatorUserId) selfOnly();
+    await passkeys.remove(req.auth!.user, req.params.id, req.actor);
+    return { ok: true };
+  });
 
   app.post(
     "/auth/mfa/verify",

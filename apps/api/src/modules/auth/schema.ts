@@ -4,6 +4,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -35,6 +36,8 @@ export const users = pgTable(
     /** 2FA via sms (alternatief voor de app, alleen met recht mfa.sms): bevestigd mobiel nummer (+31…). */
     smsPhone: text("sms_phone"),
     smsEnabledAt: timestamp("sms_enabled_at", { withTimezone: true }),
+    /** Gezet zodra de gebruiker een passkey (Face ID, Touch ID, vingerafdruk, Windows Hello) heeft. */
+    passkeyEnabledAt: timestamp("passkey_enabled_at", { withTimezone: true }),
     /** Of 2FA verplicht is voor deze gebruiker. Standaard ja; uitzonderingen zijn een bewuste keuze van een beheerder. */
     mfaRequired: boolean("mfa_required").notNull().default(true),
     /** Gebruiker moet eerst een eigen wachtwoord kiezen voordat het systeem bruikbaar is. */
@@ -192,3 +195,44 @@ export const smsCodes = pgTable(
   },
   (t) => [index("sms_codes_user_idx").on(t.userId, t.createdAt)],
 );
+
+/**
+ * Passkeys (WebAuthn): inloggen met Face ID, Touch ID, vingerafdruk of Windows Hello.
+ * Het CRM bewaart alleen de publieke sleutel; de privésleutel blijft op het toestel (of in iCloud-/Google-sleutelhanger).
+ */
+export const passkeys = pgTable(
+  "passkeys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Credential-id (base64url), zoals de browser hem meestuurt. */
+    credentialId: text("credential_id").notNull().unique(),
+    /** Publieke sleutel (COSE, base64url). */
+    publicKey: text("public_key").notNull(),
+    /** Teller van het toestel, tegen het hergebruiken van een oud antwoord. */
+    counter: integer("counter").notNull().default(0),
+    transports: jsonb("transports").$type<string[]>(),
+    /** "singleDevice" of "multiDevice" (gesynchroniseerd via iCloud/Google). */
+    deviceType: text("device_type").notNull(),
+    backedUp: boolean("backed_up").notNull().default(false),
+    /** Naam die de gebruiker herkent, bv. "iPhone van Selwyn". */
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (t) => [index("passkeys_user_idx").on(t.userId)],
+);
+
+/** Eenmalige uitdaging voor registreren of inloggen met een passkey (2 minuten geldig). */
+export const webauthnChallenges = pgTable("webauthn_challenges", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** Null bij inloggen zonder wachtwoord (de gebruiker is dan nog onbekend). */
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+  /** "register", "login" (zonder wachtwoord) of "verify" (2FA-stap na wachtwoord). */
+  purpose: text("purpose").notNull(),
+  challenge: text("challenge").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

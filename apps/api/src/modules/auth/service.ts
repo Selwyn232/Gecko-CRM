@@ -34,7 +34,8 @@ export function normalizeMobile(input: string) {
 export const maskPhone = (p: string) => (p.startsWith("+316") ? `06 ••••• ${p.slice(-3)}` : `${p.slice(0, 4)} ••••• ${p.slice(-3)}`);
 
 /** Welke 2FA-methode deze gebruiker heeft (null = nog niet ingesteld). */
-export const mfaMethod = (u: Pick<User, "totpEnabledAt" | "smsEnabledAt">): "totp" | "sms" | null => (u.totpEnabledAt ? "totp" : u.smsEnabledAt ? "sms" : null);
+export const mfaMethod = (u: Pick<User, "totpEnabledAt" | "smsEnabledAt" | "passkeyEnabledAt">): "totp" | "sms" | "passkey" | null =>
+  u.totpEnabledAt ? "totp" : u.smsEnabledAt ? "sms" : u.passkeyEnabledAt ? "passkey" : null;
 /** last_seen_at wordt hooguit eens per minuut bijgewerkt, om schrijfacties te beperken. */
 const TOUCH_INTERVAL_MS = 60_000;
 
@@ -121,6 +122,33 @@ export class AuthService {
     });
 
     return { token, sessionId: session!.id, mfa };
+  }
+
+  /** Volledige sessie zonder wachtwoord, na een geslaagde passkey-controle (passkey met Face ID e.d. = twee factoren). */
+  async startPasskeySession(user: User, meta: { ip?: string; userAgent?: string; requestId?: string }) {
+    if (!user.isActive) throw unauthorized("invalid_credentials", "Account is niet actief");
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new AppError(423, "account_locked", "Account tijdelijk geblokkeerd na te veel mislukte pogingen");
+    }
+    const token = randomToken();
+    const now = new Date();
+    const actor: ActorContext = { userId: user.id, organizationId: user.organizationId, permissions: new Set(), ip: meta.ip, requestId: meta.requestId };
+    const [session] = await this.db.transaction(async (tx) => {
+      await tx.update(users).set({ failedLoginCount: 0, lockedUntil: null, lastLoginAt: now }).where(eq(users.id, user.id));
+      await recordAudit(tx, actor, { action: "auth.login", entityType: "user", entityId: user.id, metadata: { method: "passkey" } });
+      return tx
+        .insert(sessions)
+        .values({
+          userId: user.id,
+          tokenHash: sha256(token),
+          ip: meta.ip,
+          userAgent: meta.userAgent?.slice(0, 500),
+          mfaVerified: true,
+          expiresAt: new Date(now.getTime() + this.config.SESSION_ABSOLUTE_TIMEOUT_HOURS * 3600_000),
+        })
+        .returning();
+    });
+    return { token, sessionId: session!.id };
   }
 
   private async registerFailure(user: User, actor: ActorContext, reason: string) {
@@ -259,7 +287,7 @@ export class AuthService {
     await this.db.transaction(async (tx) => {
       if (input.code && method0 === "sms") {
         if (await this.useSmsCode(tx, user.id, "login", input.code)) method = "sms";
-      } else if (input.code) {
+      } else if (input.code && method0 === "totp") {
         const step = verifyTotp(decryptSecret(user.totpSecretEncrypted!, this.config.ENCRYPTION_KEY), input.code);
         if (step !== null && (user.totpLastStep === null || step > user.totpLastStep)) {
           await tx.update(users).set({ totpLastStep: step }).where(eq(users.id, user.id));
@@ -414,9 +442,9 @@ export class AuthService {
 
 const notThisSession = (sessionId: string) => ne(sessions.id, sessionId);
 
-const normalizeCode = (code: string) => code.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+export const normalizeCode = (code: string) => code.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
 /** 10 hexadecimale tekens (40 bits), leesbaar gesplitst: "a1b2c-3d4e5". */
-const generateRecoveryCode = () => {
+export const generateRecoveryCode = () => {
   const hex = randomBytes(5).toString("hex");
   return `${hex.slice(0, 5)}-${hex.slice(5)}`;
 };

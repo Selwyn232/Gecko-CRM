@@ -260,6 +260,13 @@
       "when": 1794888465510,
       "tag": "0036_sms_2fa",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1794888964315,
+      "tag": "0037_passkeys",
+      "breakpoints": true
     }
   ]
 }

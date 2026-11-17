@@ -47,11 +47,15 @@ export interface Me {
   mfaEnabled: boolean;
   mfaVerified: boolean;
   /** Ingestelde 2FA-methode. */
-  mfaMethod?: "totp" | "sms" | null;
+  mfaMethod?: "totp" | "sms" | "passkey" | null;
   /** Mag 2FA via sms kiezen (recht én sms ingesteld). */
   smsAllowed?: boolean;
   /** Gemaskeerd nummer voor sms-codes, bv. "06 ••••• 678". */
   smsPhone?: string | null;
+  /** Heeft een passkey (Face ID e.d.). */
+  hasPasskey?: boolean;
+  /** Domein waarop passkeys werken. */
+  passkeyDomain?: string;
   permissions: string[];
 }
 export interface Organization {

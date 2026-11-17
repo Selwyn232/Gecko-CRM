@@ -1,3 +1,4 @@
+import { PasskeysButton } from "./components/Passkeys";
 import { AccountActivatePage } from "./pages/AccountActivate";
 import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useState } from "react";
@@ -143,6 +144,7 @@ export function App() {
           <NotificationBell />
           <div className="row" style={{ marginTop: 8 }}>
             <button className="btn small" onClick={() => setChangingPassword(true)}>Wachtwoord</button>
+            <PasskeysButton />
             <button className="btn small" onClick={logout}>Uitloggen</button>
           </div>
         </div>

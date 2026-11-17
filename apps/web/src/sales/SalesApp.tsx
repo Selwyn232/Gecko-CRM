@@ -1,3 +1,4 @@
+import { PasskeysButton } from "../components/Passkeys";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
@@ -73,6 +74,7 @@ export function SalesApp() {
           <div>{me?.organizationName}</div>
           <div className="row" style={{ marginTop: 8 }}>
             <button className="btn small" onClick={() => setChangingPassword(true)}>Wachtwoord</button>
+            <PasskeysButton />
             <button className="btn small" onClick={logout}>Uitloggen</button>
           </div>
         </div>

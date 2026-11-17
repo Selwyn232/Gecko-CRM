@@ -2,6 +2,7 @@ import QRCode from "qrcode";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../api";
 import { useAuth } from "../auth";
+import { isCancelled, loginWithPasskey, passkeySupported, registerPasskey, deviceName, verifyWithPasskey } from "../components/Passkeys";
 import { ErrorBox, Field } from "../components/ui";
 
 /** Inloggen in stappen: wachtwoord → 2FA instellen (eerste keer) of 2FA-code → (eenmalig) herstelcodes tonen. */
@@ -22,8 +23,15 @@ export function LoginPage() {
           <span className="brand-mark">G</span> Gecko CRM
         </div>
         {step === "password" && <PasswordStep onDone={refresh} />}
-        {step === "setup" && <MethodChoice smsAllowed={!!me?.smsAllowed} onDone={setRecoveryCodes} />}
-        {step === "verify" && (me?.mfaMethod === "sms" ? <SmsVerifyStep phone={me.smsPhone ?? null} onDone={refresh} /> : <VerifyStep onDone={refresh} />)}
+        {step === "setup" && <MethodChoice smsAllowed={!!me?.smsAllowed} passkeyDomain={me?.passkeyDomain ?? null} onDone={setRecoveryCodes} />}
+        {step === "verify" &&
+          (me?.mfaMethod === "sms" ? (
+            <SmsVerifyStep phone={me.smsPhone ?? null} onDone={refresh} />
+          ) : me?.mfaMethod === "passkey" ? (
+            <PasskeyVerifyStep onDone={refresh} />
+          ) : (
+            <VerifyStep onDone={refresh} />
+          ))}
         {step === "codes" && <CodesStep codes={recoveryCodes!} onDone={async () => { setRecoveryCodes(null); await refresh(); }} />}
         {step === "newPassword" && <NewPasswordStep onDone={refresh} />}
       </div>
@@ -64,31 +72,145 @@ function PasswordStep({ onDone }: { onDone: () => Promise<void> }) {
       <button className="btn primary" disabled={busy} style={{ width: "100%", justifyContent: "center" }}>
         {busy ? "Bezig…" : "Inloggen"}
       </button>
+      {passkeySupported() && <PasskeyLoginButton onDone={onDone} />}
     </form>
   );
 }
 
+/** Inloggen met alleen Face ID / passkey (geen wachtwoord, geen code). */
+function PasskeyLoginButton({ onDone }: { onDone: () => Promise<void> }) {
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      await loginWithPasskey();
+      await onDone();
+    } catch (err) {
+      if (!isCancelled(err)) setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div className="or-divider"><span>of</span></div>
+      <button type="button" className="btn" disabled={busy} onClick={() => void go()} style={{ width: "100%", justifyContent: "center" }}>
+        {busy ? "Wachten op Face ID…" : "Inloggen met Face ID of passkey"}
+      </button>
+      <div style={{ marginTop: 8 }}><ErrorBox error={error} /></div>
+    </div>
+  );
+}
+
 /** Eerste keer 2FA: kies app of sms (alleen als sms voor deze gebruiker is toegestaan). */
-function MethodChoice({ smsAllowed, onDone }: { smsAllowed: boolean; onDone: (codes: string[]) => void }) {
+function MethodChoice({ smsAllowed, passkeyDomain, onDone }: { smsAllowed: boolean; passkeyDomain: string | null; onDone: (codes: string[]) => void }) {
   const { logout } = useAuth();
-  const [method, setMethod] = useState<"app" | "sms" | null>(smsAllowed ? null : "app");
-  if (method === "app") return <SetupStep onDone={onDone} onBack={smsAllowed ? () => setMethod(null) : undefined} />;
+  // Passkeys alleen aanbieden als de browser ze kent én we op het juiste domein zitten.
+  const passkeyOk = passkeySupported() && (!passkeyDomain || passkeyDomain === location.hostname);
+  const [method, setMethod] = useState<"passkey" | "app" | "sms" | null>(smsAllowed || passkeyOk ? null : "app");
+  const back = smsAllowed || passkeyOk ? () => setMethod(null) : undefined;
+  if (method === "passkey") return <PasskeySetupStep onDone={onDone} onBack={() => setMethod(null)} />;
+  if (method === "app") return <SetupStep onDone={onDone} onBack={back} />;
   if (method === "sms") return <SmsSetupStep onDone={onDone} onBack={() => setMethod(null)} />;
   return (
     <div>
       <h2>Tweestapsverificatie instellen</h2>
-      <p className="muted">Naast je wachtwoord vragen we bij het inloggen om een code. Kies hoe je die wilt ontvangen.</p>
+      <p className="muted">Naast je wachtwoord vragen we een tweede bevestiging. Kies hoe je dat wilt doen.</p>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {passkeyOk && (
+          <button className="btn method-choice" onClick={() => setMethod("passkey")}>
+            <strong>Face ID, Touch ID of vingerafdruk (aanbevolen)</strong>
+            <span className="muted">Inloggen met je gezicht of vinger, zonder code. Daarna kun je ook zonder wachtwoord inloggen.</span>
+          </button>
+        )}
         <button className="btn method-choice" onClick={() => setMethod("app")}>
-          <strong>Authenticator-app (aanbevolen)</strong>
+          <strong>Authenticator-app{passkeyOk ? "" : " (aanbevolen)"}</strong>
           <span className="muted">Code in een app op je telefoon, zoals Google of Microsoft Authenticator. Werkt ook zonder bereik.</span>
         </button>
-        <button className="btn method-choice" onClick={() => setMethod("sms")}>
-          <strong>Sms naar mijn mobiel</strong>
-          <span className="muted">Je krijgt bij het inloggen een code per sms.</span>
-        </button>
+        {smsAllowed && (
+          <button className="btn method-choice" onClick={() => setMethod("sms")}>
+            <strong>Sms naar mijn mobiel</strong>
+            <span className="muted">Je krijgt bij het inloggen een code per sms.</span>
+          </button>
+        )}
       </div>
       <div style={{ marginTop: 12 }}><button type="button" className="btn small" onClick={logout}>Annuleren</button></div>
+    </div>
+  );
+}
+
+function PasskeySetupStep({ onDone, onBack }: { onDone: (codes: string[]) => void; onBack: () => void }) {
+  const [name, setName] = useState(deviceName());
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      const r = await registerPasskey(name);
+      onDone(r.recoveryCodes ?? []);
+    } catch (err) {
+      if (!isCancelled(err)) setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form onSubmit={submit}>
+      <h2>Face ID instellen</h2>
+      <p className="muted">Je toestel vraagt zo om Face ID, Touch ID, je vingerafdruk of je toegangscode. Er wordt niets van je gezicht of vinger naar Gecko gestuurd: dat blijft op je toestel.</p>
+      <ErrorBox error={error} />
+      <Field label="Naam van dit toestel">
+        <input value={name} onChange={(e) => setName(e.target.value)} required />
+      </Field>
+      <button className="btn primary" disabled={busy} style={{ width: "100%", justifyContent: "center" }}>{busy ? "Wachten op Face ID…" : "Face ID instellen"}</button>
+      <div style={{ marginTop: 12 }}><button type="button" className="btn small" onClick={onBack}>Terug</button></div>
+    </form>
+  );
+}
+
+/** Na het wachtwoord: bevestigen met de passkey (of een herstelcode). */
+function PasskeyVerifyStep({ onDone }: { onDone: () => Promise<void> }) {
+  const { logout } = useAuth();
+  const [useRecovery, setUseRecovery] = useState(false);
+  if (useRecovery) return <VerifyStep onDone={onDone} recoveryOnly onBack={() => setUseRecovery(false)} />;
+  return (
+    <div>
+      <h2>Verificatie</h2>
+      <p className="muted">Bevestig met Face ID, Touch ID of je vingerafdruk.</p>
+      <PasskeyVerifyButton onDone={onDone} primary />
+      <div className="row" style={{ justifyContent: "space-between", marginTop: 12 }}>
+        <button type="button" className="btn small" onClick={() => setUseRecovery(true)}>Herstelcode gebruiken</button>
+        <button type="button" className="btn small" onClick={logout}>Annuleren</button>
+      </div>
+    </div>
+  );
+}
+
+function PasskeyVerifyButton({ onDone, primary }: { onDone: () => Promise<void>; primary?: boolean }) {
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      await verifyWithPasskey();
+      await onDone();
+    } catch (err) {
+      if (!isCancelled(err)) setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div style={{ marginTop: primary ? 0 : 12 }}>
+      <ErrorBox error={error} />
+      <button type="button" className={`btn ${primary ? "primary" : ""}`} disabled={busy} onClick={() => void go()} style={{ width: "100%", justifyContent: "center" }}>
+        {busy ? "Wachten op Face ID…" : "Gebruik Face ID of passkey"}
+      </button>
     </div>
   );
 }
@@ -154,7 +276,7 @@ function SmsSetupStep({ onDone, onBack }: { onDone: (codes: string[]) => void; o
 
 /** Inloggen met sms: de code wordt direct verstuurd; herstelcode blijft mogelijk. */
 function SmsVerifyStep({ phone, onDone }: { phone: string | null; onDone: () => Promise<void> }) {
-  const { logout } = useAuth();
+  const { logout, me } = useAuth();
   const [useRecovery, setUseRecovery] = useState(false);
   const [value, setValue] = useState("");
   const [error, setError] = useState<unknown>(null);
@@ -201,6 +323,7 @@ function SmsVerifyStep({ phone, onDone }: { phone: string | null; onDone: () => 
         <button type="button" className="btn small" onClick={() => setUseRecovery(!useRecovery)}>{useRecovery ? "Code per sms" : "Herstelcode gebruiken"}</button>
         <button type="button" className="btn small" onClick={logout}>Annuleren</button>
       </div>
+      {me?.hasPasskey && passkeySupported() && <PasskeyVerifyButton onDone={onDone} />}
     </form>
   );
 }
@@ -257,9 +380,9 @@ function SetupStep({ onDone, onBack }: { onDone: (codes: string[]) => void; onBa
   );
 }
 
-function VerifyStep({ onDone }: { onDone: () => Promise<void> }) {
-  const { logout } = useAuth();
-  const [useRecovery, setUseRecovery] = useState(false);
+function VerifyStep({ onDone, recoveryOnly, onBack }: { onDone: () => Promise<void>; recoveryOnly?: boolean; onBack?: () => void }) {
+  const { logout, me } = useAuth();
+  const [useRecovery, setUseRecovery] = useState(!!recoveryOnly);
   const [value, setValue] = useState("");
   const [error, setError] = useState<unknown>(null);
 
@@ -286,13 +409,18 @@ function VerifyStep({ onDone }: { onDone: () => Promise<void> }) {
         Verifiëren
       </button>
       <div className="row" style={{ justifyContent: "space-between", marginTop: 12 }}>
-        <button type="button" className="btn small" onClick={() => setUseRecovery(!useRecovery)}>
-          {useRecovery ? "Code uit app gebruiken" : "Herstelcode gebruiken"}
-        </button>
+        {recoveryOnly ? (
+          <button type="button" className="btn small" onClick={onBack}>Terug</button>
+        ) : (
+          <button type="button" className="btn small" onClick={() => setUseRecovery(!useRecovery)}>
+            {useRecovery ? "Code uit app gebruiken" : "Herstelcode gebruiken"}
+          </button>
+        )}
         <button type="button" className="btn small" onClick={logout}>
           Annuleren
         </button>
       </div>
+      {!recoveryOnly && me?.hasPasskey && passkeySupported() && <PasskeyVerifyButton onDone={onDone} />}
     </form>
   );
 }

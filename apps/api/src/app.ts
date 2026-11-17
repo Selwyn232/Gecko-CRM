@@ -68,7 +68,16 @@ export interface AppDeps {
 }
 
 /** Serveert de webapplicatie; onbekende paden buiten /api krijgen index.html (client-side routing). */
-async function registerWebApp(app: FastifyInstance, dir: string) {
+async function registerWebApp(app: FastifyInstance, dir: string, baseUrl: string) {
+  // Schermen altijd via het eigen domein (bv. crm.gecko.nl): passkeys (Face ID) werken alleen daar.
+  // Het technische Render-adres stuurt door; API, webhooks en de health check blijven bereikbaar.
+  const canonical = new URL(baseUrl);
+  app.addHook("onRequest", async (req, reply) => {
+    const host = (req.headers.host ?? "").split(":")[0] ?? "";
+    if (req.method !== "GET" || !host.endsWith(".onrender.com") || host === canonical.hostname) return;
+    if (req.url.startsWith("/api/") || req.url === "/health") return;
+    return reply.redirect(`${canonical.origin}${req.url}`, 301);
+  });
   await app.register(fastifyStatic, { root: dir, wildcard: false });
   app.setNotFoundHandler((req, reply) => {
     if (req.method === "GET" && !req.url.startsWith("/api/")) return reply.sendFile("index.html");
@@ -197,7 +206,7 @@ export async function buildApp({
     { prefix: "/api" },
   );
 
-  if (webDistDir) await registerWebApp(app, webDistDir);
+  if (webDistDir) await registerWebApp(app, webDistDir, config.APP_BASE_URL);
 
   app.decorate("billing", billing);
   return app;
