@@ -1,5 +1,5 @@
 import QRCode from "qrcode";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { ErrorBox, Field } from "../components/ui";
@@ -22,8 +22,8 @@ export function LoginPage() {
           <span className="brand-mark">G</span> Gecko CRM
         </div>
         {step === "password" && <PasswordStep onDone={refresh} />}
-        {step === "setup" && <SetupStep onDone={setRecoveryCodes} />}
-        {step === "verify" && <VerifyStep onDone={refresh} />}
+        {step === "setup" && <MethodChoice smsAllowed={!!me?.smsAllowed} onDone={setRecoveryCodes} />}
+        {step === "verify" && (me?.mfaMethod === "sms" ? <SmsVerifyStep phone={me.smsPhone ?? null} onDone={refresh} /> : <VerifyStep onDone={refresh} />)}
         {step === "codes" && <CodesStep codes={recoveryCodes!} onDone={async () => { setRecoveryCodes(null); await refresh(); }} />}
         {step === "newPassword" && <NewPasswordStep onDone={refresh} />}
       </div>
@@ -68,7 +68,144 @@ function PasswordStep({ onDone }: { onDone: () => Promise<void> }) {
   );
 }
 
-function SetupStep({ onDone }: { onDone: (codes: string[]) => void }) {
+/** Eerste keer 2FA: kies app of sms (alleen als sms voor deze gebruiker is toegestaan). */
+function MethodChoice({ smsAllowed, onDone }: { smsAllowed: boolean; onDone: (codes: string[]) => void }) {
+  const { logout } = useAuth();
+  const [method, setMethod] = useState<"app" | "sms" | null>(smsAllowed ? null : "app");
+  if (method === "app") return <SetupStep onDone={onDone} onBack={smsAllowed ? () => setMethod(null) : undefined} />;
+  if (method === "sms") return <SmsSetupStep onDone={onDone} onBack={() => setMethod(null)} />;
+  return (
+    <div>
+      <h2>Tweestapsverificatie instellen</h2>
+      <p className="muted">Naast je wachtwoord vragen we bij het inloggen om een code. Kies hoe je die wilt ontvangen.</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <button className="btn method-choice" onClick={() => setMethod("app")}>
+          <strong>Authenticator-app (aanbevolen)</strong>
+          <span className="muted">Code in een app op je telefoon, zoals Google of Microsoft Authenticator. Werkt ook zonder bereik.</span>
+        </button>
+        <button className="btn method-choice" onClick={() => setMethod("sms")}>
+          <strong>Sms naar mijn mobiel</strong>
+          <span className="muted">Je krijgt bij het inloggen een code per sms.</span>
+        </button>
+      </div>
+      <div style={{ marginTop: 12 }}><button type="button" className="btn small" onClick={logout}>Annuleren</button></div>
+    </div>
+  );
+}
+
+function SmsSetupStep({ onDone, onBack }: { onDone: (codes: string[]) => void; onBack: () => void }) {
+  const [phone, setPhone] = useState("");
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+
+  const send = async (e?: FormEvent) => {
+    e?.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      const r = await api.post<{ phone: string }>("/auth/mfa/sms/setup", { phone });
+      setSentTo(r.phone);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const confirm = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      const r = await api.post<{ recoveryCodes: string[] }>("/auth/mfa/sms/enable", { code: code.replace(/\s/g, "") });
+      onDone(r.recoveryCodes);
+    } catch (err) {
+      setError(err);
+    }
+  };
+
+  return sentTo ? (
+    <form onSubmit={confirm}>
+      <h2>Code invullen</h2>
+      <p className="muted">We hebben een code van 6 cijfers gestuurd naar {sentTo}. De code is 5 minuten geldig.</p>
+      <ErrorBox error={error} />
+      <Field label="Code uit de sms">
+        <input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} required autoFocus />
+      </Field>
+      <button className="btn primary" style={{ width: "100%", justifyContent: "center" }}>Bevestigen</button>
+      <div className="row" style={{ justifyContent: "space-between", marginTop: 12 }}>
+        <button type="button" className="btn small" onClick={() => void send()} disabled={busy}>Nieuwe code sturen</button>
+        <button type="button" className="btn small" onClick={() => { setSentTo(null); setCode(""); }}>Ander nummer</button>
+      </div>
+    </form>
+  ) : (
+    <form onSubmit={send}>
+      <h2>Sms instellen</h2>
+      <p className="muted">Vul je mobiele nummer in. We sturen een code om het nummer te bevestigen.</p>
+      <ErrorBox error={error} />
+      <Field label="Mobiel nummer">
+        <input type="tel" inputMode="tel" autoComplete="tel" placeholder="06 12345678" value={phone} onChange={(e) => setPhone(e.target.value)} required autoFocus />
+      </Field>
+      <button className="btn primary" disabled={busy} style={{ width: "100%", justifyContent: "center" }}>{busy ? "Versturen…" : "Stuur code"}</button>
+      <div style={{ marginTop: 12 }}><button type="button" className="btn small" onClick={onBack}>Terug</button></div>
+    </form>
+  );
+}
+
+/** Inloggen met sms: de code wordt direct verstuurd; herstelcode blijft mogelijk. */
+function SmsVerifyStep({ phone, onDone }: { phone: string | null; onDone: () => Promise<void> }) {
+  const { logout } = useAuth();
+  const [useRecovery, setUseRecovery] = useState(false);
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<unknown>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const sentOnce = useRef(false);
+
+  const send = async () => {
+    setError(null);
+    try {
+      const r = await api.post<{ phone: string }>("/auth/mfa/sms/send");
+      setNotice(`Code verstuurd naar ${r.phone}. Geldig 5 minuten.`);
+    } catch (err) {
+      setError(err);
+    }
+  };
+  useEffect(() => {
+    if (sentOnce.current) return;
+    sentOnce.current = true;
+    void send();
+  }, []);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      await api.post("/auth/mfa/verify", useRecovery ? { recoveryCode: value } : { code: value.replace(/\s/g, "") });
+      await onDone();
+    } catch (err) {
+      setError(err);
+    }
+  };
+
+  return (
+    <form onSubmit={submit}>
+      <h2>Verificatie</h2>
+      <p className="muted">{useRecovery ? "Vul een van je herstelcodes in." : notice ?? `We sturen een code per sms${phone ? ` naar ${phone}` : ""}…`}</p>
+      <ErrorBox error={error} />
+      <Field label={useRecovery ? "Herstelcode" : "Code uit de sms"}>
+        <input inputMode={useRecovery ? "text" : "numeric"} value={value} onChange={(e) => setValue(e.target.value)} autoComplete="one-time-code" required autoFocus />
+      </Field>
+      <button className="btn primary" style={{ width: "100%", justifyContent: "center" }}>Verifiëren</button>
+      <div className="row" style={{ justifyContent: "space-between", marginTop: 12, gap: 8 }}>
+        {!useRecovery && <button type="button" className="btn small" onClick={() => void send()}>Nieuwe code sturen</button>}
+        <button type="button" className="btn small" onClick={() => setUseRecovery(!useRecovery)}>{useRecovery ? "Code per sms" : "Herstelcode gebruiken"}</button>
+        <button type="button" className="btn small" onClick={logout}>Annuleren</button>
+      </div>
+    </form>
+  );
+}
+
+function SetupStep({ onDone, onBack }: { onDone: (codes: string[]) => void; onBack?: () => void }) {
   const [secret, setSecret] = useState<string | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [code, setCode] = useState("");
@@ -115,6 +252,7 @@ function SetupStep({ onDone }: { onDone: (codes: string[]) => void }) {
       <button className="btn primary" style={{ width: "100%", justifyContent: "center" }}>
         Bevestigen
       </button>
+      {onBack && <div style={{ marginTop: 12 }}><button type="button" className="btn small" onClick={onBack}>Terug</button></div>}
     </form>
   );
 }

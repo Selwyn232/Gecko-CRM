@@ -7,7 +7,8 @@ import { organizations } from "../organizations/schema.js";
 import { ADMIN_SESSION_COOKIE, requirePermission, SESSION_COOKIE } from "../../http/auth-plugin.js";
 import { users } from "./schema.js";
 import { forbidden, unauthorized } from "../../lib/errors.js";
-import type { AuthService } from "./service.js";
+import { loadPermissions } from "./access.js";
+import { maskPhone, mfaMethod, type AuthService } from "./service.js";
 import { PERMISSIONS } from "./permissions.js";
 
 export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; config: Config; db: Db }> = async (
@@ -91,8 +92,12 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
       organizationId: user.organizationId,
       organizationType: org?.type ?? null,
       organizationName: org?.name ?? null,
-      mfaEnabled: user.totpEnabledAt !== null,
+      mfaEnabled: mfaMethod(user) !== null,
+      mfaMethod: mfaMethod(user),
       mfaVerified,
+      /** Mag deze gebruiker 2FA via sms kiezen (recht mfa.sms én sms ingesteld)? */
+      smsAllowed: authService.smsAvailable && (await loadPermissions(db, user.id)).has("mfa.sms"),
+      smsPhone: user.smsPhone ? maskPhone(user.smsPhone) : null,
       permissions: [...req.actor.permissions].sort(),
       impersonatedBy: req.auth!.impersonatorUserId
         ? (await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.id, req.auth!.impersonatorUserId)))[0] ?? null
@@ -119,6 +124,30 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
       if (req.auth!.impersonatorUserId) throw forbidden("impersonation_not_allowed", "2FA instellen kan alleen de gebruiker zelf");
       return authService.enableMfa(req.auth!.user, req.auth!.sessionId, req.body.code, req.actor);
     },
+  );
+
+  const selfOnly = () => {
+    throw forbidden("impersonation_not_allowed", "2FA instellen kan alleen de gebruiker zelf");
+  };
+  app.post(
+    "/auth/mfa/sms/setup",
+    { config: { auth: "password", rateLimit: { max: 5, timeWindow: "1 minute" } }, schema: { body: z.object({ phone: z.string().min(6).max(30) }) } },
+    async (req) => {
+      if (req.auth!.impersonatorUserId) selfOnly();
+      return authService.startSmsSetup(req.auth!.user, req.body.phone, req.actor);
+    },
+  );
+  app.post(
+    "/auth/mfa/sms/enable",
+    { config: { auth: "password", rateLimit: { max: 10, timeWindow: "1 minute" } }, schema: { body: z.object({ code: z.string().min(4).max(12) }) } },
+    async (req) => {
+      if (req.auth!.impersonatorUserId) selfOnly();
+      return authService.enableSms(req.auth!.user, req.auth!.sessionId, req.body.code, req.actor);
+    },
+  );
+  /** Bij inloggen: (nieuwe) sms-code sturen. */
+  app.post("/auth/mfa/sms/send", { config: { auth: "password", rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (req) =>
+    authService.sendLoginSms(req.auth!.user, req.actor),
   );
 
   app.post(

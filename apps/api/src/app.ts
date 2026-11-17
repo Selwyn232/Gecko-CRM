@@ -1,3 +1,4 @@
+import { smsTransportFromConfig, type SmsTransport } from "./modules/auth/sms.js";
 import cookie from "@fastify/cookie";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
@@ -62,6 +63,8 @@ export interface AppDeps {
   emailTransport?: EmailTransport | null;
   /** Betaalprovider. Standaard Mollie als er een sleutel is, anders testmodus. */
   paymentProvider?: PaymentProvider;
+  /** Sms (2FA). Standaard CM.com als CM_PRODUCT_TOKEN is ingesteld, anders geen sms. */
+  smsTransport?: SmsTransport | null;
 }
 
 /** Serveert de webapplicatie; onbekende paden buiten /api krijgen index.html (client-side routing). */
@@ -79,6 +82,7 @@ export async function buildApp({
   webDistDir,
   emailTransport = transportFromConfig(config),
   paymentProvider = paymentProviderFromConfig(config),
+  smsTransport = smsTransportFromConfig(config),
 }: AppDeps) {
   const billing: BillingDeps = { config, emailTransport, paymentProvider };
   const app = Fastify({
@@ -114,7 +118,7 @@ export async function buildApp({
     });
   }
 
-  const authService = new AuthService(db, config);
+  const authService = new AuthService(db, config, smsTransport);
   await app.register(authPlugin, { db, authService });
 
   app.setErrorHandler((err: FastifyError & { code?: string; cause?: { code?: string } }, req, reply) => {

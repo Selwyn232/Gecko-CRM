@@ -38,6 +38,10 @@ const ConfigSchema = z.object({
   MAIL_REPLY_TO: z.string().email().optional(),
   /** Mollie. Zonder sleutel draait betalen in testmodus (gesimuleerde betaalpagina). */
   MOLLIE_API_KEY: z.string().optional(),
+  /** Sms (2FA) via CM.com: product token uit het CM.com-portaal. Zonder token is sms-2FA niet beschikbaar. */
+  CM_PRODUCT_TOKEN: z.string().optional(),
+  /** Afzender van de sms: max. 11 letters/cijfers. */
+  SMS_SENDER: z.string().regex(/^[A-Za-z0-9]{1,11}$/, "SMS_SENDER: max. 11 letters/cijfers").default("Gecko"),
   /** Achtergrondtaken (automatiseringen, aanmaningen) draaien in dit proces. Uit in tests. */
   JOBS_ENABLED: z
     .enum(["true", "false"])

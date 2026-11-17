@@ -32,6 +32,9 @@ export const users = pgTable(
     totpEnabledAt: timestamp("totp_enabled_at", { withTimezone: true }),
     /** Laatst gebruikte TOTP-stap; voorkomt dat één code twee keer werkt. */
     totpLastStep: integer("totp_last_step"),
+    /** 2FA via sms (alternatief voor de app, alleen met recht mfa.sms): bevestigd mobiel nummer (+31…). */
+    smsPhone: text("sms_phone"),
+    smsEnabledAt: timestamp("sms_enabled_at", { withTimezone: true }),
     /** Of 2FA verplicht is voor deze gebruiker. Standaard ja; uitzonderingen zijn een bewuste keuze van een beheerder. */
     mfaRequired: boolean("mfa_required").notNull().default(true),
     /** Gebruiker moet eerst een eigen wachtwoord kiezen voordat het systeem bruikbaar is. */
@@ -166,4 +169,26 @@ export const accountInvites = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("account_invites_user_idx").on(t.userId)],
+);
+
+/**
+ * Verstuurde sms-codes voor 2FA. Alleen de hash wordt bewaard; een code is 5 minuten geldig,
+ * eenmalig, en na 5 foute pogingen ongeldig. `purpose`: "setup" (nummer bevestigen) of "login".
+ */
+export const smsCodes = pgTable(
+  "sms_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    purpose: text("purpose").notNull(),
+    phone: text("phone").notNull(),
+    codeHash: text("code_hash").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("sms_codes_user_idx").on(t.userId, t.createdAt)],
 );

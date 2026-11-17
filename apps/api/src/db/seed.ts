@@ -22,7 +22,7 @@ const DEFAULT_ROLES: { key: string; name: string; description: string; isSystem?
     name: "Installatiepartner",
     description: "Toegang tot het partnerportaal: eigen afspraken, beschikbaarheid en rapporten",
     isSystem: true,
-    permissions: ["partner.portal"],
+    permissions: ["partner.portal", "mfa.sms"],
   },
   {
     key: "verkooppartner",

@@ -46,6 +46,12 @@ export interface Me {
   impersonatedBy: { id: string; name: string } | null;
   mfaEnabled: boolean;
   mfaVerified: boolean;
+  /** Ingestelde 2FA-methode. */
+  mfaMethod?: "totp" | "sms" | null;
+  /** Mag 2FA via sms kiezen (recht én sms ingesteld). */
+  smsAllowed?: boolean;
+  /** Gemaskeerd nummer voor sms-codes, bv. "06 ••••• 678". */
+  smsPhone?: string | null;
   permissions: string[];
 }
 export interface Organization {

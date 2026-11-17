@@ -253,6 +253,13 @@
       "when": 1794886998101,
       "tag": "0035_partner_groups_invites",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1794888465510,
+      "tag": "0036_sms_2fa",
+      "breakpoints": true
     }
   ]
 }

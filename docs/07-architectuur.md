@@ -19,6 +19,7 @@
 | Tests | Vitest tegen echte PostgreSQL | Constraints en triggers worden mee getest |
 | CI | GitHub Actions | Typecheck, migratiecontrole, tests, build bij elke push |
 | Frontend | Nog te kiezen bij de start van de back-office UI (voorstel: React + Vite of Next.js) | |
+| Sms (2FA) | `CM_PRODUCT_TOKEN` (product token uit het CM.com-portaal, zelf in te vullen) en optioneel `SMS_SENDER` (max. 11 letters/cijfers, standaard "Gecko"). Zonder token kunnen gebruikers alleen de authenticator-app kiezen |
 | Achtergrondtaken | Nog te kiezen bij eerste behoefte (voorstel: pg-boss, draait op PostgreSQL) | Geen extra infrastructuur |
 
 Werkwijze en conventies: zie [10 — Ontwikkelen](10-ontwikkelen.md).

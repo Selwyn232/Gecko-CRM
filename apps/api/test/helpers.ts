@@ -11,6 +11,7 @@ import { productGroups } from "../src/modules/catalog/schema.js";
 import { organizations } from "../src/modules/organizations/schema.js";
 import { createUser } from "../src/modules/users/service.js";
 import type { EmailTransport } from "../src/modules/email/transport.js";
+import type { SmsTransport } from "../src/modules/auth/sms.js";
 
 export const PASSWORD = "een-lang-wachtwoord-123";
 
@@ -34,11 +35,11 @@ export async function resetDb(db: Db) {
   await seed(db);
 }
 
-export async function createTestContext(opts: { emailTransport?: EmailTransport | null } = {}): Promise<TestContext> {
+export async function createTestContext(opts: { emailTransport?: EmailTransport | null; smsTransport?: SmsTransport | null } = {}): Promise<TestContext> {
   const config = loadConfig();
   const { db, pool } = createDb(config.DATABASE_URL);
   await resetDb(db);
-  const app = await buildApp({ config, db, emailTransport: opts.emailTransport ?? null });
+  const app = await buildApp({ config, db, emailTransport: opts.emailTransport ?? null, smsTransport: opts.smsTransport ?? null });
   await app.ready();
   return {
     app,

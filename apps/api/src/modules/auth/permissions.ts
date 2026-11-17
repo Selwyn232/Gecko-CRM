@@ -32,6 +32,7 @@ export const PERMISSIONS = {
   "partner.portal": "Partnerportaal (alleen eigen afspraken, beschikbaarheid en rapporten)",
   "sales.portal": "Verkooppartnerportaal (alleen eigen klanten, offertes en fee; geen inkoopprijzen)",
   "invoices.manage": "Facturen maken, crediteren, betalingen registreren en aanmaningen beheren",
+  "mfa.sms": "Mag tweestapsverificatie via sms gebruiken (in plaats van een authenticator-app)",
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

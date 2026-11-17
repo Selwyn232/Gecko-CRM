@@ -4,7 +4,7 @@ import type { ActorContext } from "../../lib/context.js";
 import { badRequest, notFound } from "../../lib/errors.js";
 import { recordAudit } from "../audit/service.js";
 import { assertInitialPasswordPolicy, hashPassword } from "../auth/password.js";
-import { recoveryCodes, sessions, userRoles, users, type User } from "../auth/schema.js";
+import { recoveryCodes, sessions, smsCodes, userRoles, users, type User } from "../auth/schema.js";
 import { advisors, organizations } from "../organizations/schema.js";
 import { assertActiveAdminRemains, assertRolesExist } from "../roles/service.js";
 
@@ -19,7 +19,8 @@ export function toPublicUser(u: User, roleIds: string[] = []) {
     mfaRequired: u.mfaRequired,
     mustChangePassword: u.mustChangePassword,
     isActive: u.isActive,
-    mfaEnabled: u.totpEnabledAt !== null,
+    mfaEnabled: u.totpEnabledAt !== null || u.smsEnabledAt !== null,
+    mfaMethod: u.totpEnabledAt ? "totp" : u.smsEnabledAt ? "sms" : null,
     lockedUntil: u.lockedUntil,
     lastLoginAt: u.lastLoginAt,
     advisorId: u.advisorId,
@@ -206,11 +207,12 @@ export async function adminResetMfa(db: Db, actor: ActorContext, id: string) {
   await db.transaction(async (tx) => {
     const res = await tx
       .update(users)
-      .set({ totpSecretEncrypted: null, totpEnabledAt: null, totpLastStep: null })
+      .set({ totpSecretEncrypted: null, totpEnabledAt: null, totpLastStep: null, smsPhone: null, smsEnabledAt: null })
       .where(eq(users.id, id))
       .returning({ id: users.id });
     if (!res.length) throw notFound("Gebruiker");
     await tx.delete(recoveryCodes).where(eq(recoveryCodes.userId, id));
+    await tx.delete(smsCodes).where(eq(smsCodes.userId, id));
     await revokeAllSessions(tx, id);
     await recordAudit(tx, actor, { action: "user.mfa_reset", entityType: "user", entityId: id });
   });
