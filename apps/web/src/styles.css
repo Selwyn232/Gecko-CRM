@@ -320,3 +320,4 @@ td.mono, .mono { white-space: nowrap; }
 .inbox-item.active { background: var(--accent-soft); }
 .inbox-item:hover { background: var(--surface-2); }
 @media (max-width: 900px) { .inbox { grid-template-columns: 1fr; } }
+.update-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 32px); padding: 10px 14px; border-radius: 8px; background: var(--text); color: var(--bg); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2); font-size: 14px; }
