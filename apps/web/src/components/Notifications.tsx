@@ -12,7 +12,7 @@ export function NotificationBell({ placement = "up" }: { placement?: "up" | "dow
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const data = useQuery({ queryKey: ["notifications"], queryFn: () => api.get<{ unread: number; items: Notification[] }>("/notifications"), refetchInterval: 60_000 });
-  const read = useMutation({ mutationFn: (id: string) => api.post(`/notifications/${id}/read`), onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }) });
+  const read = useMutation({ meta: { toast: false }, mutationFn: (id: string) => api.post(`/notifications/${id}/read`), onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }) });
   const unread = data.data?.unread ?? 0;
   return (
     <div className="bell">

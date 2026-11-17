@@ -1,3 +1,4 @@
+import { WithAvatar } from "../components/Avatar";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -99,7 +100,7 @@ export function ProjectDetailPage() {
                   <option value="">Nog niet bekend</option>
                   {partnersFor(orgs.data, p.productGroupId).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                 </select>
-              ) : nameById(orgs.data, p.installationPartnerId)}
+              ) : p.installationPartnerId ? <WithAvatar name={nameById(orgs.data, p.installationPartnerId)} size={22} /> : "Nog niet bekend"}
             </dd>
             <dt>Betaalwijze</dt>
             <dd>
@@ -179,6 +180,7 @@ function StatusModal({ project, target, onClose }: { project: ProjectDetail; tar
   const qc = useQueryClient();
   const [note, setNote] = useState("");
   const save = useMutation({
+    meta: { toast: "Status gewijzigd" },
     mutationFn: () => api.post(`/projects/${project.id}/status`, { toStatusId: target.id, expectedStatusId: project.statusId, note: note || null }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["project", project.id] });

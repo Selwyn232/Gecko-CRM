@@ -23,7 +23,7 @@ export function InvoiceDetailPage() {
   const [paying, setPaying] = useState(false);
   const [crediting, setCrediting] = useState(false);
   const refresh = () => qc.invalidateQueries({ queryKey: ["invoice", id] });
-  const send = useMutation({ mutationFn: () => api.post<{ emailStatus: string; url: string | null; email: string }>(`/invoices/${id}/send`), onSuccess: refresh });
+  const send = useMutation({ meta: { toast: "Factuur verstuurd" }, mutationFn: () => api.post<{ emailStatus: string; url: string | null; email: string }>(`/invoices/${id}/send`), onSuccess: refresh });
   const pause = useMutation({ mutationFn: (reason: string | null) => api.post(`/invoices/${id}/dunning-pause`, { reason }), onSuccess: refresh });
 
   if (inv.isLoading) return <Loading />;

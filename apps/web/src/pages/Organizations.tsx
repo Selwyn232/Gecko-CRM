@@ -1,3 +1,4 @@
+import { WithAvatar } from "../components/Avatar";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, type Invite, type Organization } from "../api";
@@ -34,7 +35,7 @@ export function OrganizationsPage() {
             <tbody>
               {list.map((o) => (
                 <tr key={o.id} className={can("organizations.manage") ? "clickable" : ""} onClick={() => can("organizations.manage") && setEditing(o)}>
-                  <td><strong>{o.name}</strong></td>
+                  <td><WithAvatar name={o.name} strong /></td>
                   <td>{ORG_TYPES[o.type]}</td>
                   <td>
                     {o.type !== "installation_partner" ? <span className="muted">—</span> : o.productGroupIds?.length ? (
@@ -268,7 +269,7 @@ function PartnerAccounts({ org }: { org: Organization }) {
       await qc.invalidateQueries({ queryKey: ["organizations"] });
     },
   });
-  const resend = useMutation({ mutationFn: (id: string) => api.post<Invite>(`/users/${id}/invite`, {}), onSuccess: setInvite });
+  const resend = useMutation({ meta: { toast: "Uitnodiging verstuurd" }, mutationFn: (id: string) => api.post<Invite>(`/users/${id}/invite`, {}), onSuccess: setInvite });
   if (!can("users.manage")) return null;
   return (
     <div style={{ marginTop: 16 }}>

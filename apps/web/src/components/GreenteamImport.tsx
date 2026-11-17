@@ -133,6 +133,7 @@ function ImportItem({ file }: { file: File }) {
   };
 
   const preview = useMutation({
+    meta: { toast: false },
     mutationFn: async () => {
       const b64 = await toBase64(file);
       setData(b64);
@@ -157,6 +158,7 @@ function ImportItem({ file }: { file: File }) {
     },
   });
   const changeGroup = useMutation({
+    meta: { toast: false },
     mutationFn: (id: string) => api.post<LineSuggestions>("/imports/greenteam/lines", { productGroupId: id, lines: preview.data!.parsed.lines }),
     onSuccess: applySuggestions,
   });

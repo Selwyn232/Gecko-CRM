@@ -236,7 +236,7 @@ function SalesQuoteDetail() {
   };
   const add = useMutation({ mutationFn: () => api.post<SalesQuote>(`/sales/quotes/${id}/lines`, { productId, quantity: Number(qty.replace(",", ".")) || 1 }), onSuccess: (d) => { refresh(d); setProductId(""); setQty("1"); } });
   const remove = useMutation({ mutationFn: (lineId: string) => api.del<SalesQuote>(`/sales/quotes/${id}/lines/${lineId}`), onSuccess: refresh });
-  const send = useMutation({ mutationFn: () => api.post<SalesQuote & { sentTo: string; emailStatus: string }>(`/sales/quotes/${id}/send`), onSuccess: refresh });
+  const send = useMutation({ meta: { toast: "Offerte verstuurd" }, mutationFn: () => api.post<SalesQuote & { sentTo: string; emailStatus: string }>(`/sales/quotes/${id}/send`), onSuccess: refresh });
   if (q.isLoading) return <Loading />;
   if (!q.data) return <ErrorBox error={q.error} />;
   const d = q.data;

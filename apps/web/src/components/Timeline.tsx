@@ -21,6 +21,7 @@ export function CustomerTimeline({ customerId, projects }: { customerId: string;
   const [body, setBody] = useState("");
   const [projectId, setProjectId] = useState("");
   const add = useMutation({
+    meta: { toast: "Notitie toegevoegd" },
     mutationFn: () => api.post(`/customers/${customerId}/notes`, { kind, body, projectId: projectId || null }),
     onSuccess: async () => {
       setBody("");

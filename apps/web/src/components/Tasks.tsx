@@ -16,6 +16,7 @@ export function CustomerTasks({ customerId, projects }: { customerId: string; pr
   const [form, setForm] = useState({ title: "", assigneeUserId: "", dueDate: "", projectId: "" });
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ["tasks", customerId] }), qc.invalidateQueries({ queryKey: ["work"] })]);
   const add = useMutation({
+    meta: { toast: "Taak toegevoegd" },
     mutationFn: () => api.post("/tasks", { title: form.title, customerId, projectId: form.projectId || null, assigneeUserId: form.assigneeUserId || me?.id, dueDate: form.dueDate || null }),
     onSuccess: async () => {
       setForm({ ...form, title: "", dueDate: "" });

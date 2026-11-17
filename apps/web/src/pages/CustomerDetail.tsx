@@ -195,6 +195,7 @@ function PrivacyMenu({ customerId }: { customerId: string }) {
 function PortalInvite({ customerId }: { customerId: string }) {
   const qc = useQueryClient();
   const invite = useMutation({
+    meta: { toast: "Uitnodiging voor Mijn Gecko verstuurd" },
     mutationFn: () => api.post<{ sentTo: string }>(`/customers/${customerId}/portal-invite`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["customer-emails", customerId] }),
   });

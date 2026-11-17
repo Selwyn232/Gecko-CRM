@@ -39,7 +39,18 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-export const Loading = () => <div className="empty">Laden…</div>;
+/** Laadskelet: grijze vormen op de plek van de inhoud, zodat de pagina niet leeg oogt tijdens het laden. */
+export const Loading = ({ rows = 4 }: { rows?: number }) => (
+  <div className="skeleton" role="status" aria-label="Laden">
+    {Array.from({ length: rows }, (_, i) => (
+      <div key={i} className="skeleton-row">
+        <span className="sk sk-dot" />
+        <span className="sk" style={{ width: `${[72, 58, 66, 50, 62][i % 5]}%` }} />
+        <span className="sk sk-end" />
+      </div>
+    ))}
+  </div>
+);
 
 export function ActiveBadge({ active }: { active: boolean }) {
   return active ? <span className="badge green">Actief</span> : <span className="badge">Inactief</span>;

@@ -65,7 +65,7 @@ a { color: var(--accent-text); }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; padding: 0 8px 20px; }
 .brand-mark { width: 30px; height: 30px; flex: none; background: url("/gecko-logo-64.png") center / contain no-repeat; color: transparent; font-size: 0; overflow: hidden; }
 .nav-section { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 14px 10px 4px; }
-.nav a { display: block; padding: 7px 10px; border-radius: 6px; color: var(--text); text-decoration: none; }
+.nav a { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--text); text-decoration: none; }
 .nav a:hover { background: var(--surface-2); }
 .nav a.active { background: var(--accent-soft); color: var(--accent-text); font-weight: 600; }
 .sidebar-footer { margin-top: auto; padding: 12px 10px 0; border-top: 1px solid var(--border); font-size: 13px; color: var(--muted); }
@@ -428,3 +428,25 @@ td.mono, .mono { white-space: nowrap; }
   .shell.compact .sidebar-footer .bell { display: block; }
   .shell.compact .main { padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ---------------------------------------------------------------- Iconen, avatars, meldingen, laadskelet */
+.nav-icon { flex: none; opacity: 0.75; }
+.nav a.active .nav-icon { opacity: 1; }
+.avatar { display: inline-grid; place-items: center; border-radius: 50%; color: #fff; font-weight: 700; letter-spacing: 0.02em; flex: none; line-height: 1; }
+.with-avatar { display: inline-flex; align-items: center; gap: 8px; min-width: 0; vertical-align: middle; }
+.avatar-indent { padding-left: 34px; }
+.me-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; min-width: 0; }
+.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toasts { position: fixed; right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 8px; z-index: 90; pointer-events: none; }
+.toast { display: flex; align-items: center; gap: 10px; padding: 10px 16px 10px 12px; border-radius: 10px; background: var(--text); color: var(--surface); font-size: 14px; font-weight: 500; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); animation: toast-in 0.22s ease-out; max-width: min(420px, calc(100vw - 40px)); }
+.toast-check { width: 20px; height: 20px; border-radius: 50%; background: var(--success); color: #fff; display: grid; place-items: center; flex: none; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.skeleton { display: grid; gap: 14px; padding: 18px 4px; }
+.skeleton-row { display: grid; grid-template-columns: 26px 1fr 80px; gap: 12px; align-items: center; }
+.sk { display: block; height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 50%, var(--surface-2) 75%); background-size: 200% 100%; animation: sk-shimmer 1.4s linear infinite; }
+.sk-dot { width: 26px; height: 26px; border-radius: 50%; }
+@keyframes sk-shimmer { to { background-position: -200% 0; } }
+@media (max-width: 800px) {
+  .toasts { left: calc(16px + env(safe-area-inset-left, 0px)); right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); justify-items: center; }
+}
+@media (prefers-reduced-motion: reduce) { .sk, .toast { animation: none; } }

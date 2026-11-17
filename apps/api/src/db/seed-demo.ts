@@ -20,9 +20,13 @@ export async function seedDemo(db: Db) {
   const group = async (key: string) => (await db.select().from(productGroups).where(eq(productGroups.key, key)))[0]!;
   const channel = async (key: string) => (await db.select().from(salesChannels).where(eq(salesChannels.key, key)))[0]!;
   const [osw] = await db.select().from(organizations).where(eq(organizations.name, "OSW"));
-  const installer = await createOrganization(db, actor, { name: "Installateur Noord BV (voorbeeld)", type: "installation_partner" });
-
   const bat = await group("thuisbatterij");
+  const installer = await createOrganization(db, actor, {
+    name: "Installateur Noord BV (voorbeeld)",
+    type: "installation_partner",
+    productGroupIds: [bat.id],
+    account: { name: "Planner Installateur Noord (voorbeeld)", email: "planning@installateur-noord.example" },
+  });
   const mk = (code: string, name: string, type: "package" | "component" | "labor", extra: Partial<Parameters<typeof createProduct>[2]> = {}) =>
     createProduct(db, actor, { code, name: `${name} (voorbeeld)`, productGroupId: bat.id, type, vatCode: "hoog", ...extra });
 

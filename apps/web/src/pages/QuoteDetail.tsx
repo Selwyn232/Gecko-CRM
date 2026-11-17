@@ -251,6 +251,7 @@ function AcceptModal({ quote, onClose, onSaved }: { quote: Quote; onClose: () =>
   const [name, setName] = useState(customerName(quote.customer));
   const [method, setMethod] = useState("signed_paper");
   const save = useMutation({
+    meta: { toast: "Offerte geaccepteerd" },
     mutationFn: () => api.post<Quote>(`/quotes/${quote.id}/accept`, { acceptedByName: name, method }),
     onSuccess: (q) => {
       onSaved(q);
@@ -307,6 +308,7 @@ function SendLinkModal({ quote, onClose }: { quote: Quote; onClose: () => void }
   const qc = useQueryClient();
   const [email, setEmail] = useState(quote.customer.email ?? "");
   const send = useMutation({
+    meta: { toast: "Offerte verstuurd" },
     mutationFn: () => api.post<SendLinkResult>(`/quotes/${quote.id}/send-link`, { email: email || null }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["quote-emails", quote.id] }),
   });

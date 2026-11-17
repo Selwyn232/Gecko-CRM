@@ -89,6 +89,7 @@ export function PlanModal({ projectId, type, title, onClose }: { projectId: stri
   const [chosen, setChosen] = useState<Slot | null>(null);
   const [notes, setNotes] = useState("");
   const save = useMutation({
+    meta: { toast: "Afspraak ingepland" },
     mutationFn: () => api.post(`/projects/${projectId}/appointments`, { type, date: chosen!.date, partnerId: chosen!.partnerId, part: chosen!.part, notes: notes || null }),
     onSuccess: async () => {
       await qc.invalidateQueries();

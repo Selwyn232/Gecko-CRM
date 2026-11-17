@@ -1,3 +1,4 @@
+import { WithAvatar } from "../components/Avatar";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, type User } from "../api";
@@ -41,8 +42,8 @@ export function UsersPage() {
               {users.data?.map((u) => (
                 <tr key={u.id} className={can("users.manage") ? "clickable" : ""} onClick={() => can("users.manage") && setEditing(u)}>
                   <td>
-                    <strong>{u.name}</strong>
-                    <div className="muted">{u.email ?? <><span className="badge red">Geen e-mailadres</span> {u.username && <span title="Oude gebruikersnaam; vervalt zodra er een e-mailadres is">({u.username})</span>}</>}</div>
+                    <WithAvatar name={u.name} strong />
+                    <div className="muted avatar-indent">{u.email ?? <><span className="badge red">Geen e-mailadres</span> {u.username && <span title="Oude gebruikersnaam; vervalt zodra er een e-mailadres is">({u.username})</span>}</>}</div>
                   </td>
                   <td>{nameById(orgs.data, u.organizationId)}</td>
                   <td>{u.roleIds.map((id) => <span key={id} className="badge" style={{ marginRight: 4 }}>{nameById(roles.data, id)}</span>)}</td>

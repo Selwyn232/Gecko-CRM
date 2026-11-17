@@ -1,3 +1,4 @@
+import { WithAvatar } from "../components/Avatar";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -66,7 +67,7 @@ export function ProjectsPage() {
                   <td>{formatAddress(p.property)}</td>
                   <td>{nameById(groups.data, p.productGroupId)}</td>
                   <td><StatusPill status={p.status} /></td>
-                  <td>{p.installationPartnerId ? nameById(orgs.data, p.installationPartnerId) : <span className="muted">—</span>}</td>
+                  <td>{p.installationPartnerId ? <WithAvatar name={nameById(orgs.data, p.installationPartnerId)} size={22} /> : <span className="muted">—</span>}</td>
                   <td className="num">{daysSince(p.statusChangedAt)}</td>
                 </tr>
               ))}

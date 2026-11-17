@@ -1,4 +1,7 @@
 import { PasskeyPrompt, PasskeysButton, shouldPromptPasskey } from "./components/Passkeys";
+import { Avatar } from "./components/Avatar";
+import { NavIcon } from "./components/icons";
+import { Toaster } from "./components/Toast";
 import { AccountActivatePage } from "./pages/AccountActivate";
 import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -83,6 +86,7 @@ export function App() {
         <TestModeBar />
         <ImpersonationBar />
         <SalesApp />
+        <Toaster />
       </>
     );
   }
@@ -99,6 +103,7 @@ export function App() {
         <TestModeBar />
         <ImpersonationBar />
         <PartnerApp />
+        <Toaster />
       </>
     );
   }
@@ -138,35 +143,40 @@ export function App() {
         <GlobalSearch />
         <nav className="nav">
           <div className="nav-section">Klanten</div>
-          <NavLink to="/werk">Mijn werk</NavLink>
-          {can("customers.read") && <NavLink to="/inbox">Inbox</NavLink>}
-          <NavLink to="/hulp">Handleiding</NavLink>
-          {can("customers.read") && <NavLink to="/klanten">Klanten</NavLink>}
-          {can("quotes.read") && <NavLink to="/offertes">Offertes</NavLink>}
-          {can("projects.read") && <NavLink to="/projecten">Projecten</NavLink>}
-          {can("planning.read") && <NavLink to="/planning">Planning</NavLink>}
-          {can("invoices.read") && <NavLink to="/facturen">Facturen</NavLink>}
-          {can("invoices.read") && <NavLink to="/selfbilling">Selfbilling</NavLink>}
-          {can("projects.read") && <NavLink to="/rapportages">Rapportages</NavLink>}
+          <NavLink to="/werk"><NavIcon name="werk" />Mijn werk</NavLink>
+          {can("customers.read") && <NavLink to="/inbox"><NavIcon name="inbox" />Inbox</NavLink>}
+          <NavLink to="/hulp"><NavIcon name="hulp" />Handleiding</NavLink>
+          {can("customers.read") && <NavLink to="/klanten"><NavIcon name="klanten" />Klanten</NavLink>}
+          {can("quotes.read") && <NavLink to="/offertes"><NavIcon name="offertes" />Offertes</NavLink>}
+          {can("projects.read") && <NavLink to="/projecten"><NavIcon name="projecten" />Projecten</NavLink>}
+          {can("planning.read") && <NavLink to="/planning"><NavIcon name="planning" />Planning</NavLink>}
+          {can("invoices.read") && <NavLink to="/facturen"><NavIcon name="facturen" />Facturen</NavLink>}
+          {can("invoices.read") && <NavLink to="/selfbilling"><NavIcon name="selfbilling" />Selfbilling</NavLink>}
+          {can("projects.read") && <NavLink to="/rapportages"><NavIcon name="rapportages" />Rapportages</NavLink>}
           <div className="nav-section">Catalogus</div>
-          {can("catalog.read") && <NavLink to="/producten">Producten</NavLink>}
-          {can("catalog.read") && <NavLink to="/verkoopkanalen">Verkoopkanalen</NavLink>}
+          {can("catalog.read") && <NavLink to="/producten"><NavIcon name="producten" />Producten</NavLink>}
+          {can("catalog.read") && <NavLink to="/verkoopkanalen"><NavIcon name="kanalen" />Verkoopkanalen</NavLink>}
           <div className="nav-section">Beheer</div>
-          {can("organizations.read") && <NavLink to="/organisaties">Organisaties</NavLink>}
-          {can("projects.read") && <NavLink to="/klantreizen">Klantreizen</NavLink>}
-          {can("projects.read") && <NavLink to="/klantberichten">Klantberichten</NavLink>}
-          {can("planning.read") && <NavLink to="/checklists">Checklists</NavLink>}
-          {can("planning.read") && <NavLink to="/regios">Regio's</NavLink>}
-          {can("planning.read") && <NavLink to="/beschikbaarheid">Beschikbaarheid</NavLink>}
-          {can("users.read") && <NavLink to="/gebruikers">Gebruikers</NavLink>}
-          {can("users.read") && <NavLink to="/rollen">Rollen &amp; rechten</NavLink>}
-          {can("audit.read") && <NavLink to="/logboek">Logboek</NavLink>}
-          {can("settings.manage") && <NavLink to="/instellingen">Instellingen</NavLink>}
-          {can("settings.manage") && <NavLink to="/testen">Testen</NavLink>}
+          {can("organizations.read") && <NavLink to="/organisaties"><NavIcon name="organisaties" />Organisaties</NavLink>}
+          {can("projects.read") && <NavLink to="/klantreizen"><NavIcon name="reizen" />Klantreizen</NavLink>}
+          {can("projects.read") && <NavLink to="/klantberichten"><NavIcon name="berichten" />Klantberichten</NavLink>}
+          {can("planning.read") && <NavLink to="/checklists"><NavIcon name="checklists" />Checklists</NavLink>}
+          {can("planning.read") && <NavLink to="/regios"><NavIcon name="regios" />Regio's</NavLink>}
+          {can("planning.read") && <NavLink to="/beschikbaarheid"><NavIcon name="beschikbaarheid" />Beschikbaarheid</NavLink>}
+          {can("users.read") && <NavLink to="/gebruikers"><NavIcon name="gebruikers" />Gebruikers</NavLink>}
+          {can("users.read") && <NavLink to="/rollen"><NavIcon name="rollen" />Rollen &amp; rechten</NavLink>}
+          {can("audit.read") && <NavLink to="/logboek"><NavIcon name="logboek" />Logboek</NavLink>}
+          {can("settings.manage") && <NavLink to="/instellingen"><NavIcon name="instellingen" />Instellingen</NavLink>}
+          {can("settings.manage") && <NavLink to="/testen"><NavIcon name="testen" />Testen</NavLink>}
         </nav>
         <div className="sidebar-footer">
-          <div style={{ color: "var(--text)", fontWeight: 500 }}>{me.name}</div>
-          <div>{me.email ?? me.username}</div>
+          <div className="me-row">
+            <Avatar name={me.name} size={32} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: "var(--text)", fontWeight: 500 }}>{me.name}</div>
+              <div className="ellipsis">{me.email ?? me.username}</div>
+            </div>
+          </div>
           <NotificationBell />
           <div className="row" style={{ marginTop: 8 }}>
             <button className="btn small" onClick={() => setChangingPassword(true)}>Wachtwoord</button>
@@ -219,6 +229,7 @@ export function App() {
         </Routes>
       </main>
       {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
+      <Toaster />
     </div>
     </>
   );
