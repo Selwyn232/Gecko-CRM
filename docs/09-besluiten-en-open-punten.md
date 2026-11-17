@@ -6,7 +6,7 @@
 |---|---|---|
 | B1 | Zelf bouwen; later developer voor onderhoud. Externe systemen koppelen, één werkomgeving | 2026-11-16 |
 | B2 | Gecko BV is eigenaar van de klant en factureert de consument | 2026-11-16 |
-| B3 | Greenteam maakt offertes in Gecko CRM (UI/API); factureert zelf niets via Gecko | 2026-11-16 |
+| B3 | Greenteam maakt offertes in Gecko CRM (UI/API); factureert zelf niets via Gecko. **Uitgesteld (B66):** voorlopig eigen systeem + inlezen | 2026-11-16 |
 | B4 | Meerdere verkoopkanalen (Greenteam, web, binnendienst) met eigen productgroepen en prijzen | 2026-11-16 |
 | B5 | Klant → woning → project; één productgroep per project, eigen statusflow | 2026-11-16 |
 | B6 | Voor- en nacalculatie; prijzen met versies en snapshots | 2026-11-16 |
@@ -68,6 +68,7 @@
 | B63 | Tweede backup: dagelijkse dump via Render Cron Job (`ops/backup`), versleuteld met age (privésleutel alleen bij Gecko, offline), naar S3-compatibele opslag in de EU (voorstel Scaleway, Amsterdam) met een sleutel die alleen mag schrijven; bewaren via lifecycle (30 dagen / 12 maanden / 7 jaar). Hersteltest elk kwartaal (docs/12) | 2026-11-17 |
 | B64 | Productcode bij een nieuw product: automatisch voorstel TYPE-GROEP[-LEVERANCIER]-NAAM (bv. CMP-BAT-OSW-KSTAR-10KW), met uitleg per deel; aanpasbaar, bij een bestaande code volgt -2, -3. Afkortingen: PKG pakket, CMP component, ARB arbeid, MW meerwerk, DNS dienst; BAT thuisbatterij, ZP zonnepanelen, WP warmtepomp, ISO isolatie (overige groepen: eerste 3 letters). Bestaande codes blijven ongewijzigd | 2026-11-17 |
 | B65 | Greenteam-offertes (PDF uit het eigen systeem van Greenteam) inlezen via Klanten → "Greenteam-offerte inlezen": gegevens worden lokaal uitgelezen (pdf.js, geen externe dienst), gecontroleerd en met één klik wordt de klant aangemaakt (kanaal Greenteam, adres, adviseur) of gekoppeld aan een bestaande klant (op e-mail, dan postcode + huisnummer). PDF en uitgelezen regels/bedragen staan op de klantkaart onder "Offertes Greenteam" en in de tijdlijn; per offertenummer maar één keer. Geen Gecko-offerte: geen prijzen, project of facturen. Tussenoplossing naast B3 (Greenteam maakt offertes in Gecko CRM), zie O30 | 2026-11-17 |
+| B66 | Greenteam blijft voorlopig offertes maken in het eigen systeem. Binnenkort staan die offertes op naam van Gecko (Gecko als uitvoerder) en laadt Greenteam ze zelf in Gecko CRM. Het inlezen van de PDF (B65) is daarmee de vaste route, niet tijdelijk; B3 (offertes maken in Gecko CRM) is uitgesteld. Het uitlezen is niet gebonden aan de naam van de uitvoerder | 2026-11-17 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten
@@ -97,5 +98,5 @@
 | O27 | IP-adres achter de proxy van Render: aantal hops controleren (logregel "login proxy chain") en TRUST_PROXY_HOPS instellen; tot dan is het IP (pogingenlimiet, bewijs bij akkoorden) te vervalsen | Techniek |
 | O28 | Inbox aanzetten: in Mailgun een Route maken (match_recipient("service@mail.gecko.nl") → forward("https://crm.gecko.nl/api/public/inbound/mailgun")) en de "HTTP webhook signing key" als MAILGUN_WEBHOOK_SIGNING_KEY in Render zetten. Eventueel service@gecko.nl laten doorsturen naar service@mail.gecko.nl | Gecko |
 | O29 | Backup activeren (docs/12): sleutelpaar maken en privésleutel veilig bewaren, opslagaccount + bucket + lifecycle + schrijfsleutel, Render Cron Job aanmaken, eerste run en hersteltest. Ook `ENCRYPTION_KEY` apart in de wachtwoordkluis bewaren | Gecko + Techniek |
-| O30 | Greenteam-offertes: blijft Greenteam offertes in het eigen systeem maken (met Stroomgroep B.V. als uitvoerder), of gaat het via Gecko CRM (B3)? Bepaalt of de import (B65) tijdelijk is of de vaste route, en of er automatisch een project/Gecko-offerte uit moet volgen | Gecko + Greenteam |
+| O30 | ~~Greenteam-offertes: eigen systeem of Gecko CRM?~~ — besloten (B66): voorlopig eigen systeem, offertes worden ingelezen | Gecko + Greenteam |
 | O13 | Verkoopprijs vast bij ondertekening, ook als inkoop stijgt tijdens lange wachttijd? | Gecko |
