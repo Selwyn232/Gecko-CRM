@@ -1,7 +1,7 @@
-import { PasskeysButton } from "./components/Passkeys";
+import { PasskeyPrompt, PasskeysButton, shouldPromptPasskey } from "./components/Passkeys";
 import { AccountActivatePage } from "./pages/AccountActivate";
 import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "./auth";
 import { ChangePasswordModal } from "./components/ChangePassword";
 import { ImpersonationBar } from "./components/ImpersonationBar";
@@ -47,9 +47,16 @@ import { RolesPage } from "./pages/Roles";
 import { UsersPage } from "./pages/Users";
 
 export function App() {
-  const { me, can, logout } = useAuth();
+  const { me, can, logout, refresh } = useAuth();
   const [changingPassword, setChangingPassword] = useState(false);
   const location = useLocation();
+  // Na het inloggen Face ID laten instellen (eenmalig per sessie gevraagd, zie PasskeyPrompt).
+  const [passkeyPrompt, setPasskeyPrompt] = useState<false | "first" | "device">(false);
+  const ready = !!me && me.mfaVerified && !(me.mustChangePassword && !me.impersonatedBy);
+  useEffect(() => {
+    if (ready && me) setPasskeyPrompt(shouldPromptPasskey(me));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, me?.id, me?.hasPasskey]);
   // Klantpagina's zonder login
   if (/^\/(akkoord|factuur|testbetaling|selfbilling-akkoord|account-activeren|wachtwoord-herstellen)\//.test(location.pathname) || /^\/mijn(\/|$)/.test(location.pathname)) {
     return (
@@ -66,6 +73,7 @@ export function App() {
     );
   }
   if (!me || !me.mfaVerified || (me.mustChangePassword && !me.impersonatedBy)) return <LoginPage />;
+  if (passkeyPrompt) return <PasskeyPrompt userId={me.id} kind={passkeyPrompt} onDone={async () => { setPasskeyPrompt(false); await refresh(); }} />;
   if (me.organizationType === "sales_partner") {
     return (
       <>

@@ -2,7 +2,7 @@ import QRCode from "qrcode";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../api";
 import { useAuth } from "../auth";
-import { isCancelled, loginWithPasskey, passkeySupported, registerPasskey, deviceName, verifyWithPasskey } from "../components/Passkeys";
+import { deviceName, isCancelled, loginWithPasskey, markLoginMethod, markPasskeyDevice, passkeySupported, registerPasskey, verifyWithPasskey } from "../components/Passkeys";
 import { ErrorBox, Field } from "../components/ui";
 
 /** Inloggen in stappen: wachtwoord → 2FA instellen (eerste keer) of 2FA-code → (eenmalig) herstelcodes tonen. */
@@ -96,6 +96,7 @@ function PasswordStep({ onDone }: { onDone: () => Promise<void> }) {
     setError(null);
     try {
       await api.post("/auth/login", { email, password });
+      markLoginMethod("password");
       await onDone();
     } catch (err) {
       setError(err);
@@ -191,6 +192,7 @@ function MethodChoice({ smsAllowed, passkeyDomain, onDone }: { smsAllowed: boole
 }
 
 function PasskeySetupStep({ onDone, onBack }: { onDone: (codes: string[]) => void; onBack: () => void }) {
+  const { me } = useAuth();
   const [name, setName] = useState(deviceName());
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -200,6 +202,7 @@ function PasskeySetupStep({ onDone, onBack }: { onDone: (codes: string[]) => voi
     setBusy(true);
     try {
       const r = await registerPasskey(name);
+      if (me) markPasskeyDevice(me.id);
       onDone(r.recoveryCodes ?? []);
     } catch (err) {
       if (!isCancelled(err)) setError(err);
