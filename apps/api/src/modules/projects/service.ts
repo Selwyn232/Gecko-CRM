@@ -11,6 +11,7 @@ import { emitEvent } from "../events/service.js";
 import { journeyStatuses, journeyTransitions } from "../journeys/schema.js";
 import { initialStatus, isTransitionAllowed } from "../journeys/service.js";
 import { organizations } from "../organizations/schema.js";
+import { assertPartnerHandlesGroup } from "../organizations/service.js";
 import { projects, projectStatusHistory, type Project } from "./schema.js";
 
 export const formatProjectNumber = (n: number) => `P-${String(n).padStart(6, "0")}`;
@@ -25,10 +26,11 @@ export interface ProjectInput {
   notes?: string | null;
 }
 
-async function assertPartner(tx: DbOrTx, id: string | null | undefined) {
+async function assertPartner(tx: DbOrTx, id: string | null | undefined, productGroupId?: string) {
   if (!id) return;
   const [org] = await tx.select().from(organizations).where(eq(organizations.id, id));
   if (!org || org.type !== "installation_partner") throw badRequest("invalid_partner", "Organisatie is geen installatiepartner");
+  if (productGroupId) await assertPartnerHandlesGroup(tx, id, productGroupId);
 }
 
 export async function listProjects(
@@ -137,7 +139,7 @@ export async function createProjectInTx(tx: DbOrTx, actor: ActorContext, input: 
       .from(salesChannelProductGroups)
       .where(and(eq(salesChannelProductGroups.salesChannelId, ch.id), eq(salesChannelProductGroups.productGroupId, group.id)));
     if (!allowed) throw badRequest("product_group_not_in_channel", "Dit verkoopkanaal verkoopt deze productgroep niet");
-    await assertPartner(tx, input.installationPartnerId);
+    await assertPartner(tx, input.installationPartnerId, input.productGroupId);
 
     const start = await initialStatus(tx, input.productGroupId);
     const [p] = await tx.insert(projects).values({ ...input, statusId: start.id }).returning();
@@ -157,7 +159,7 @@ export async function updateProject(
   return db.transaction(async (tx) => {
     const [before] = await tx.select().from(projects).where(eq(projects.id, id));
     if (!before) throw notFound("Project");
-    await assertPartner(tx, input.installationPartnerId);
+    await assertPartner(tx, input.installationPartnerId, before.productGroupId);
     const [after] = await tx.update(projects).set(input).where(eq(projects.id, id)).returning();
     await recordAudit(tx, actor, { action: "project.updated", entityType: "project", entityId: id, before, after });
     return getProject(tx, id);

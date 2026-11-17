@@ -9,7 +9,7 @@ import { useAuth } from "../auth";
 import { ProjectCalculation } from "../components/Calculation";
 import { ErrorBox, Field, Loading, Modal, StatusPill } from "../components/ui";
 import { customerName, daysSince, formatAddress, formatCents, formatDateTime, PAYMENT_METHODS } from "../format";
-import { nameById, useChannels, useJourneys, useOrganizations, useProductGroups } from "../hooks";
+import { nameById, useChannels, useJourneys, useOrganizations, useProductGroups, partnersFor } from "../hooks";
 
 export function ProjectDetailPage() {
   const { id } = useParams();
@@ -97,7 +97,7 @@ export function ProjectDetailPage() {
               {manage ? (
                 <select value={p.installationPartnerId ?? ""} onChange={(e) => update.mutate({ installationPartnerId: e.target.value || null })}>
                   <option value="">Nog niet bekend</option>
-                  {orgs.data?.filter((o) => o.type === "installation_partner").map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                  {partnersFor(orgs.data, p.productGroupId).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                 </select>
               ) : nameById(orgs.data, p.installationPartnerId)}
             </dd>

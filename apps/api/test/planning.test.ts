@@ -6,7 +6,7 @@ import { MemoryTransport } from "../src/modules/email/transport.js";
 import { processOutbox } from "../src/modules/jobs/outbox.js";
 import { appointments } from "../src/modules/planning/schema.js";
 import { regionContains } from "../src/modules/planning/service.js";
-import { adminSession, createTestContext, loginWithMfa, makeUser, PASSWORD, roleId, type TestContext } from "./helpers.js";
+import { adminSession, createTestContext, loginWithMfa, makeUser, PASSWORD, roleId, type TestContext, partnerPayload } from "./helpers.js";
 import { createUser } from "../src/modules/users/service.js";
 import { systemActor } from "../src/lib/context.js";
 
@@ -74,8 +74,8 @@ beforeAll(async () => {
   await call("POST", `/products/${pkgId}/sales-prices`, { scopeId: channelId, priceCents: 1_000_000, validFrom: todayIso() });
   await call("POST", `/products/${extraId}/sales-prices`, { scopeId: channelId, priceCents: 35_000, validFrom: todayIso() });
   regionId = (await call("POST", "/regions", { name: "Midden", postalRanges: [[1000, 1999]] })).json().id;
-  partnerA = (await call("POST", "/organizations", { name: "Partner A", type: "installation_partner" })).json().id;
-  partnerB = (await call("POST", "/organizations", { name: "Partner B", type: "installation_partner" })).json().id;
+  partnerA = (await call("POST", "/organizations", await partnerPayload(ctx.db, "Partner A"))).json().id;
+  partnerB = (await call("POST", "/organizations", await partnerPayload(ctx.db, "Partner B"))).json().id;
   partnerAHeaders = await partnerUser(partnerA, "partner-a");
   partnerBHeaders = await partnerUser(partnerB, "partner-b");
   // Vandaag en de komende dagen plannen toestaan (anders kan de test geen rapport indienen).

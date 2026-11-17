@@ -11,7 +11,7 @@ import { CustomerTimeline } from "../components/Timeline";
 import { CustomerTasks } from "../components/Tasks";
 import { ErrorBox, Field, Loading, Modal, StatusPill } from "../components/ui";
 import { customerName, formatAddress, formatDate, formatDateTime, PAYMENT_METHODS } from "../format";
-import { nameById, useAdvisors, useChannels, useOrganizations, useProductGroups } from "../hooks";
+import { nameById, useAdvisors, useChannels, useOrganizations, useProductGroups, partnersFor } from "../hooks";
 import { AddressFields, CustomerForm } from "./Customers";
 
 export function CustomerDetailPage() {
@@ -314,7 +314,7 @@ function ProjectForm({ customer, onClose, onSaved }: { customer: CustomerDetail;
           <Field label="Installatiepartner">
             <select value={form.installationPartnerId} onChange={(e) => setForm({ ...form, installationPartnerId: e.target.value })}>
               <option value="">Nog niet bekend</option>
-              {orgs.data?.filter((o) => o.type === "installation_partner" && o.isActive).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              {partnersFor(orgs.data, form.productGroupId).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           </Field>
           <Field label="Betaalwijze">
@@ -388,7 +388,7 @@ function QuoteForm({ customer, onClose, onSaved }: { customer: CustomerDetail; o
           <Field label="Installatiepartner (voor kostprijs)">
             <select value={form.installationPartnerId} onChange={(e) => setForm({ ...form, installationPartnerId: e.target.value })}>
               <option value="">Nog niet bekend</option>
-              {orgs.data?.filter((o) => o.type === "installation_partner" && o.isActive).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              {partnersFor(orgs.data, form.productGroupId).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
           </Field>
         </div>

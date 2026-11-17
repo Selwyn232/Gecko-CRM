@@ -11,6 +11,7 @@ import { emitEvent } from "../events/service.js";
 import { emitJourneyEvent } from "../journeys/auto.js";
 import { journeyStatuses, journeyTransitions } from "../journeys/schema.js";
 import { organizations } from "../organizations/schema.js";
+import { assertPartnerHandlesGroup } from "../organizations/service.js";
 import { projects } from "../projects/schema.js";
 import { formatProjectNumber } from "../projects/service.js";
 import { appointmentVars, sendTemplateMessage } from "../messages/service.js";
@@ -20,7 +21,7 @@ import { getSetting } from "../settings/service.js";
 import { checkReport, getChecklist } from "../checklists/service.js";
 import { listFiles } from "../files/storage.js";
 import { invoices } from "../invoices/schema.js";
-import { appointments, availabilityBlocks, partnerPenalties, partnerRegions, regions, reports, type ReportData } from "./schema.js";
+import { appointments, availabilityBlocks, partnerPenalties, partnerRegions, regions, reports, type ReportData, partnerProductGroups } from "./schema.js";
 
 type AppointmentType = "survey" | "installation";
 const TYPE_LABEL: Record<AppointmentType, string> = { survey: "schouw", installation: "installatie" };
@@ -214,9 +215,27 @@ export async function findSlots(db: DbOrTx, projectId: string, type: Appointment
   const regs = await regionsForPostal(db, ctx.property.postalCode);
   if (!regs.length) return { regions: [], slots: [] as Slot[], message: `Postcode ${ctx.property.postalCode} valt in geen enkele regio. Voeg hem toe bij Regio's.` };
   let partners = await partnersForRegions(db, regs.map((r) => r.id));
+  // Alleen partners die deze productgroep installeren (geen productgroepen ingesteld = alle).
+  const groupRows = partners.length
+    ? await db.select().from(partnerProductGroups).where(inArray(partnerProductGroups.partnerOrganizationId, [...new Set(partners.map((p) => p.id))]))
+    : [];
+  const handles = (pid: string) => {
+    const own = groupRows.filter((r) => r.partnerOrganizationId === pid);
+    return !own.length || own.some((r) => r.productGroupId === ctx.project.productGroupId);
+  };
+  const inRegion = partners.length;
+  partners = partners.filter((p) => handles(p.id));
   // Installatie bij dezelfde partner als de schouw (die kent de situatie en is verantwoordelijk voor gemist meerwerk).
   if (type === "installation" && ctx.project.installationPartnerId) partners = partners.filter((p) => p.id === ctx.project.installationPartnerId);
-  if (!partners.length) return { regions: regs.map((r) => ({ id: r.id, name: r.name })), slots: [], message: "Geen installatiepartner werkt in deze regio. Stel het werkgebied in bij Beschikbaarheid." };
+  if (!partners.length) {
+    return {
+      regions: regs.map((r) => ({ id: r.id, name: r.name })),
+      slots: [],
+      message: inRegion
+        ? `Geen installatiepartner in deze regio installeert ${ctx.group.name.toLowerCase()}. Stel de productgroepen in bij Organisaties.`
+        : "Geen installatiepartner werkt in deze regio. Stel het werkgebied in bij Beschikbaarheid.",
+    };
+  }
 
   // In testmodus mag vandaag al worden gepland.
   const lead = (await getSetting(db, "test.mode")) ? 0 : await getSetting(db, type === "survey" ? "planning.survey_lead_days" : "planning.installation_lead_days");
@@ -330,6 +349,7 @@ export async function scheduleAppointment(
     const partnerRegs = await getPartnerRegions(tx, input.partnerId);
     const region = regs.find((r) => partnerRegs.includes(r.id));
     if (!region) throw badRequest("region_mismatch", "Deze partner werkt niet in de regio van dit adres");
+    await assertPartnerHandlesGroup(tx, input.partnerId, ctx.project.productGroupId);
 
     // Benodigde blokken bepalen en vergrendelen (voorkomt dubbel boeken bij gelijktijdig plannen).
     const days = input.type === "installation" ? ctx.group.installationDays : 1;

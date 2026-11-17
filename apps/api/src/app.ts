@@ -45,6 +45,7 @@ import { importRoutes } from "./modules/imports/routes.js";
 import { portalRoutes } from "./modules/portal/routes.js";
 import { organizationRoutes } from "./modules/organizations/routes.js";
 import { roleRoutes } from "./modules/roles/routes.js";
+import { inviteRoutes } from "./modules/users/invite-routes.js";
 import { apiKeyRoutes, userRoutes } from "./modules/users/routes.js";
 
 /** PostgreSQL-foutcodes die we naar nette meldingen vertalen. */
@@ -161,7 +162,8 @@ export async function buildApp({
       await api.register(userRoutes, { db });
       await api.register(apiKeyRoutes, { db });
       await api.register(roleRoutes, { db });
-      await api.register(organizationRoutes, { db });
+      await api.register(organizationRoutes, { db, config, emailTransport });
+      await api.register(inviteRoutes, { db });
       await api.register(auditRoutes, { db });
       await api.register(catalogRoutes, { db });
       await api.register(customerRoutes, { db });

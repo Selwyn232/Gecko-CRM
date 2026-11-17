@@ -1,6 +1,7 @@
 import { boolean, date, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { id, timestamps } from "../../db/columns.js";
 import { users } from "../auth/schema.js";
+import { productGroups } from "../catalog/schema.js";
 import { files } from "../files/schema.js";
 import { organizations } from "../organizations/schema.js";
 import { projects } from "../projects/schema.js";
@@ -17,6 +18,23 @@ export const regions = pgTable("regions", {
 });
 
 /** Werkgebied: in welke regio's een installatiepartner werkt. */
+/**
+ * Welke productgroepen een installatiepartner installeert (bv. alleen warmtepompen).
+ * Geen regels = nog niet ingesteld: dan geldt de partner voor alle productgroepen.
+ */
+export const partnerProductGroups = pgTable(
+  "partner_product_groups",
+  {
+    partnerOrganizationId: uuid("partner_organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    productGroupId: uuid("product_group_id")
+      .notNull()
+      .references(() => productGroups.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.partnerOrganizationId, t.productGroupId] })],
+);
+
 export const partnerRegions = pgTable(
   "partner_regions",
   {

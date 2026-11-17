@@ -7,6 +7,7 @@ import { seed } from "../src/db/seed.js";
 import { systemActor } from "../src/lib/context.js";
 import { currentStep, totpAt } from "../src/lib/totp.js";
 import { roles } from "../src/modules/auth/schema.js";
+import { productGroups } from "../src/modules/catalog/schema.js";
 import { organizations } from "../src/modules/organizations/schema.js";
 import { createUser } from "../src/modules/users/service.js";
 import type { EmailTransport } from "../src/modules/email/transport.js";
@@ -95,4 +96,17 @@ export async function loginWithMfa(app: FastifyInstance, email: string, password
 export async function adminSession(ctx: TestContext) {
   const user = await makeUser(ctx.db, ["beheerder"]);
   return { user, ...(await loginWithMfa(ctx.app, user.email)) };
+}
+
+let partnerSeq = 0;
+/** Payload voor een nieuwe installatiepartner: verplicht productgroepen (standaard alle) en een account. */
+export async function partnerPayload(db: Db, name: string, extra: Record<string, unknown> = {}) {
+  const groups = await db.select({ id: productGroups.id }).from(productGroups);
+  return {
+    name,
+    type: "installation_partner",
+    productGroupIds: groups.map((g) => g.id),
+    account: { name: `Contact ${name}`, email: `partner${++partnerSeq}-${Date.now()}@example.nl` },
+    ...extra,
+  };
 }

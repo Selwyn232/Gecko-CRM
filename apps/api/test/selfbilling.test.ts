@@ -9,7 +9,7 @@ import { partnerPenalties } from "../src/modules/planning/schema.js";
 import { selfBillingInvoices, selfBillingLines } from "../src/modules/selfbilling/schema.js";
 import { createUser } from "../src/modules/users/service.js";
 import { systemActor } from "../src/lib/context.js";
-import { adminSession, createTestContext, PASSWORD, roleId, type TestContext } from "./helpers.js";
+import { adminSession, createTestContext, PASSWORD, roleId, type TestContext, partnerPayload } from "./helpers.js";
 
 const mail = new MemoryTransport();
 let ctx: TestContext;
@@ -41,7 +41,7 @@ beforeAll(async () => {
   const [ch] = await ctx.db.select().from(salesChannels).where(eq(salesChannels.key, "greenteam"));
   channelId = ch!.id;
   greenteamId = ch!.salesPartnerOrganizationId!;
-  partnerId = (await api("POST", "/organizations", { name: "Installatie Noord", type: "installation_partner", email: "noord@example.nl" })).json().id;
+  partnerId = (await api("POST", "/organizations", await partnerPayload(ctx.db, "Installatie Noord", { email: "noord@example.nl" }))).json().id;
   const advisor = (await api("POST", "/advisors", { organizationId: greenteamId, name: "Piet Adviseur" })).json();
 
   const pkg = (await api("POST", "/products", { code: "BAT", name: "Batterij", productGroupId: groupId, type: "package", vatCode: "hoog" })).json().id;

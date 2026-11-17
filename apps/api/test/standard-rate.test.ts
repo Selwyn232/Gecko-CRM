@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { todayIso } from "../src/lib/dates.js";
 import { productGroups } from "../src/modules/catalog/schema.js";
 import { partnerAmount } from "../src/modules/selfbilling/service.js";
-import { adminSession, createTestContext, geckoOrgId, type TestContext } from "./helpers.js";
+import { adminSession, createTestContext, geckoOrgId, type TestContext, partnerPayload } from "./helpers.js";
 
 let ctx: TestContext;
 let h: Record<string, string>;
@@ -18,8 +18,8 @@ beforeAll(async () => {
   h = (await adminSession(ctx)).headers;
   const groupId = (await ctx.db.select().from(productGroups).where(eq(productGroups.key, "zonnepanelen")))[0]!.id;
   const supplier = (await call("POST", "/organizations", { name: "OSW", type: "supplier" })).json().id;
-  noord = (await call("POST", "/organizations", { name: "Noord", type: "installation_partner" })).json().id;
-  zuid = (await call("POST", "/organizations", { name: "Zuid", type: "installation_partner" })).json().id;
+  noord = (await call("POST", "/organizations", await partnerPayload(ctx.db, "Noord"))).json().id;
+  zuid = (await call("POST", "/organizations", await partnerPayload(ctx.db, "Zuid"))).json().id;
   const panel = (await call("POST", "/products", { code: "PANEEL", name: "Paneel", productGroupId: groupId, type: "component", vatCode: "hoog", defaultSupplierOrganizationId: supplier })).json().id;
   labor = (await call("POST", "/products", { code: "INSTALLATIE", name: "Installatie", productGroupId: groupId, type: "labor", vatCode: "hoog" })).json().id;
   pkg = (await call("POST", "/products", { code: "PAKKET", name: "Pakket", productGroupId: groupId, type: "package", vatCode: "hoog" })).json().id;

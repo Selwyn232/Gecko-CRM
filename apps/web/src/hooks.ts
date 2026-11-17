@@ -24,3 +24,9 @@ export const useAdvisors = (organizationId?: string | null) =>
     queryFn: () => api.get<Advisor[]>(`/advisors${organizationId ? `?organizationId=${organizationId}` : ""}`),
     enabled: organizationId !== null,
   });
+
+/** Actieve installatiepartners die deze productgroep installeren (zonder ingestelde productgroepen: alle). */
+export const partnersFor = (orgs: Organization[] | undefined, productGroupId: string | null | undefined) =>
+  (orgs ?? []).filter(
+    (o) => o.type === "installation_partner" && o.isActive && (!productGroupId || !o.productGroupIds?.length || o.productGroupIds.includes(productGroupId)),
+  );

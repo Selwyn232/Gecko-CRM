@@ -4,7 +4,7 @@ import { todayIso } from "../src/lib/dates.js";
 import { productGroups, salesChannels } from "../src/modules/catalog/schema.js";
 import { salesPrices } from "../src/modules/catalog/schema.js";
 import { organizations } from "../src/modules/organizations/schema.js";
-import { adminSession, createTestContext, loginWithMfa, makeUser, type TestContext } from "./helpers.js";
+import { adminSession, createTestContext, loginWithMfa, makeUser, type TestContext, partnerPayload } from "./helpers.js";
 
 let ctx: TestContext;
 let h: Record<string, string>;
@@ -29,7 +29,7 @@ beforeAll(async () => {
     method: "POST",
     url: "/api/organizations",
     headers: h,
-    payload: { name: "Installateur Noord", type: "installation_partner" },
+    payload: await partnerPayload(ctx.db, "Installateur Noord"),
   });
   partnerId = partner.json().id;
 });

@@ -5,7 +5,7 @@ import { api, type Quote } from "../api";
 import { useAuth } from "../auth";
 import { ErrorBox, Field, Loading, Modal } from "../components/ui";
 import { ACCEPTANCE_METHODS, customerName, formatAddress, formatCents, formatDate, formatDateTime, formatPercent, formatQty, PRODUCT_TYPES } from "../format";
-import { nameById, useAdvisors, useChannels, useOrganizations } from "../hooks";
+import { nameById, useAdvisors, useChannels, useOrganizations, partnersFor } from "../hooks";
 import { QuoteStatusPill } from "./Quotes";
 
 interface QuotableProduct {
@@ -160,7 +160,7 @@ function QuoteHeader({ quote: q, editable, onSaved }: { quote: Quote; editable: 
             {editable ? (
               <select value={q.installationPartnerId ?? ""} onChange={(e) => update.mutate({ installationPartnerId: e.target.value || null })}>
                 <option value="">Nog niet bekend</option>
-                {orgs.data?.filter((o) => o.type === "installation_partner" && o.isActive).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                {partnersFor(orgs.data, q.productGroupId).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
             ) : nameById(orgs.data, q.installationPartnerId)}
           </dd>

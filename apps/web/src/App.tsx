@@ -1,3 +1,4 @@
+import { AccountActivatePage } from "./pages/AccountActivate";
 import { NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { useAuth } from "./auth";
@@ -49,12 +50,13 @@ export function App() {
   const [changingPassword, setChangingPassword] = useState(false);
   const location = useLocation();
   // Klantpagina's zonder login
-  if (/^\/(akkoord|factuur|testbetaling|selfbilling-akkoord)\//.test(location.pathname) || /^\/mijn(\/|$)/.test(location.pathname)) {
+  if (/^\/(akkoord|factuur|testbetaling|selfbilling-akkoord|account-activeren)\//.test(location.pathname) || /^\/mijn(\/|$)/.test(location.pathname)) {
     return (
       <Routes>
         <Route path="/mijn" element={<CustomerPortalPage />} />
         <Route path="/mijn/inloggen/:token" element={<PortalRedeemPage />} />
         <Route path="/selfbilling-akkoord/:token" element={<PublicSelfBillingPage />} />
+        <Route path="/account-activeren/:token" element={<AccountActivatePage />} />
         <Route path="/akkoord/:token" element={<PublicQuotePage />} />
         <Route path="/factuur/:token" element={<PublicInvoicePage />} />
         <Route path="/testbetaling/:id" element={<TestPaymentPage />} />

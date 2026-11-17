@@ -4,7 +4,7 @@ import { todayIso } from "../src/lib/dates.js";
 import { productGroups, salesChannels } from "../src/modules/catalog/schema.js";
 import { organizations } from "../src/modules/organizations/schema.js";
 import { calculateTotals } from "../src/modules/quotes/service.js";
-import { adminSession, createTestContext, loginWithMfa, makeUser, type TestContext } from "./helpers.js";
+import { adminSession, createTestContext, loginWithMfa, makeUser, type TestContext, partnerPayload } from "./helpers.js";
 
 let ctx: TestContext;
 let h: Record<string, string>;
@@ -33,7 +33,7 @@ beforeAll(async () => {
   channelId = (await ctx.db.select().from(salesChannels).where(eq(salesChannels.key, "greenteam")))[0]!.id;
   oswId = (await ctx.db.select().from(organizations).where(eq(organizations.name, "OSW")))[0]!.id;
   greenteamId = (await ctx.db.select().from(organizations).where(eq(organizations.name, "Greenteam")))[0]!.id;
-  partnerId = (await api("POST", "/organizations", { name: "Partner", type: "installation_partner" })).json().id;
+  partnerId = (await api("POST", "/organizations", await partnerPayload(ctx.db, "Partner"))).json().id;
   const today = todayIso();
 
   // Pakket: 2× module (inkoop 1.500) + arbeid (partner 800) = kostprijs 3.800; verkoop 6.000

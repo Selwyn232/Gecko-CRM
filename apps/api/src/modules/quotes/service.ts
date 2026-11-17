@@ -12,6 +12,7 @@ import { customers, properties } from "../customers/schema.js";
 import { formatCustomerNumber } from "../customers/service.js";
 import { emitEvent } from "../events/service.js";
 import { advisors, organizations } from "../organizations/schema.js";
+import { assertPartnerHandlesGroup } from "../organizations/service.js";
 import { emitJourneyEvent } from "../journeys/auto.js";
 import { createProjectInTx } from "../projects/service.js";
 import { quoteContentHash } from "./hash.js";
@@ -212,6 +213,7 @@ async function assertQuoteRefs(tx: DbOrTx, input: Partial<QuoteInput>, existing?
   if (merged.installationPartnerId) {
     const [org] = await tx.select().from(organizations).where(eq(organizations.id, merged.installationPartnerId));
     if (!org || org.type !== "installation_partner") throw badRequest("invalid_partner", "Organisatie is geen installatiepartner");
+    await assertPartnerHandlesGroup(tx, merged.installationPartnerId, merged.productGroupId);
   }
 }
 

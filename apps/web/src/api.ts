@@ -65,6 +65,15 @@ export interface Organization {
   selfBillingVatMode?: "normal" | "reverse_charge" | null;
   crewCount?: number;
   isActive: boolean;
+  /** Installatiepartner: productgroepen die hij installeert (leeg = nog niet ingesteld = alle). */
+  productGroupIds?: string[];
+  /** Aantal actieve gebruikers (accounts) van deze organisatie. */
+  userCount?: number;
+}
+export interface Invite {
+  url: string;
+  emailStatus: string;
+  email: string;
 }
 export interface ProductGroup {
   id: string;

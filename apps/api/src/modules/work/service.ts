@@ -5,6 +5,7 @@ import { todayIso } from "../../lib/dates.js";
 import { customers } from "../customers/schema.js";
 import { invoices } from "../invoices/schema.js";
 import { organizations } from "../organizations/schema.js";
+import { listOrganizations } from "../organizations/service.js";
 import { reports } from "../planning/schema.js";
 import { addDays, listAppointments, toPlan } from "../planning/service.js";
 import { formatProjectNumber } from "../projects/service.js";
@@ -231,6 +232,30 @@ export async function myWork(db: DbOrTx, actor: ActorContext) {
       count: ready.length,
       items: ready.slice(0, LIMIT).map((p) => ({ label: p.partner.name, detail: `${p.items.filter((i) => i.amountCents !== null).length} posten`, href: "/selfbilling" })),
       href: "/selfbilling",
+    });
+  }
+
+  if (can("organizations.read")) {
+    const partners = (await listOrganizations(db, { type: "installation_partner", isActive: true })) as Awaited<ReturnType<typeof listOrganizations>>;
+    const noAccount = partners.filter((p) => p.userCount === 0);
+    add({
+      key: "partners-no-account",
+      title: "Installatiepartner zonder account",
+      hint: "Elke installatiepartner heeft een eigen account nodig voor opdrachten, beschikbaarheid en rapporten. Maak het aan bij Organisaties.",
+      severity: "high",
+      count: noAccount.length,
+      items: noAccount.slice(0, LIMIT).map((p) => ({ label: p.name, detail: "Nog geen account", href: "/organisaties" })),
+      href: "/organisaties",
+    });
+    const noGroups = partners.filter((p) => !p.productGroupIds.length);
+    add({
+      key: "partners-no-groups",
+      title: "Installatiepartner zonder productgroepen",
+      hint: "Stel in welke productgroepen de partner installeert; tot die tijd wordt hij voor alles voorgesteld.",
+      severity: "normal",
+      count: noGroups.length,
+      items: noGroups.slice(0, LIMIT).map((p) => ({ label: p.name, detail: "Productgroepen niet ingesteld", href: "/organisaties" })),
+      href: "/organisaties",
     });
   }
 

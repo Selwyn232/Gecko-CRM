@@ -147,3 +147,23 @@ export const apiKeys = pgTable(
   },
   (t) => [index("api_keys_user_idx").on(t.userId)],
 );
+
+/**
+ * Uitnodiging om een account te activeren (zelf wachtwoord instellen), bv. voor een nieuwe installatiepartner.
+ * Alleen de hash van het token wordt bewaard; eenmalig te gebruiken en 7 dagen geldig.
+ */
+export const accountInvites = pgTable(
+  "account_invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdBy: uuid("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("account_invites_user_idx").on(t.userId)],
+);
