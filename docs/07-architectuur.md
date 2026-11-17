@@ -42,7 +42,7 @@ Doel: geen dataverlies van betekenis en snel herstel.
 | Laag | Maatregel |
 |---|---|
 | Database | Point-in-time recovery (herstel tot op de minuut) via Render Postgres |
-| Database | Daarnaast dagelijkse versleutelde dump naar **aparte** opslag bij een andere aanbieder (EU) |
+| Database | Daarnaast dagelijkse versleutelde dump naar **aparte** opslag bij een andere aanbieder (EU): zie [12 — Backup en herstel](12-backup.md) |
 | Bestanden | Object storage met versiebeheer en kopie naar tweede locatie |
 | Retentie | Dagelijks 30 dagen, maandelijks 12 maanden, jaarlijks 7 jaar (fiscale bewaarplicht) |
 | Test | Elk kwartaal een herstel-test naar een losse omgeving, gedocumenteerd |

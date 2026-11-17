@@ -65,6 +65,7 @@
 | B60 | Inbox voor binnenkomende e-mail via Mailgun (route "forward" naar /api/public/inbound/mailgun, met handtekeningcontrole): gekoppeld aan klant (afzender) en project (P-nummer in onderwerp), melding, op Mijn werk en in de tijdlijn; antwoorden vanuit het CRM (vastgelegd), afhandelen. Bijlagen worden (nog) niet opgeslagen | 2026-11-16 |
 | B61 | Standaard partnertarief per arbeidsproduct (Producten → Partnertarieven → "Standaard (alle partners)"): gebruikt voor kostprijs en voorcalculatie zolang de installateur niet bekend is of geen eigen tarief heeft. Uitbetalen (selfbilling) gebeurt altijd tegen het eigen tarief van de installateur; ontbreekt dat, dan blokkeert de uitbetaling | 2026-11-17 |
 | B62 | Fee verkooppartner per productgroep (Verkoopkanalen → kanaal → fee per productgroep); leeg = standaard fee van het kanaal. Vastgelegd per offerte bij versturen; gebruikt in voorcalculatie, nacalculatie, rapportages en selfbilling | 2026-11-17 |
+| B63 | Tweede backup: dagelijkse dump via Render Cron Job (`ops/backup`), versleuteld met age (privésleutel alleen bij Gecko, offline), naar S3-compatibele opslag in de EU (voorstel Scaleway, Amsterdam) met een sleutel die alleen mag schrijven; bewaren via lifecycle (30 dagen / 12 maanden / 7 jaar). Hersteltest elk kwartaal (docs/12) | 2026-11-17 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten
@@ -93,4 +94,5 @@
 | O26 | ~~Selfbilling wekelijks bundelen~~ — gebouwd als instelling (B55), standaard uit | Gecko |
 | O27 | IP-adres achter de proxy van Render: aantal hops controleren (logregel "login proxy chain") en TRUST_PROXY_HOPS instellen; tot dan is het IP (pogingenlimiet, bewijs bij akkoorden) te vervalsen | Techniek |
 | O28 | Inbox aanzetten: in Mailgun een Route maken (match_recipient("service@mail.gecko.nl") → forward("https://crm.gecko.nl/api/public/inbound/mailgun")) en de "HTTP webhook signing key" als MAILGUN_WEBHOOK_SIGNING_KEY in Render zetten. Eventueel service@gecko.nl laten doorsturen naar service@mail.gecko.nl | Gecko |
+| O29 | Backup activeren (docs/12): sleutelpaar maken en privésleutel veilig bewaren, opslagaccount + bucket + lifecycle + schrijfsleutel, Render Cron Job aanmaken, eerste run en hersteltest. Ook `ENCRYPTION_KEY` apart in de wachtwoordkluis bewaren | Gecko + Techniek |
 | O13 | Verkoopprijs vast bij ondertekening, ook als inkoop stijgt tijdens lange wachttijd? | Gecko |
