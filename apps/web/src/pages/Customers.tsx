@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type CustomerDetail, type CustomerSummary, type Paged } from "../api";
 import { useAuth } from "../auth";
+import { GreenteamImportModal } from "../components/GreenteamImport";
 import { ErrorBox, Field, Loading, Modal, PageHead } from "../components/ui";
 import { customerName, formatAddress, formatDate } from "../format";
 import { useChannels } from "../hooks";
@@ -21,6 +22,7 @@ export function CustomersPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   const q = useDebounced(search);
   const list = useQuery({
     queryKey: ["customers", q],
@@ -35,6 +37,7 @@ export function CustomersPage() {
         actions={
           <>
             <a className="btn" href="/api/exports/klanten.csv">Exporteren (CSV)</a>
+            {can("customers.manage") && <button className="btn" onClick={() => setImporting(true)}>Greenteam-offerte inlezen</button>}
             {can("customers.manage") && <button className="btn primary" onClick={() => setCreating(true)}>Nieuwe klant</button>}
           </>
         }
@@ -65,6 +68,7 @@ export function CustomersPage() {
         )}
       </div>
       {creating && <CustomerForm onClose={() => setCreating(false)} onSaved={(c) => navigate(`/klanten/${c.id}`)} />}
+      {importing && <GreenteamImportModal onClose={() => setImporting(false)} />}
     </>
   );
 }

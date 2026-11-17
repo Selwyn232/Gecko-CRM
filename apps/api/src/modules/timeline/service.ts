@@ -1,3 +1,4 @@
+import { externalQuotes } from "../imports/schema.js";
 import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { DbOrTx } from "../../db/client.js";
 import type { ActorContext } from "../../lib/context.js";
@@ -54,6 +55,12 @@ export async function customerTimeline(db: DbOrTx, actor: ActorContext, customer
   for (const m of inbound) out.push({ at: iso(m.receivedAt)!, kind: "email", title: `E-mail van klant: ${m.subject}`, detail: m.text.slice(0, 1000), href: `/inbox?id=${m.id}`, projectNumber: pn(m.projectId) });
   const emails = await db.select().from(outboundEmails).where(eq(outboundEmails.customerId, customerId));
   for (const e of emails) out.push({ at: iso(e.createdAt)!, kind: "email", title: `E-mail: ${e.subject}`, detail: e.status === "failed" ? `Niet afgeleverd: ${e.error ?? ""}` : e.status === "not_sent" ? "Vastgelegd, niet verstuurd" : `Aan ${e.toAddress}` });
+
+  const ext = await db.select().from(externalQuotes).where(eq(externalQuotes.customerId, customerId));
+  for (const q of ext) {
+    const euro = q.totalCents == null ? "" : ` · € ${(q.totalCents / 100).toLocaleString("nl-NL", { minimumFractionDigits: 2 })} incl. btw`;
+    out.push({ at: iso(q.createdAt)!, kind: "quote", title: `Greenteam-offerte ${q.externalNumber} ingelezen`, detail: `${q.lines.length} regels${euro}` });
+  }
 
   if (projectIds.length && can("projects.read")) {
     const hist = await db

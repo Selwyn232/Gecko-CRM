@@ -1,3 +1,4 @@
+import { externalQuotes } from "../imports/schema.js";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import type { Db, DbOrTx } from "../../db/client.js";
 import type { ActorContext } from "../../lib/context.js";
@@ -53,6 +54,7 @@ export async function exportCustomerData(db: DbOrTx, actor: ActorContext, custom
       .select({ id: files.id, filename: files.filename, contentType: files.contentType, createdAt: files.createdAt })
       .from(files)
       .where(and(eq(files.ownerType, "appointment"), inArray(files.ownerId, aids.length ? aids : none))),
+    externalQuotes: await db.select().from(externalQuotes).where(eq(externalQuotes.customerId, customerId)),
     emails: await db
       .select({ to: outboundEmails.toAddress, subject: outboundEmails.subject, text: outboundEmails.text, status: outboundEmails.status, createdAt: outboundEmails.createdAt })
       .from(outboundEmails)
@@ -103,6 +105,12 @@ export async function anonymizeCustomer(db: Db, actor: ActorContext, customerId:
     if (aids.length) {
       await tx.update(files).set({ data: null, filename: "[verwijderd]" }).where(and(eq(files.ownerType, "appointment"), inArray(files.ownerId, aids)));
       await tx.update(reports).set({ customerSignedName: null }).where(inArray(reports.appointmentId, aids));
+    }
+    // Ingelezen offertes van Greenteam: PDF en uitgelezen persoonsgegevens wissen, bedragen en regels blijven.
+    const ext = await tx.select({ fileId: externalQuotes.fileId }).from(externalQuotes).where(eq(externalQuotes.customerId, customerId));
+    if (ext.length) {
+      await tx.update(externalQuotes).set({ raw: {} }).where(eq(externalQuotes.customerId, customerId));
+      await tx.update(files).set({ data: null, filename: "[verwijderd]" }).where(inArray(files.id, ext.map((e) => e.fileId)));
     }
     await tx.update(quotes).set({ acceptedByName: "[verwijderd]", customerNote: null }).where(and(eq(quotes.customerId, customerId), ne(quotes.status, "draft")));
     await tx.update(quoteLinks).set({ email: "[verwijderd]" }).where(inArray(quoteLinks.quoteId, (await tx.select({ id: quotes.id }).from(quotes).where(eq(quotes.customerId, customerId))).map((q) => q.id).concat(none)));

@@ -101,6 +101,10 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .alert.error { background: var(--danger-soft); color: var(--danger); }
 .alert.info { background: var(--accent-soft); }
 .alert.warning { background: var(--warning-soft); }
+.alert.success { background: var(--accent-soft); color: var(--accent); }
+.dropzone { display: block; border: 2px dashed var(--border); border-radius: 8px; padding: 22px; text-align: center; cursor: pointer; }
+.dropzone.active, .dropzone:hover { border-color: var(--accent); background: var(--accent-soft); }
+button.link { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; }
 
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
 .tabs button { background: none; border: 0; padding: 8px 12px; font: inherit; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }

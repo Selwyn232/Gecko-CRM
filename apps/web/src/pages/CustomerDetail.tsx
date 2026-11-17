@@ -1,3 +1,4 @@
+import { CustomerExternalQuotes } from "../components/GreenteamImport";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -105,6 +106,7 @@ export function CustomerDetailPage() {
           {!quotes.data?.length ? <div className="empty">Nog geen offertes.</div> : <QuotesTable items={quotes.data} showCustomer={false} />}
         </div>
       )}
+      <CustomerExternalQuotes customerId={c.id} />
       {can("invoices.read") && invoices.data && invoices.data.length > 0 && (
         <div className="card flush">
           <div style={{ padding: "16px 20px 8px" }}><h2 style={{ margin: 0 }}>Facturen</h2></div>

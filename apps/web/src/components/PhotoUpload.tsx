@@ -44,7 +44,7 @@ export function PhotoUpload({ uploadUrl, onUploaded }: { uploadUrl: string; onUp
   );
 }
 
-const toBase64 = (f: File) =>
+export const toBase64 = (f: File) =>
   new Promise<string>((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => resolve(String(r.result).split(",")[1]!);
