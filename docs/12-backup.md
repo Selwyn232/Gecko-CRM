@@ -25,6 +25,20 @@ Niet in de backup: geheimen uit de omgevingsvariabelen (`ENCRYPTION_KEY` e.d.). 
 `ENCRYPTION_KEY` apart in de wachtwoordkluis**: zonder die sleutel zijn versleutelde velden
 (o.a. MFA-geheimen) in een herstelde database onbruikbaar.
 
+## Huidige stand (ingericht 17-11-2026)
+
+| Onderdeel | Waarde |
+|---|---|
+| Opslag | Scaleway, project "Gecko Backup", bucket `gecko-crm-backups` in `nl-ams`, privé, zonder versioning |
+| Bewaarregels | `daily-30`, `monthly-400`, `yearly-2600` (plus `test-1` voor `gecko-crm/test/`, 1 dag) |
+| Schrijfsleutel | IAM-applicatie `gecko-backup`, policy `gecko-backup-policy` met alleen `ObjectStorageObjectsWrite`. Getest: schrijven lukt, lezen, verwijderen en de lijst opvragen worden geweigerd (403) |
+| Render | Cron Job `gecko-crm-backup` (Frankfurt, starter), schema `15 2 * * *` UTC, Dockerfile `ops/backup/Dockerfile`, context `ops/backup`, zelfde branch als de webservice |
+| Sleutel | Publieke age-sleutel `age16fg4zkdgz9fmu8fj7krqcd9ceappn6ln445mm8ewtd0ahcvmqu0sjglfuy`; privésleutel bij Selwyn (wachtwoordmanager en kluis) |
+| Eerste run | 17-11-2026: 65 tabellen, ±2,4 MB versleuteld, `gecko-crm/daily/2026-11-17T1011.dump.age` |
+
+Om te herstellen is een **leessleutel** nodig: maak die pas op het moment zelf aan (Scaleway IAM,
+`ObjectStorageObjectsRead`) of download het bestand via de webconsole van Scaleway.
+
 ## Eenmalig instellen
 
 1. **Sleutelpaar maken** (op een eigen computer, niet op de server):
