@@ -121,7 +121,7 @@ button.link { background: none; border: 0; padding: 0; color: var(--accent-text)
 .tabs button { background: none; border: 0; padding: 8px 12px; font: inherit; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .tabs button.active { color: var(--accent-text); border-bottom-color: var(--accent); font-weight: 600; }
 
-.modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: grid; place-items: center; padding: 16px; z-index: 10; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: grid; place-items: center; padding: 16px; z-index: 70; }
 .modal { background: var(--surface); border-radius: 10px; padding: 24px; width: 100%; max-width: 520px; max-height: 90vh; overflow: auto; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); }
 .modal.wide { max-width: 1040px; }
 .chip { display: inline-block; padding: 2px 8px; margin: 0 4px 4px 0; border-radius: 99px; border: 1px solid var(--border); background: var(--surface-2); font-size: 12px; font-family: ui-monospace, monospace; cursor: pointer; color: var(--text); }
@@ -134,17 +134,55 @@ button.link { background: none; border: 0; padding: 0; color: var(--accent-text)
 .qr { display: block; margin: 8px auto 12px; border-radius: 8px; background: #fff; padding: 8px; }
 .codes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--surface-2); padding: 12px; border-radius: 6px; margin-bottom: 12px; }
 
+/* Alleen op de telefoon zichtbaar (bovenbalk, onderbalk, menu-achtergrond, sluitknop). */
+.icon-btn { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); cursor: pointer; }
+.bell-panel.down { bottom: auto; top: 100%; margin: 6px 0 0; left: auto; right: 0; }
+/* Na .icon-btn, zodat het verbergen voorgaat op de knopstijl. */
+.mobile-top, .mobile-tabs, .drawer-backdrop, .drawer-close, .only-mobile-inline { display: none; }
+
 @media (max-width: 800px) {
-  .shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-  .sidebar { border-right: 0; border-bottom: 1px solid var(--border); padding: 10px 12px; }
-  /* Compact menu: één rij die doorloopt i.p.v. een lange lijst */
-  .sidebar .nav { display: flex; flex-wrap: wrap; gap: 4px; }
-  .sidebar .nav a { padding: 6px 10px; background: var(--surface-2); }
-  .sidebar .nav-section { display: none; }
-  .sidebar .search { margin: 8px 0; }
-  .sidebar-footer { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; padding: 8px 0 0; margin-top: 8px; }
-  .sidebar-footer .row { margin-top: 0 !important; }
-  .main { padding: 20px 16px; min-width: 0; }
+  .only-desktop-inline { display: none; }
+  .only-mobile-inline { display: inline; }
+  .testmode-bar { padding: 3px 12px; font-size: 11px; }
+  .shell { display: block; min-height: 100%; }
+
+  /* Bovenbalk */
+  .mobile-top {
+    display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 40;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 8px max(12px, env(safe-area-inset-right, 0px)) 8px max(12px, env(safe-area-inset-left, 0px));
+  }
+  .mobile-top .brand { flex: 1; padding: 0; color: var(--text); text-decoration: none; }
+  .mobile-top .bell > .btn { height: 40px; min-width: 40px; }
+
+  /* Menu als uitschuifpaneel */
+  .sidebar {
+    position: fixed; z-index: 60; top: 0; bottom: 0; left: 0; width: min(320px, 86vw);
+    transform: translateX(-102%); transition: transform 0.22s ease; overflow-y: auto; overscroll-behavior: contain;
+    padding: max(16px, env(safe-area-inset-top, 0px)) 12px calc(16px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+    border-right: 1px solid var(--border);
+  }
+  .sidebar.open { transform: none; box-shadow: 0 0 40px rgba(0, 0, 0, 0.25); }
+  .drawer-backdrop.open { display: block; position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.35); }
+  .drawer-close { display: grid; position: absolute; top: max(12px, env(safe-area-inset-top, 0px)); right: 12px; }
+  .sidebar .nav a { padding: 11px 12px; font-size: 15px; }
+  .sidebar .search-results { width: 100%; max-width: none; }
+  .sidebar-footer .bell { display: none; }
+  @media (prefers-reduced-motion: reduce) { .sidebar { transition: none; } }
+
+  /* Onderbalk met de belangrijkste onderdelen */
+  .mobile-tabs {
+    display: flex; position: fixed; z-index: 40; left: 0; right: 0; bottom: 0;
+    background: var(--surface); border-top: 1px solid var(--border);
+    padding: 4px max(4px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(4px, env(safe-area-inset-left, 0px));
+  }
+  .mobile-tabs a, .mobile-tabs button {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0 8px;
+    font: inherit; font-size: 11px; color: var(--muted); text-decoration: none; background: none; border: 0; cursor: pointer; min-width: 0;
+  }
+  .mobile-tabs a.active { color: var(--accent-text); font-weight: 600; }
+
+  .main { padding: 16px max(14px, env(safe-area-inset-right, 0px)) calc(84px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)); min-width: 0; }
   .only-desktop { display: none !important; }
   .grid-2 { grid-template-columns: 1fr; }
   .card.flush { overflow-x: auto; }
@@ -160,9 +198,9 @@ button.link { background: none; border: 0; padding: 0; color: var(--accent-text)
 .kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; font-size: 14px; }
 .kv dt { color: var(--muted); }
 .kv dd { margin: 0; }
-.timeline { list-style: none; margin: 0; padding: 0; }
-.timeline li { padding: 8px 0 8px 18px; border-left: 2px solid var(--border); position: relative; }
-.timeline li::before { content: ""; position: absolute; left: -6px; top: 13px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+.status-history { list-style: none; margin: 0; padding: 0; }
+.status-history li { padding: 8px 0 8px 18px; border-left: 2px solid var(--border); position: relative; }
+.status-history li::before { content: ""; position: absolute; left: -6px; top: 13px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
 .phase-strip { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
 .phase-strip button { border: 1px solid var(--border); background: var(--surface); border-radius: 99px; padding: 4px 12px; font: inherit; font-size: 13px; cursor: pointer; color: var(--text); }
 .phase-strip button.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
@@ -336,3 +374,57 @@ td.mono, .mono { white-space: nowrap; }
 .method-choice .muted { font-size: 12px; font-weight: 400; }
 .or-divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; margin-bottom: 10px; }
 .or-divider::before, .or-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+/* ---------- Telefoon: inhoud ---------- */
+@media (max-width: 800px) {
+  .page-head { flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  .page-head h1 { font-size: 22px; }
+  .page-head .row, .page-head > div:last-child { flex-wrap: wrap; }
+  .tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button { flex: none; white-space: nowrap; }
+  .kv { grid-template-columns: minmax(90px, 38%) minmax(0, 1fr); }
+  .kv dd { min-width: 0; overflow-wrap: anywhere; }
+  select, input, textarea { max-width: 100%; }
+  .card { min-width: 0; padding: 16px; }
+  .card.flush { padding: 0; }
+  /* Vensters schuiven van onderen in, op volle breedte */
+  .modal-backdrop { padding: 0; place-items: end stretch; }
+  .modal { max-width: none; border-radius: 14px 14px 0 0; max-height: 92vh; padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px)); }
+  .modal-actions { position: sticky; bottom: -20px; background: var(--surface); padding: 12px 0 4px; border-top: 1px solid var(--border); }
+  .btn { min-height: 38px; }
+}
+
+/* Tabellen als kaartjes (kopjes via responsiveTables.ts) */
+@media (max-width: 640px) {
+  table.stack { display: block; }
+  table.stack thead { display: none; }
+  table.stack tbody, table.stack tfoot { display: block; }
+  table.stack tr { display: block; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  table.stack td { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 3px 0; border: 0; text-align: right; min-width: 0; }
+  table.stack td > * { min-width: 0; }
+  table.stack td::before { content: attr(data-label); flex: none; max-width: 42%; text-align: left; color: var(--muted); font-size: 12px; font-weight: 500; }
+  table.stack td[data-label=""] { display: block; text-align: left; }
+  table.stack td[data-label=""]::before { content: none; }
+  /* Eerste kolom (meestal nummer of naam) als kop van het kaartje */
+  table.stack td:first-child { font-weight: 600; }
+  table.stack td:empty { display: none; }
+  .card.flush { overflow-x: visible; }
+}
+
+/* Portalen (partner, Greenteam): weinig onderdelen, dus op de telefoon een compacte kopbalk i.p.v. uitschuifmenu. */
+@media (max-width: 800px) {
+  .shell.compact .sidebar {
+    position: sticky; top: 0; z-index: 40; width: auto; transform: none; overflow: visible; box-shadow: none;
+    border-right: 0; border-bottom: 1px solid var(--border);
+    padding: 10px max(12px, env(safe-area-inset-right, 0px)) 10px max(12px, env(safe-area-inset-left, 0px));
+  }
+  .shell.compact .sidebar .nav { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; margin-top: 8px; }
+  .shell.compact .sidebar .nav::-webkit-scrollbar { display: none; }
+  .shell.compact .sidebar .nav a { flex: none; padding: 8px 12px; background: var(--surface-2); white-space: nowrap; font-size: 14px; }
+  .shell.compact .sidebar .nav-section { display: none; }
+  .shell.compact .sidebar-footer { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; padding: 8px 0 0; margin-top: 8px; }
+  .shell.compact .sidebar-footer .row { margin-top: 0 !important; }
+  .shell.compact .sidebar-footer .bell { display: block; }
+  .shell.compact .main { padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+}

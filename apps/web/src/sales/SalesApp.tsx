@@ -61,7 +61,7 @@ export function SalesApp() {
   const { me, logout } = useAuth();
   const [changingPassword, setChangingPassword] = useState(false);
   return (
-    <div className="shell">
+    <div className="shell compact">
       <aside className="sidebar">
         <div className="brand"><span className="brand-mark">G</span> Verkoopportaal</div>
         <nav className="nav">

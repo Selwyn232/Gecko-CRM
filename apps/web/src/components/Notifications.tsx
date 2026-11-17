@@ -7,7 +7,7 @@ import { formatDateTime } from "../format";
 interface Notification { id: string; title: string; body: string | null; href: string | null; readAt: string | null; createdAt: string }
 
 /** Belletje met meldingen (ververst elke minuut). */
-export function NotificationBell() {
+export function NotificationBell({ placement = "up" }: { placement?: "up" | "down" } = {}) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -20,7 +20,7 @@ export function NotificationBell() {
         🔔 {unread > 0 && <span className="badge red">{unread}</span>}
       </button>
       {open && (
-        <div className="bell-panel" role="dialog" aria-label="Meldingen">
+        <div className={`bell-panel ${placement === "down" ? "down" : ""}`} role="dialog" aria-label="Meldingen">
           <div className="row" style={{ justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid var(--border)" }}>
             <strong>Meldingen</strong>
             {unread > 0 && <button className="btn small" onClick={() => read.mutate("all")}>Alles gelezen</button>}

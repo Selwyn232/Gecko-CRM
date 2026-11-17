@@ -50,6 +50,9 @@ export function App() {
   const { me, can, logout, refresh } = useAuth();
   const [changingPassword, setChangingPassword] = useState(false);
   const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Menu (telefoon) sluiten na elke navigatie.
+  useEffect(() => setMenuOpen(false), [location.pathname]);
   // Na het inloggen Face ID laten instellen (eenmalig per sessie gevraagd, zie PasskeyPrompt).
   const [passkeyPrompt, setPasskeyPrompt] = useState<false | "first" | "device">(false);
   const ready = !!me && me.mfaVerified && !(me.mustChangePassword && !me.impersonatedBy);
@@ -114,7 +117,21 @@ export function App() {
     <TestModeBar />
     <ImpersonationBar />
     <div className="shell">
-      <aside className="sidebar">
+      {/* Telefoon: bovenbalk met menuknop; het menu schuift van links in. */}
+      <header className="mobile-top">
+        <button className="icon-btn" aria-label="Menu openen" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
+          <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+        </button>
+        <NavLink to="/werk" className="brand">
+          <span className="brand-mark">G</span> Gecko CRM
+        </NavLink>
+        <NotificationBell placement="down" />
+      </header>
+      <div className={`drawer-backdrop ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(false)} aria-hidden="true" />
+      <aside className={`sidebar ${menuOpen ? "open" : ""}`}>
+        <button className="icon-btn drawer-close" aria-label="Menu sluiten" onClick={() => setMenuOpen(false)}>
+          <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+        </button>
         <div className="brand">
           <span className="brand-mark">G</span> Gecko CRM
         </div>
@@ -158,6 +175,13 @@ export function App() {
           </div>
         </div>
       </aside>
+      <nav className="mobile-tabs" aria-label="Snelmenu">
+        <NavLink to="/werk"><TabIcon d="M3 10l7-6 7 6v7H3z" />Mijn werk</NavLink>
+        {can("customers.read") && <NavLink to="/klanten"><TabIcon d="M7 9a3 3 0 100-6 3 3 0 000 6zm-5 8c0-3 2-5 5-5s5 2 5 5M13 4a3 3 0 010 5.5M18 17c0-2.5-1.3-4.3-3.5-4.9" />Klanten</NavLink>}
+        {can("planning.read") && <NavLink to="/planning"><TabIcon d="M3 5h14v12H3zM3 8h14M7 3v4M13 3v4" />Planning</NavLink>}
+        {can("quotes.read") && <NavLink to="/offertes"><TabIcon d="M5 2h7l4 4v12H5zM12 2v4h4M8 10h5M8 13h5" />Offertes</NavLink>}
+        <button type="button" onClick={() => setMenuOpen(true)}><TabIcon d="M3 5h14M3 10h14M3 15h14" />Menu</button>
+      </nav>
       <main className="main">
         <Routes>
           <Route path="/" element={<Navigate to="/werk" replace />} />
@@ -197,5 +221,14 @@ export function App() {
       {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
     </div>
     </>
+  );
+}
+
+/** Klein lijnicoon voor de onderbalk op de telefoon. */
+function TabIcon({ d }: { d: string }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 20 20" aria-hidden="true">
+      <path d={d} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }

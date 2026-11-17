@@ -133,7 +133,7 @@ export function InvoiceDetailPage() {
           </div>
           {i.dunningPaused && <div className="alert warning">Gepauzeerd: {i.dunningPaused}</div>}
           {!i.dunning.length ? <p className="muted">Nog niets verstuurd.</p> : (
-            <ul className="timeline">
+            <ul className="status-history">
               {i.dunning.map((d) => (
                 <li key={d.id}>
                   <strong>{DUNNING_STAGE[d.stage]}</strong>

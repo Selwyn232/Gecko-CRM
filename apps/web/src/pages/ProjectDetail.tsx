@@ -115,7 +115,7 @@ export function ProjectDetailPage() {
         </div>
         <div className="card">
           <h2>Statushistorie</h2>
-          <ul className="timeline">
+          <ul className="status-history">
             {p.history.map((h) => (
               <li key={h.id}>
                 <div><strong>{statusName(h.toStatusId)}</strong></div>
