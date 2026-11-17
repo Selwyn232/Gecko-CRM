@@ -22,18 +22,23 @@ export const TEST_PARTNER_NAME = "Testinstallateur (test)";
 export const TEST_SALES_PARTNER_NAME = "Greenteam (test)";
 export const TEST_CHANNEL_KEY = "greenteam_test";
 export const TEST_PARTNER_USERNAME = "testinstallateur";
+/** Inlognaam van de testinstallateur (fictief domein; inloggen gaat via "Inloggen als"). */
+export const TEST_PARTNER_EMAIL = "testinstallateur@gecko.test";
 
 /** Testinstallateur met gebruiker; wordt hergebruikt bij volgende scenario's. */
 async function ensureTestPartner(db: Db, actor: ActorContext) {
   let [org] = await db.select().from(organizations).where(eq(organizations.name, TEST_PARTNER_NAME));
   if (!org) [org] = await db.insert(organizations).values({ name: TEST_PARTNER_NAME, type: "installation_partner" }).returning();
-  let [user] = await db.select().from(users).where(eq(sql`lower(${users.username})`, TEST_PARTNER_USERNAME));
+  let [user] = await db
+    .select()
+    .from(users)
+    .where(sql`lower(${users.email}) = ${TEST_PARTNER_EMAIL} or lower(${users.username}) = ${TEST_PARTNER_USERNAME}`);
   if (!user) {
     const [role] = await db.select().from(roles).where(eq(roles.key, "installatiepartner"));
     // Willekeurig wachtwoord: inloggen gebeurt via "Inloggen als".
     const created = await createUser(db, actor, {
       organizationId: org!.id,
-      username: TEST_PARTNER_USERNAME,
+      email: TEST_PARTNER_EMAIL,
       name: "Monteur Test",
       password: `${randomToken(18)}Aa1`,
       roleIds: [role!.id],

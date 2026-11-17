@@ -40,7 +40,10 @@ export function UsersPage() {
             <tbody>
               {users.data?.map((u) => (
                 <tr key={u.id} className={can("users.manage") ? "clickable" : ""} onClick={() => can("users.manage") && setEditing(u)}>
-                  <td><strong>{u.name}</strong><div className="muted">{[u.username, u.email].filter(Boolean).join(" · ")}</div></td>
+                  <td>
+                    <strong>{u.name}</strong>
+                    <div className="muted">{u.email ?? <><span className="badge red">Geen e-mailadres</span> {u.username && <span title="Oude gebruikersnaam; vervalt zodra er een e-mailadres is">({u.username})</span>}</>}</div>
+                  </td>
                   <td>{nameById(orgs.data, u.organizationId)}</td>
                   <td>{u.roleIds.map((id) => <span key={id} className="badge" style={{ marginRight: 4 }}>{nameById(roles.data, id)}</span>)}</td>
                   <td>
@@ -75,7 +78,6 @@ function UserForm({ user, onClose }: { user?: User; onClose: () => void }) {
   const [form, setForm] = useState({
     name: user?.name ?? "",
     email: user?.email ?? "",
-    username: user?.username ?? "",
     mfaRequired: user?.mfaRequired ?? true,
     organizationId: user?.organizationId ?? "",
     password: "",
@@ -99,15 +101,14 @@ function UserForm({ user, onClose }: { user?: User; onClose: () => void }) {
       user
         ? api.patch(`/users/${user.id}`, {
             name: form.name,
-            email: form.email || null,
-            username: form.username || null,
+            ...(form.email.trim() ? { email: form.email.trim() } : {}),
             mfaRequired: form.mfaRequired,
             organizationId: form.organizationId,
             isActive: form.isActive,
             roleIds: form.roleIds,
             advisorId: org?.type === "sales_partner" ? form.advisorId || null : null,
           })
-        : api.post("/users", { ...form, email: form.email || null, username: form.username || null, advisorId: org?.type === "sales_partner" ? form.advisorId || null : null }),
+        : api.post("/users", { ...form, email: form.email.trim(), advisorId: org?.type === "sales_partner" ? form.advisorId || null : null }),
     onSuccess: done,
   });
   const action = useMutation({
@@ -133,9 +134,11 @@ function UserForm({ user, onClose }: { user?: User; onClose: () => void }) {
       {notice && <div className="alert info">{notice}</div>}
       <div className="grid-2">
         <Field label="Naam"><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-        <Field label="Gebruikersnaam"><input value={form.username} autoCapitalize="none" onChange={(e) => setForm({ ...form, username: e.target.value })} /></Field>
+        <Field label="E-mailadres (inlognaam)"><input type="email" required autoCapitalize="none" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
       </div>
-      <Field label="E-mail"><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
+      {user && !user.email && (
+        <div className="alert warning">Deze gebruiker logt nog in met de oude gebruikersnaam "{user.username}". Vul een e-mailadres in; daarna is dat de inlognaam.</div>
+      )}
       <Field label="Organisatie">
         <select value={form.organizationId} onChange={(e) => setForm({ ...form, organizationId: e.target.value })}>
           <option value="">Kies…</option>

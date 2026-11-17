@@ -89,8 +89,7 @@ export const userRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
       schema: {
         body: z.object({
           organizationId: z.string().uuid(),
-          email: z.string().email().nullish(),
-          username: z.string().regex(/^[a-zA-Z0-9._-]{2,50}$/, "Alleen letters, cijfers, punt, - en _").nullish(),
+          email: z.string().trim().email("Ongeldig e-mailadres"),
           name: z.string().min(1).max(200),
           password: z.string(),
           roleIds: z.array(z.string().uuid()).default([]),
@@ -115,8 +114,7 @@ export const userRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
         params: IdParams,
         body: z.object({
           name: z.string().min(1).max(200).optional(),
-          email: z.string().email().nullish(),
-          username: z.string().regex(/^[a-zA-Z0-9._-]{2,50}$/, "Alleen letters, cijfers, punt, - en _").nullish(),
+          email: z.string().trim().email("Ongeldig e-mailadres").optional(),
           mfaRequired: z.boolean().optional(),
           organizationId: z.string().uuid().optional(),
           isActive: z.boolean().optional(),

@@ -23,7 +23,7 @@ let advB: string;
 async function salesUser(username: string, advisorId: string | null) {
   await createUser(ctx.db, systemActor(), {
     organizationId: gt,
-    username,
+    email: `${username}@test.example`,
     name: username,
     password: PASSWORD,
     roleIds: [await roleId(ctx.db, "verkooppartner")],
@@ -31,7 +31,7 @@ async function salesUser(username: string, advisorId: string | null) {
     mfaRequired: false,
     advisorId,
   });
-  const res = await ctx.app.inject({ method: "POST", url: "/api/auth/login", payload: { email: username, password: PASSWORD } });
+  const res = await ctx.app.inject({ method: "POST", url: "/api/auth/login", payload: { email: `${username}@test.example`, password: PASSWORD } });
   return { authorization: `Bearer ${res.json().token}` };
 }
 
@@ -89,7 +89,7 @@ describe("verkooppartnerportaal", () => {
   });
 
   it("koppeling met API-sleutel: werkt als de koppelgebruiker; intrekken blokkeert", async () => {
-    const u = await createUser(ctx.db, systemActor(), { organizationId: gt, username: "greenteam.api", name: "Greenteam koppeling", password: PASSWORD, roleIds: [await roleId(ctx.db, "verkooppartner")], mustChangePassword: false, mfaRequired: true });
+    const u = await createUser(ctx.db, systemActor(), { organizationId: gt, email: "greenteam.api@test.example", name: "Greenteam koppeling", password: PASSWORD, roleIds: [await roleId(ctx.db, "verkooppartner")], mustChangePassword: false, mfaRequired: true });
     const created = await call("POST", `/users/${u.id}/api-keys`, { name: "Greenteam CRM" });
     expect(created.statusCode, created.body).toBe(201);
     const { key, id } = created.json();

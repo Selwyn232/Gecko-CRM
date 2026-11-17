@@ -141,7 +141,7 @@ export function App() {
         </nav>
         <div className="sidebar-footer">
           <div style={{ color: "var(--text)", fontWeight: 500 }}>{me.name}</div>
-          <div>{me.username ?? me.email}</div>
+          <div>{me.email ?? me.username}</div>
           <NotificationBell />
           <div className="row" style={{ marginTop: 8 }}>
             <button className="btn small" onClick={() => setChangingPassword(true)}>Wachtwoord</button>

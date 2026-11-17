@@ -274,6 +274,13 @@
       "when": 1794889413276,
       "tag": "0038_password_reset",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1794890102949,
+      "tag": "0039_login_is_email",
+      "breakpoints": true
     }
   ]
 }

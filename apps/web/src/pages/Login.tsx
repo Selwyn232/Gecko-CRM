@@ -109,7 +109,7 @@ function PasswordStep({ onDone }: { onDone: () => Promise<void> }) {
     <form onSubmit={submit}>
       <h2>Inloggen</h2>
       <ErrorBox error={error} />
-      <Field label="Gebruikersnaam of e-mailadres">
+      <Field label="E-mailadres">
         <input value={email} autoCapitalize="none" onChange={(e) => setEmail(e.target.value)} autoComplete="username" required autoFocus />
       </Field>
       <Field label="Wachtwoord">

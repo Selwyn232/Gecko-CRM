@@ -39,14 +39,14 @@ const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46,
 async function partnerUser(orgId: string, username: string) {
   await createUser(ctx.db, systemActor(), {
     organizationId: orgId,
-    username,
+    email: `${username}@test.example`,
     name: username,
     password: PASSWORD,
     roleIds: [await roleId(ctx.db, "installatiepartner")],
     mustChangePassword: false,
     mfaRequired: false,
   });
-  const res = await ctx.app.inject({ method: "POST", url: "/api/auth/login", payload: { email: username, password: PASSWORD } });
+  const res = await ctx.app.inject({ method: "POST", url: "/api/auth/login", payload: { email: `${username}@test.example`, password: PASSWORD } });
   return { authorization: `Bearer ${res.json().token}` };
 }
 

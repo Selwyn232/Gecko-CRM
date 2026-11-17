@@ -50,21 +50,27 @@ try {
     const [gecko] = await db.select().from(organizations).where(eq(organizations.type, "gecko")).limit(1);
     const [admin] = await db.select().from(roles).where(eq(roles.key, ADMIN_ROLE_KEY));
     for (const entry of extra) {
-      const [name, pw] = entry.split(":");
-      if (!name || !pw) continue;
-      const [exists] = await db.select().from(users).where(eq(sql`lower(${users.username})`, name.toLowerCase()));
+      // Formaat: e-mailadres:startwachtwoord (de inlognaam is altijd het e-mailadres).
+      const [email, pw] = entry.split(":");
+      if (!email || !pw) continue;
+      if (!email.includes("@")) {
+        console.log(`BOOTSTRAP_USERS: "${email}" is geen e-mailadres en wordt overgeslagen (gebruik e-mailadres:wachtwoord)`);
+        continue;
+      }
+      const [exists] = await db.select().from(users).where(eq(sql`lower(${users.email})`, email.toLowerCase()));
       if (exists) continue;
-      const displayName = name.charAt(0).toUpperCase() + name.slice(1);
+      const local = email.split("@")[0]!;
+      const displayName = local.charAt(0).toUpperCase() + local.slice(1);
       await createUser(db, systemActor(), {
         organizationId: gecko!.id,
-        username: name,
+        email,
         name: displayName,
         password: pw,
         roleIds: [admin!.id],
         mfaRequired: false,
         mustChangePassword: true,
       });
-      console.log(`Gebruiker aangemaakt: ${name.toLowerCase()}`);
+      console.log(`Gebruiker aangemaakt: ${email.toLowerCase()}`);
     }
   }
   const reset = process.env.RESET_USER_PASSWORD;

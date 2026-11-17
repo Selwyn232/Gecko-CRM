@@ -153,12 +153,12 @@ describe("selfbilling", () => {
 
   it("partnerportaal: eigen facturen; akkoord via inloggen-als geblokkeerd buiten testmodus", async () => {
     const u = await createUser(ctx.db, systemActor(), {
-      organizationId: partnerId, username: "noord1", name: "Jan Noord", password: PASSWORD,
+      organizationId: partnerId, email: "noord1@test.example", name: "Jan Noord", password: PASSWORD,
       roleIds: [await roleId(ctx.db, "installatiepartner")], mustChangePassword: false, mfaRequired: false,
     });
     const [inv] = await ctx.db.select().from(selfBillingInvoices).where(eq(selfBillingInvoices.partnerOrganizationId, partnerId));
     // Als partner zelf
-    const login = await ctx.app.inject({ method: "POST", url: "/api/auth/login", payload: { email: "noord1", password: PASSWORD } });
+    const login = await ctx.app.inject({ method: "POST", url: "/api/auth/login", payload: { email: "noord1@test.example", password: PASSWORD } });
     const ph = { authorization: `Bearer ${login.json().token}` };
     const list = (await ctx.app.inject({ method: "GET", url: "/api/partner/selfbilling", headers: ph })).json();
     expect(list.map((i: { id: string }) => i.id)).toEqual([inv!.id]);

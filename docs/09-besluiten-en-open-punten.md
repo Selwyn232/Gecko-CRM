@@ -22,7 +22,7 @@
 | B16 | Grens configureerbaarheid zoals in 01 | 2026-11-16 |
 | B17 | TypeScript + PostgreSQL, hosting EU; uitgebreide backups (zie 07) | 2026-11-16 |
 | B18 | Fasering zoals in 08 | 2026-11-16 |
-| B19 | Inloggen met e-mail of gebruikersnaam. 2FA standaard verplicht, per gebruiker uit te zetten door een beheerder (afgeraden). Startwachtwoorden moeten bij eerste login worden vervangen | 2026-11-16 |
+| B19 | ~~Inloggen met e-mail of gebruikersnaam~~ (vervangen door B74: inlognaam = e-mailadres). 2FA standaard verplicht, per gebruiker uit te zetten door een beheerder (afgeraden). Startwachtwoorden moeten bij eerste login worden vervangen | 2026-11-16 |
 | B20 | Accounts selwyn, renee, barry, jurriaan: zonder 2FA (op verzoek, tegen advies in). Account selwyn (beheerder) op verzoek van de eigenaar met eenvoudig wachtwoord, uitzondering op het wachtwoordbeleid; alleen accountblokkade na 5 pogingen beschermt | 2026-11-16 |
 | B21 | Klantreis per productgroep: statussen met fase, start/eind, en expliciet toegestane overgangen; volledig instelbaar | 2026-11-16 |
 | B23 | Offerte per productgroep; akkoord maakt automatisch het project aan. Prijzen/btw/kostprijs/fee vastgezet bij definitief maken; wijzigen via nieuwe versie | 2026-11-16 |
@@ -76,6 +76,7 @@
 | B71 | Passkeys (Face ID, Touch ID, vingerafdruk, Windows Hello) voor alle gebruikers: als 2FA-methode (bij de eerste keer aanbevolen boven app en sms) én om zonder wachtwoord in te loggen ("Inloggen met Face ID"), omdat een passkey met gebruikersverificatie zelf twee factoren is. Beheer via de knop "Face ID" (toevoegen per toestel, verwijderen). Alleen de publieke sleutel staat in het CRM; uitdagingen zijn eenmalig en 2 minuten geldig. Passkeys horen bij het domein uit APP_BASE_URL (crm.gecko.nl): het Render-adres (*.onrender.com) stuurt schermen daarom door naar crm.gecko.nl (API, webhooks en health check niet). 2FA-reset door een beheerder wist ook passkeys | 2026-11-17 |
 | B72 | "Wachtwoord vergeten?" op het inlogscherm: herstellink per e-mail (1 uur geldig, eenmalig, max. eens per 2 minuten per account); het scherm zegt nooit of een adres bestaat. Na herstel worden alle sessies afgemeld en blijft 2FA (Face ID, app of sms) nodig. Accounts met alleen een gebruikersnaam (geen e-mail) laten hun wachtwoord resetten door een beheerder | 2026-11-17 |
 | B73 | Huisstijl: het oranje gecko-logo als icoon (zijbalk, inlogscherm, portalen, favicon, app-icoon) en het logo-oranje #FC8801 als accentkleur (ook in e-mails). Tekst op oranje is donker; oranje tekst/links in een donkerder tint voor leesbaarheid; positieve statussen blijven groen. Zie docs/huisstijl | 2026-11-17 |
+| B74 | De inlognaam is altijd het e-mailadres. Een e-mailadres is verplicht bij elke gebruiker; losse gebruikersnamen zijn vervallen (migratie 0039). Oude accounts zonder e-mailadres loggen tijdelijk nog met hun gebruikersnaam in en staan rood ("Geen e-mailadres") bij Gebruikers; zodra een e-mailadres is ingevuld, vervalt de gebruikersnaam. `BOOTSTRAP_USERS` gebruikt nu `e-mailadres:wachtwoord`; regels zonder @ worden overgeslagen | 2026-11-17 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten

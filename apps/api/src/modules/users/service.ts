@@ -75,7 +75,6 @@ export async function getUser(db: DbOrTx, id: string) {
 export interface CreateUserInput {
   organizationId: string;
   email?: string | null;
-  username?: string | null;
   name: string;
   password: string;
   roleIds: string[];
@@ -95,15 +94,16 @@ async function assertAdvisor(tx: DbOrTx, organizationId: string, advisorId: stri
 
 const normalizeLogin = (v: string | null | undefined) => (v ? v.trim().toLowerCase() : null);
 
-function assertHasLogin(email: string | null, username: string | null) {
-  if (!email && !username) throw badRequest("login_required", "Vul een e-mailadres of gebruikersnaam in");
-  if (username && username.includes("@")) throw badRequest("invalid_username", "Een gebruikersnaam mag geen @ bevatten");
+/** De inlognaam is altijd het e-mailadres (B74). Losse gebruikersnamen bestaan alleen nog bij oude accounts zonder e-mail. */
+function assertEmail(email: string | null): asserts email is string {
+  if (!email) throw badRequest("email_required", "Vul een e-mailadres in: dat is de inlognaam");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw badRequest("invalid_email", "Ongeldig e-mailadres");
 }
 
 export async function createUser(db: Db, actor: ActorContext, input: CreateUserInput) {
   const email = normalizeLogin(input.email);
-  const username = normalizeLogin(input.username);
-  assertHasLogin(email, username);
+  assertEmail(email);
+  const username = null;
   const mustChangePassword = input.mustChangePassword ?? true;
   assertInitialPasswordPolicy(input.password, mustChangePassword);
   const passwordHash = await hashPassword(input.password);
@@ -137,7 +137,6 @@ export async function createUser(db: Db, actor: ActorContext, input: CreateUserI
 export interface UpdateUserInput {
   name?: string;
   email?: string | null;
-  username?: string | null;
   mfaRequired?: boolean;
   organizationId?: string;
   isActive?: boolean;
@@ -152,8 +151,13 @@ export async function updateUser(db: Db, actor: ActorContext, id: string, input:
 
     const patch: Partial<typeof users.$inferInsert> = {};
     if (input.name !== undefined) patch.name = input.name;
-    if (input.email !== undefined) patch.email = normalizeLogin(input.email);
-    if (input.username !== undefined) patch.username = normalizeLogin(input.username);
+    if (input.email !== undefined) {
+      const email = normalizeLogin(input.email);
+      assertEmail(email);
+      patch.email = email;
+      // Met een e-mailadres vervalt een oude losse gebruikersnaam: inloggen gaat voortaan met het e-mailadres.
+      patch.username = null;
+    }
     if (input.mfaRequired !== undefined) patch.mfaRequired = input.mfaRequired;
     if (input.organizationId !== undefined) patch.organizationId = input.organizationId;
     if (input.isActive !== undefined) patch.isActive = input.isActive;
@@ -161,9 +165,6 @@ export async function updateUser(db: Db, actor: ActorContext, id: string, input:
       const [cur] = await tx.select({ org: users.organizationId }).from(users).where(eq(users.id, id));
       await assertAdvisor(tx, input.organizationId ?? cur!.org, input.advisorId);
       patch.advisorId = input.advisorId;
-    }
-    if (patch.email !== undefined || patch.username !== undefined) {
-      assertHasLogin(patch.email !== undefined ? patch.email : before.email, patch.username !== undefined ? patch.username : before.username);
     }
     if (Object.keys(patch).length) await tx.update(users).set(patch).where(eq(users.id, id));
 
