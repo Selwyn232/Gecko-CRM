@@ -32,7 +32,7 @@ const ConfigSchema = z.object({
   MAILGUN_REGION: z.enum(["eu", "us"]).default("eu"),
   /** Mailgun "HTTP webhook signing key": nodig om binnenkomende e-mail (inbox) te accepteren. Leeg = inbox uit. */
   MAILGUN_WEBHOOK_SIGNING_KEY: z.string().optional(),
-  /** Afzender, bv. "Gecko <noreply@mail.gecko.nl>". Standaard noreply@MAILGUN_DOMAIN. */
+  /** Afzender, bv. "Gecko <noreply@gecko.nl>". Standaard noreply@MAILGUN_DOMAIN. */
   MAIL_FROM: z.string().optional(),
   /** Antwoordadres dat iemand leest, bv. klantenservice@gecko.nl. Verbetert ook de bezorging. */
   MAIL_REPLY_TO: z.string().email().optional(),
