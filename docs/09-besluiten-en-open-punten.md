@@ -66,6 +66,7 @@
 | B61 | Standaard partnertarief per arbeidsproduct (Producten → Partnertarieven → "Standaard (alle partners)"): gebruikt voor kostprijs en voorcalculatie zolang de installateur niet bekend is of geen eigen tarief heeft. Uitbetalen (selfbilling) gebeurt altijd tegen het eigen tarief van de installateur; ontbreekt dat, dan blokkeert de uitbetaling | 2026-11-17 |
 | B62 | Fee verkooppartner per productgroep (Verkoopkanalen → kanaal → fee per productgroep); leeg = standaard fee van het kanaal. Vastgelegd per offerte bij versturen; gebruikt in voorcalculatie, nacalculatie, rapportages en selfbilling | 2026-11-17 |
 | B63 | Tweede backup: dagelijkse dump via Render Cron Job (`ops/backup`), versleuteld met age (privésleutel alleen bij Gecko, offline), naar S3-compatibele opslag in de EU (voorstel Scaleway, Amsterdam) met een sleutel die alleen mag schrijven; bewaren via lifecycle (30 dagen / 12 maanden / 7 jaar). Hersteltest elk kwartaal (docs/12) | 2026-11-17 |
+| B64 | Productcode bij een nieuw product: automatisch voorstel TYPE-GROEP[-LEVERANCIER]-NAAM (bv. CMP-BAT-OSW-KSTAR-10KW), met uitleg per deel; aanpasbaar, bij een bestaande code volgt -2, -3. Afkortingen: PKG pakket, CMP component, ARB arbeid, MW meerwerk, DNS dienst; BAT thuisbatterij, ZP zonnepanelen, WP warmtepomp, ISO isolatie (overige groepen: eerste 3 letters). Bestaande codes blijven ongewijzigd | 2026-11-17 |
 | B22 | Domeingebeurtenissen via een outbox-tabel, basis voor automatische e-mails/WhatsApp per status | 2026-11-16 |
 
 ## Open punten

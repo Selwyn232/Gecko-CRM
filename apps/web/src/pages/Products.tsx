@@ -6,6 +6,7 @@ import { useAuth } from "../auth";
 import { ActiveBadge, ErrorBox, Field, Loading, Modal, PageHead } from "../components/ui";
 import { PRODUCT_TYPES } from "../format";
 import { nameById, useOrganizations, useProductGroups, useVatCodes } from "../hooks";
+import { suggestProductCode } from "../productCode";
 
 export function ProductsPage() {
   const { can } = useAuth();
@@ -84,9 +85,20 @@ export function ProductForm({ product, onClose, onSaved }: { product?: Product; 
   });
   const set = (k: keyof typeof form, v: unknown) => setForm({ ...form, [k]: v });
 
+  // Nieuw product: codevoorstel uit de ingevulde velden, tot de gebruiker de code zelf aanpast.
+  const isNew = !product;
+  const [codeTouched, setCodeTouched] = useState(false);
+  const all = useQuery({ queryKey: ["products", "all-codes"], queryFn: () => api.get<Product[]>("/products"), enabled: isNew });
+  const group = groups.data?.find((g) => g.id === form.productGroupId) ?? null;
+  const supplier = orgs.data?.find((o) => o.id === form.defaultSupplierOrganizationId) ?? null;
+  const suggestion = isNew
+    ? suggestProductCode({ name: form.name, type: form.type, group, supplierName: supplier?.name ?? null }, (all.data ?? []).map((p) => p.code))
+    : null;
+  const code = isNew && !codeTouched ? (suggestion?.code ?? "") : form.code;
+
   const save = useMutation({
     mutationFn: () => {
-      const body = { ...form, description: form.description || null, defaultSupplierOrganizationId: form.defaultSupplierOrganizationId || null };
+      const body = { ...form, code, description: form.description || null, defaultSupplierOrganizationId: form.defaultSupplierOrganizationId || null };
       return product ? api.patch<Product>(`/products/${product.id}`, body) : api.post<Product>("/products", body);
     },
     onSuccess: (p) => {
@@ -107,7 +119,7 @@ export function ProductForm({ product, onClose, onSaved }: { product?: Product; 
       <form onSubmit={submit}>
         <ErrorBox error={save.error} />
         <div className="grid-2">
-          <Field label="Productcode"><input value={form.code} onChange={(e) => set("code", e.target.value)} required className="mono" /></Field>
+          {!isNew && <Field label="Productcode"><input value={form.code} onChange={(e) => set("code", e.target.value)} required className="mono" /></Field>}
           <Field label="Type">
             <select value={form.type} onChange={(e) => set("type", e.target.value)}>
               {Object.entries(PRODUCT_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -136,6 +148,41 @@ export function ProductForm({ product, onClose, onSaved }: { product?: Product; 
             </select>
           </Field>
         </div>
+        {isNew && (
+          <Field label="Productcode">
+            <input
+              value={code}
+              onChange={(e) => {
+                setCodeTouched(true);
+                set("code", e.target.value);
+              }}
+              required
+              className="mono"
+              placeholder="Vul naam en productgroep in voor een voorstel"
+            />
+            {suggestion && (
+              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                {codeTouched && code !== suggestion.code ? (
+                  <>
+                    Voorstel: <span className="mono">{suggestion.code}</span>{" "}
+                    <button type="button" className="btn small" onClick={() => setCodeTouched(false)}>Voorstel gebruiken</button>
+                  </>
+                ) : (
+                  <>
+                    Opbouw:{" "}
+                    {suggestion.explain.map((e, i) => (
+                      <span key={i}>
+                        {i > 0 && " · "}
+                        <span className="mono">{e.part}</span> = {e.from}
+                      </span>
+                    ))}
+                    . Pas gerust aan; na gebruik op een offerte ligt de code vast.
+                  </>
+                )}
+              </div>
+            )}
+          </Field>
+        )}
         <label className="checkbox"><input type="checkbox" checked={form.isActive} onChange={(e) => set("isActive", e.target.checked)} /> Actief</label>
         <div className="modal-actions">
           <button type="button" className="btn" onClick={onClose}>Annuleren</button>
