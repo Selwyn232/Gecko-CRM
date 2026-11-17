@@ -77,7 +77,7 @@
 | # | Vraag | Eigenaar |
 |---|---|---|
 | O1 | Kan één offerte/order meerdere projecten bevatten (combikorting, gecombineerde schouw)? Eén of meerdere aanbetalingsfacturen? | Gecko (overleg) |
-| O2 | Fee-percentage(s) per productgroep (in te stellen bij Verkoopkanalen, B62; zonder percentage geen uitbetaling) en regels bij annulering/creditnota (nu via correctieregel) | Gecko |
+| O2 | ~~Fee-percentage(s) per productgroep~~ — ingesteld en bevestigd 17-11-2026 (Greenteam: thuisbatterij en zonnepanelen 44%, warmtepomp 37%, isolatie 20%). Nog open: regels bij annulering/creditnota (nu via correctieregel) | Gecko |
 | O3 | Warmtefonds/SVN: hoe en wanneer keren zij uit, en in welke delen? | Gecko (navragen) |
 | O5 | Doet Gecko soms zelf de schouw? | Gecko |
 | O6 | Materiaallevering bij partner of bij klant | Gecko + partners |
