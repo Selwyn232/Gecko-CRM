@@ -47,7 +47,7 @@ export const portalRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; deps:
     return { ok: true };
   });
 
-  app.get("/public/portal/overview", { config: pub(60) }, async (req) => portalOverview(db, await me(req)));
+  app.get("/public/portal/overview", { config: pub(60) }, async (req) => portalOverview(db, await me(req), deps));
   app.get("/public/portal/invoices/:id", { config: pub(60), schema: { params: IdParams } }, async (req) => portalInvoice(db, await me(req), req.params.id));
   app.post("/public/portal/invoices/:id/pay", { config: pub(10), schema: { params: IdParams } }, async (req) => portalPay(db, deps, await me(req), req.params.id));
   app.post("/public/portal/quotes/:id/link", { config: pub(10), schema: { params: IdParams } }, async (req) => portalQuoteLink(db, await me(req), req.params.id));

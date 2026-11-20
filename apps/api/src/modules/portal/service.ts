@@ -11,7 +11,7 @@ import { button, escapeHtml, layout } from "../email/layout.js";
 import { sendEmail } from "../email/service.js";
 import type { EmailTransport } from "../email/transport.js";
 import { invoices } from "../invoices/schema.js";
-import { publicInvoiceById, startPaymentForInvoice, type BillingDeps } from "../invoices/service.js";
+import { onlinePaymentAvailable, publicInvoiceById, startPaymentForInvoice, type BillingDeps } from "../invoices/service.js";
 import { journeyStatuses } from "../journeys/schema.js";
 import { organizations } from "../organizations/schema.js";
 import { appointments } from "../planning/schema.js";
@@ -96,7 +96,7 @@ export async function logout(db: DbOrTx, token: string | undefined) {
 const daysUntil = (iso: string) => Math.round((Date.parse(iso) - Date.parse(todayIso())) / 86_400_000);
 
 /** Alles wat de klant ziet: per project status, fases, afspraken, offertes en facturen. Geen interne gegevens. */
-export async function portalOverview(db: DbOrTx, email: string) {
+export async function portalOverview(db: DbOrTx, email: string, deps?: BillingDeps) {
   const ids = await customerIds(db, email);
   if (!ids.length) throw new AppError(401, "portal_unauthorized", "Niet ingelogd");
   const [cust] = await db.select().from(customers).where(eq(customers.id, ids[0]!));
@@ -172,10 +172,21 @@ export async function portalOverview(db: DbOrTx, email: string) {
         dueDate: i.dueDate,
         totalCents: i.totalCents,
         outstandingCents: Math.max(0, i.totalCents - i.paidCents),
+        paymentReference: i.paymentReference ?? i.number,
       })),
     });
   }
-  return { name: [cust!.firstName, cust!.lastName].filter(Boolean).join(" "), email, rescheduleWindowDays: window, projects: result };
+  const company = await getCompany(db);
+  return {
+    name: [cust!.firstName, cust!.lastName].filter(Boolean).join(" "),
+    email,
+    rescheduleWindowDays: window,
+    projects: result,
+    // Zonder Mollie: geen knop "Betalen", wel de overschrijvingsgegevens (B79).
+    onlinePayment: deps ? await onlinePaymentAvailable(db, deps) : false,
+    iban: (company as { iban?: string }).iban ?? null,
+    companyName: company.name,
+  };
 }
 
 // ---------------------------------------------------------------- Acties (altijd met eigendomscontrole)

@@ -11,24 +11,29 @@
 - Naar de klant: pakketprijzen + eventueel meerwerk. Intern blijft de stuklijst gekoppeld.
 - PDF-factuur + verzending per e-mail en zichtbaar in klantportaal.
 
-## Exact Online
+## Exact Online en bank (B79)
 
-Gecko CRM is leidend voor facturen; Exact is leidend voor de boekhouding.
+Gecko CRM is leidend voor facturen en de betaalstatus per factuur; Exact is leidend voor de boekhouding.
+Bank: bunq, alleen gekoppeld aan Exact (automatische bankkoppeling).
 
 | Richting | Wat |
 |---|---|
 | CRM → Exact | Debiteuren, verkoopfacturen (geboekt, niet door Exact verstuurd), creditnota's |
 | CRM → Exact | Crediteuren, selfbilling-inkoopfacturen (Greenteam, installateurs) |
-| CRM → Exact | Betalingen / Mollie-uitbetalingen voor afletteren |
-| Exact → CRM | Optioneel: bankmutaties voor overschrijvingen buiten Mollie om |
+| bunq → Exact | Bankmutaties; Exact lettert af op betalingskenmerk / factuurnummer |
+| Exact → CRM | Betaalstatus van facturen (elk uur) + niet-herkende ontvangsten |
+| Mollie → CRM | iDEAL-betalingen direct via webhook (zodra Mollie aanstaat) |
+| Mollie → Exact | Uitbetalingen afletteren via de Mollie-koppeling van Exact (zodra Mollie aanstaat) |
 
-Productcodes en grootboekrekeningen worden per productgroep gemapt.
+Productcodes en grootboekrekeningen worden per productgroep gemapt. Voorstel rekeningen bunq:
+ontvangsten (IBAN op de factuur), uitbetalingen (selfbilling), btw-reserve.
 
 ## Betalingen
-
-- Betaallink via betaalprovider (voorkeur Mollie): iDEAL/Wero als eerste keus, **bankoverschrijving
-  met uniek kenmerk** als terugval (bankdaglimieten bij bedragen ≥ €10.000).
-- Betalingen worden automatisch aan de factuur gekoppeld via webhook.
+- **Nu**: bankoverschrijving naar bunq met uniek betalingskenmerk (op factuur, mail en in Mijn Gecko).
+  Zolang online betalen uit staat, is er geen knop "Betalen".
+- **Later (nice to have)**: betaallink via Mollie, iDEAL/Wero; overschrijving blijft de terugval
+  (bankdaglimieten bij bedragen ≥ €10.000).
+- Betalingen worden automatisch aan de factuur gekoppeld (Mollie: webhook; overschrijving: via Exact).
 - Warmtefonds-uitbetalingen worden als aparte betaalwijze geregistreerd.
 
 ## Termijnen en aanmaningen

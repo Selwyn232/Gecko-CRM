@@ -5,8 +5,9 @@ import { api } from "../api";
 import { InvoiceDocument, type InvoiceDocData } from "../components/InvoiceDocument";
 import { ErrorBox } from "../components/ui";
 import { formatCents } from "../format";
+import { TransferInfo } from "./CustomerPortal";
 
-type PublicInvoice = InvoiceDocData & { status: string; paidCents: number; outstandingCents: number };
+type PublicInvoice = InvoiceDocData & { status: string; paidCents: number; outstandingCents: number; onlinePayment: boolean; paymentReference: string | null; number: string; iban: string | null };
 
 /** Factuur voor de klant (zonder login) met betaalknop. */
 export function PublicInvoicePage() {
@@ -39,8 +40,11 @@ export function PublicInvoicePage() {
               <div className="muted">Te betalen</div>
               <div style={{ fontSize: 24, fontWeight: 700 }}>{formatCents(d.outstandingCents)}</div>
             </div>
-            <button className="btn primary" onClick={() => pay.mutate()} disabled={pay.isPending}>Betalen met iDEAL</button>
+            {d.onlinePayment && <button className="btn primary" onClick={() => pay.mutate()} disabled={pay.isPending}>Betalen met iDEAL</button>}
           </div>
+          {!d.onlinePayment && (
+            <TransferInfo amountCents={d.outstandingCents} reference={d.paymentReference ?? d.number} iban={d.iban} name={(d.company as { name?: string } | null)?.name ?? "Gecko"} />
+          )}
           <ErrorBox error={pay.error} />
         </div>
       ) : null}

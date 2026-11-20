@@ -450,3 +450,6 @@ td.mono, .mono { white-space: nowrap; }
   .toasts { left: calc(16px + env(safe-area-inset-left, 0px)); right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); justify-items: center; }
 }
 @media (prefers-reduced-motion: reduce) { .sk, .toast { animation: none; } }
+
+.transfer-info { width: 100%; margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); font-size: 13.5px; line-height: 1.5; }
+.transfer-info .mono { font-size: inherit; }

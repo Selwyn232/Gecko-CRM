@@ -115,7 +115,7 @@ export const invoiceRoutes: FastifyPluginAsyncZod<{ db: Db; deps: BillingDeps }>
   // ------------------------------------------------------------ Openbaar (klant, zonder login)
   const Token = z.object({ token: z.string().min(20).max(100) });
   app.get("/public/invoices/:token", { config: { auth: "public", rateLimit: { max: 60, timeWindow: "1 minute" } }, schema: { params: Token } }, async (req) =>
-    publicInvoice(db, req.params.token),
+    publicInvoice(db, deps, req.params.token),
   );
   app.post("/public/invoices/:token/pay", { config: { auth: "public", rateLimit: { max: 10, timeWindow: "1 minute" } }, schema: { params: Token } }, async (req) =>
     startOnlinePayment(db, deps, req.params.token),

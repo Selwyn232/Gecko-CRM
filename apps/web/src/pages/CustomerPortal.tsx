@@ -15,9 +15,10 @@ interface PortalProject {
   phases: string[];
   appointments: { id: string; type: "survey" | "installation"; date: string; days: number; timeWindow: string; status: string; partnerName: string; canReschedule: boolean }[];
   quotes: { id: string; number: string; kind: "main" | "extra_work"; status: string; validUntil: string | null; acceptedAt: string | null; totalCents: number }[];
-  invoices: { id: string; number: string; type: string; status: string; invoiceDate: string | null; dueDate: string | null; totalCents: number; outstandingCents: number }[];
+  invoices: { id: string; number: string; type: string; status: string; invoiceDate: string | null; dueDate: string | null; totalCents: number; outstandingCents: number; paymentReference: string }[];
 }
-interface Overview { name: string; email: string; rescheduleWindowDays: number; projects: PortalProject[] }
+interface Payment { onlinePayment: boolean; iban: string | null; companyName: string }
+interface Overview extends Payment { name: string; email: string; rescheduleWindowDays: number; projects: PortalProject[] }
 
 const WINDOW: Record<string, string> = { morning: "ochtend (8:00–12:00)", afternoon: "middag (12:00–17:00)", day: "hele dag" };
 const TYPE: Record<string, string> = { survey: "Schouw", installation: "Installatie" };
@@ -58,7 +59,7 @@ export function CustomerPortalPage() {
       <p className="muted" style={{ marginTop: 0 }}>Hier volgt u uw project: status, afspraken, offertes en facturen.</p>
       {params.get("betaald") && <div className="alert info">Bedankt! We verwerken uw betaling; dit kan een paar minuten duren.</div>}
       {!o.projects.length && <div className="card empty">Er zijn nog geen projecten op uw naam.</div>}
-      {o.projects.map((p) => <ProjectCard key={p.id} p={p} windowDays={o.rescheduleWindowDays} />)}
+      {o.projects.map((p) => <ProjectCard key={p.id} p={p} windowDays={o.rescheduleWindowDays} payment={o} />)}
       <p className="muted" style={{ fontSize: 13 }}>Vragen? Beantwoord een van onze e-mails; we helpen u graag.</p>
     </Shell>
   );
@@ -130,7 +131,7 @@ function Phases({ p }: { p: PortalProject }) {
   );
 }
 
-function ProjectCard({ p, windowDays }: { p: PortalProject; windowDays: number }) {
+function ProjectCard({ p, windowDays, payment }: { p: PortalProject; windowDays: number; payment: Payment }) {
   const [invoice, setInvoice] = useState<string | null>(null);
   const [moving, setMoving] = useState<PortalProject["appointments"][number] | null>(null);
   const quoteLink = useMutation({
@@ -199,10 +200,13 @@ function ProjectCard({ p, windowDays }: { p: PortalProject; windowDays: number }
               </div>
               <div className="row">
                 <button className="btn small" onClick={() => setInvoice(i.id)}>Bekijken</button>
-                {i.status === "open" && i.outstandingCents > 0 && i.type !== "credit" && (
+                {payment.onlinePayment && i.status === "open" && i.outstandingCents > 0 && i.type !== "credit" && (
                   <button className="btn small primary" disabled={pay.isPending} onClick={() => pay.mutate(i.id)}>Betalen</button>
                 )}
               </div>
+              {!payment.onlinePayment && i.status === "open" && i.outstandingCents > 0 && i.type !== "credit" && (
+                <TransferInfo amountCents={i.outstandingCents} reference={i.paymentReference} iban={payment.iban} name={payment.companyName} />
+              )}
             </div>
           ))}
         </>
@@ -260,5 +264,14 @@ function RescheduleModal({ a, onClose }: { a: PortalProject["appointments"][numb
         <button className="btn primary" disabled={!choice || save.isPending} onClick={() => save.mutate()}>Verzetten</button>
       </div>
     </Modal>
+  );
+}
+
+/** Overschrijvingsgegevens (zolang online betalen niet aanstaat, B79). */
+export function TransferInfo({ amountCents, reference, iban, name }: { amountCents: number; reference: string; iban: string | null; name: string }) {
+  return (
+    <div className="transfer-info">
+      Maak <strong>{formatCents(amountCents)}</strong> over naar <strong className="mono">{iban ?? "—"}</strong> t.n.v. {name}, met betalingskenmerk <strong className="mono">{reference}</strong>.
+    </div>
   );
 }

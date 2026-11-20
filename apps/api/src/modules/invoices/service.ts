@@ -290,6 +290,8 @@ export async function sendInvoice(db: Db, deps: BillingDeps, actor: ActorContext
   const company = (inv.companySnapshot as Company) ?? (await getCompany(db));
   const snap = inv.customerSnapshot as { name: string };
   const isCredit = inv.type === "credit";
+  const online = await onlinePaymentAvailable(db, deps);
+  const transfer = `Gebruik IBAN <strong>${escapeHtml((company as { iban?: string }).iban ?? "")}</strong> t.n.v. ${escapeHtml(company.name)} onder vermelding van betalingskenmerk <strong>${escapeHtml(inv.paymentReference ?? inv.number)}</strong>.`;
   const mail = await sendEmail(db, deps.emailTransport, {
     to: email,
     subject: `${TYPE_LABEL[inv.type]} ${inv.number} van ${company.name}`,
@@ -300,10 +302,10 @@ export async function sendInvoice(db: Db, deps: BillingDeps, actor: ActorContext
       company,
       `<p>Beste ${escapeHtml(snap.name)},</p>
 <p>Hierbij ontvangt u ${isCredit ? "creditnota" : "factuur"} <strong>${escapeHtml(inv.number)}</strong> (${TYPE_LABEL[inv.type].toLowerCase()}) van ${euro(inv.totalCents)} incl. btw.</p>
-${isCredit ? "" : `<p>Wij verzoeken u het bedrag uiterlijk <strong>${dateNl(inv.dueDate)}</strong> te voldoen. Dat kan het snelst via iDEAL met de knop hieronder.</p>${button(url, "Factuur bekijken en betalen")}<p style="font-size:13px;color:#5f6b62">Liever overmaken? Gebruik IBAN ${escapeHtml((company as { iban?: string }).iban ?? "")} t.n.v. ${escapeHtml(company.name)} onder vermelding van <strong>${escapeHtml(inv.paymentReference ?? inv.number)}</strong>.</p>`}
+${isCredit ? "" : online ? `<p>Wij verzoeken u het bedrag uiterlijk <strong>${dateNl(inv.dueDate)}</strong> te voldoen. Dat kan het snelst via iDEAL met de knop hieronder.</p>${button(url, "Factuur bekijken en betalen")}<p style="font-size:13px;color:#5f6b62">Liever overmaken? ${transfer}</p>` : `<p>Wij verzoeken u het bedrag uiterlijk <strong>${dateNl(inv.dueDate)}</strong> over te maken. ${transfer}</p><p style="font-size:13px;color:#5f6b62">Vermeld het betalingskenmerk precies zo, dan verwerken wij uw betaling automatisch.</p>${button(url, "Factuur bekijken")}`}
 ${isCredit ? button(url, "Creditnota bekijken") : ""}`,
     ),
-    text: `Beste ${snap.name},\n\n${TYPE_LABEL[inv.type]} ${inv.number}: ${euro(inv.totalCents)} incl. btw.\n${isCredit ? "" : `Uiterlijk te betalen op ${dateNl(inv.dueDate)}.\n`}Bekijken${isCredit ? "" : " en betalen"}: ${url}\n\n${company.name}`,
+    text: `Beste ${snap.name},\n\n${TYPE_LABEL[inv.type]} ${inv.number}: ${euro(inv.totalCents)} incl. btw.\n${isCredit ? "" : `Uiterlijk te betalen op ${dateNl(inv.dueDate)}.\nOvermaken naar IBAN ${(company as { iban?: string }).iban ?? ""} t.n.v. ${company.name}, betalingskenmerk ${inv.paymentReference ?? inv.number}.\n`}Bekijken${isCredit || !online ? "" : " en betalen"}: ${url}\n\n${company.name}`,
   });
   await recordAudit(db, actor, { action: "invoice.sent", entityType: "invoice", entityId: invoiceId, metadata: { email, emailStatus: mail.status } });
   await emitEvent(db, "invoice.sent", { type: "invoice", id: invoiceId }, { invoiceId });
@@ -364,9 +366,9 @@ async function findByToken(db: DbOrTx, token: string) {
   return inv;
 }
 
-export async function publicInvoice(db: DbOrTx, token: string) {
+export async function publicInvoice(db: DbOrTx, deps: BillingDeps, token: string) {
   const inv = await findByToken(db, token);
-  return publicInvoiceById(db, inv.id);
+  return { ...(await publicInvoiceById(db, inv.id)), onlinePayment: await onlinePaymentAvailable(db, deps) };
 }
 
 /** Klantweergave van een factuur (ook gebruikt door het klantportaal). */
@@ -387,6 +389,7 @@ export async function publicInvoiceById(db: DbOrTx, invoiceId: string) {
     paidCents: full.paidCents,
     outstandingCents: full.outstandingCents,
     paymentReference: full.paymentReference,
+    iban: (full.companySnapshot as { iban?: string } | null)?.iban ?? null,
   };
 }
 
@@ -396,9 +399,18 @@ export async function startOnlinePayment(db: Db, deps: BillingDeps, token: strin
   return startPaymentForInvoice(db, deps, inv.id, `${baseUrl(deps.config)}/factuur/${token}?betaald=1`);
 }
 
+/**
+ * Kan de klant online betalen? Met Mollie altijd; zonder Mollie (testprovider) alleen buiten productie of
+ * in de testmodus. Anders betaalt de klant per overschrijving met het betalingskenmerk (B79).
+ */
+export async function onlinePaymentAvailable(db: DbOrTx, deps: BillingDeps) {
+  if (deps.paymentProvider.name !== "test") return true;
+  return deps.config.NODE_ENV !== "production" || Boolean(await getSetting(db, "test.mode"));
+}
+
 /** Betaalverzoek voor een factuur; `redirectUrl` = waar de klant na betalen terugkomt. */
 export async function startPaymentForInvoice(db: Db, deps: BillingDeps, invoiceId: string, redirectUrl: string) {
-  if (deps.paymentProvider.name === "test" && deps.config.NODE_ENV === "production" && !(await getSetting(db, "test.mode"))) {
+  if (!(await onlinePaymentAvailable(db, deps))) {
     throw new AppError(503, "online_payment_unavailable", "Online betalen is nog niet beschikbaar. Maak het bedrag over onder vermelding van het betalingskenmerk.");
   }
   const [inv] = await db.select().from(invoices).where(eq(invoices.id, invoiceId));
