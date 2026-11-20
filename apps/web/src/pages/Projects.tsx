@@ -26,7 +26,7 @@ export function ProjectsPage() {
   if (includeFinal) params.set("includeFinal", "true");
   const list = useQuery({ queryKey: ["projects", params.toString()], queryFn: () => api.get<Paged<ProjectListItem>>(`/projects?${params}`) });
 
-  const statuses = (journeys.data ?? []).filter((j) => !groupId || j.productGroup.id === groupId).flatMap((j) => j.statuses);
+  const statuses = (journeys.data ?? []).filter((j) => !groupId || j.productGroup.id === groupId).flatMap((j) => j.statuses.map((s) => ({ ...s, channelName: j.salesChannel?.name ?? null })));
   const phases = [...new Set(statuses.map((s) => s.phase))];
   const openByPhase = (p: string) => statuses.filter((s) => s.phase === p && !s.isFinal).reduce((n, s) => n + (s.projectCount ?? 0), 0);
 
@@ -50,7 +50,7 @@ export function ProjectsPage() {
         {groupId && (
           <select value={statusId} onChange={(e) => setStatusId(e.target.value)}>
             <option value="">Alle statussen</option>
-            {statuses.filter((s) => !phase || s.phase === phase).map((s) => <option key={s.id} value={s.id}>{s.name} ({s.projectCount ?? 0})</option>)}
+            {statuses.filter((s) => !phase || s.phase === phase).map((s) => <option key={s.id} value={s.id}>{s.name}{s.channelName ? ` · ${s.channelName}` : ""} ({s.projectCount ?? 0})</option>)}
           </select>
         )}
         <label className="checkbox"><input type="checkbox" checked={includeFinal} onChange={(e) => setIncludeFinal(e.target.checked)} /> Ook afgeronde/geannuleerde</label>

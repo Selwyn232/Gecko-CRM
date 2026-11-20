@@ -11,32 +11,92 @@ const COLORS: Record<string, string> = { gray: "Grijs", blue: "Blauw", green: "G
 
 export function JourneysPage() {
   const { can } = useAuth();
+  const qc = useQueryClient();
   const journeys = useJourneys();
   const [groupId, setGroupId] = useState<string | null>(null);
+  const [channelId, setChannelId] = useState<string | null>(null);
   const [editing, setEditing] = useState<JourneyStatus | "new" | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const refresh = () => qc.invalidateQueries({ queryKey: ["journeys"] });
+  const createOwn = useMutation({
+    meta: { toast: "Eigen klantreis gemaakt" },
+    mutationFn: (v: { groupId: string; channelId: string }) => api.post(`/journeys/${v.groupId}/channels/${v.channelId}`),
+    onSuccess: async (_d, v) => {
+      await refresh();
+      setChannelId(v.channelId);
+    },
+  });
+  const removeOwn = useMutation({
+    meta: { toast: "Eigen klantreis verwijderd" },
+    mutationFn: (v: { groupId: string; channelId: string }) => api.del(`/journeys/${v.groupId}/channels/${v.channelId}`),
+    onSuccess: async () => {
+      setConfirmDelete(false);
+      setChannelId(null);
+      await refresh();
+    },
+  });
 
   if (journeys.isLoading) return <Loading />;
-  const current = journeys.data?.find((j) => j.productGroup.id === groupId) ?? journeys.data?.[0];
-  if (!current) return <div className="empty">Geen productgroepen.</div>;
+  const all = journeys.data ?? [];
+  const groups = all.filter((j) => !j.salesChannel);
+  const group = groups.find((j) => j.productGroup.id === groupId) ?? groups[0];
+  if (!group) return <div className="empty">Geen productgroepen.</div>;
+  const ofGroup = all.filter((j) => j.productGroup.id === group.productGroup.id);
+  const current = ofGroup.find((j) => (j.salesChannel?.id ?? null) === channelId) ?? ofGroup[0]!;
   const statuses = current.statuses;
   const name = (id: string) => statuses.find((s) => s.id === id)?.name ?? "?";
   const manage = can("journeys.manage");
+  const withOwn = new Set(ofGroup.filter((j) => j.salesChannel).map((j) => j.salesChannel!.id));
+  const usingStandard = group.channels.filter((c) => !withOwn.has(c.id));
+  const inUse = statuses.reduce((n, s) => n + (s.projectCount ?? 0), 0);
 
   return (
     <>
       <PageHead
         title="Klantreizen"
-        sub="Per productgroep: de statussen van een project en welke overgangen zijn toegestaan. De e-mail aan de klant per status stel je in bij Klantberichten."
+        sub="Per productgroep de statussen van een project en welke overgangen zijn toegestaan. Een verkoopkanaal kan een eigen klantreis krijgen; anders volgt het de standaard. De e-mail aan de klant per status stel je in bij Klantberichten."
         actions={manage && <button className="btn primary" onClick={() => setEditing("new")}>Nieuwe status</button>}
       />
       <div className="tabs">
-        {journeys.data!.map((j) => (
-          <button key={j.productGroup.id} className={j.productGroup.id === current.productGroup.id ? "active" : ""} onClick={() => setGroupId(j.productGroup.id)}>
+        {groups.map((j) => (
+          <button key={j.productGroup.id} className={j.productGroup.id === group.productGroup.id ? "active" : ""} onClick={() => { setGroupId(j.productGroup.id); setChannelId(null); }}>
             {j.productGroup.name}
           </button>
         ))}
       </div>
-      <InstallationDays groupId={current.productGroup.id} />
+      <div className="journey-channels">
+        <span className="muted">Klantreis:</span>
+        {ofGroup.map((j) => (
+          <button
+            key={j.salesChannel?.id ?? "std"}
+            type="button"
+            className={`chip-btn ${j === current ? "on" : ""}`}
+            onClick={() => setChannelId(j.salesChannel?.id ?? null)}
+          >
+            {j.salesChannel ? j.salesChannel.name : "Standaard"}
+          </button>
+        ))}
+        {manage && usingStandard.length > 0 && (
+          <select
+            aria-label="Eigen klantreis maken voor verkoopkanaal"
+            value=""
+            disabled={createOwn.isPending}
+            onChange={(e) => e.target.value && createOwn.mutate({ groupId: group.productGroup.id, channelId: e.target.value })}
+          >
+            <option value="">+ Eigen klantreis voor…</option>
+            {usingStandard.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        )}
+      </div>
+      <p className="muted" style={{ fontSize: 13 }}>
+        {current.salesChannel
+          ? `Geldt voor nieuwe projecten van ${current.salesChannel.name}. Lopende projecten houden hun klantreis.`
+          : usingStandard.length
+            ? `Geldt voor: ${usingStandard.map((c) => c.name).join(", ")}.`
+            : "Alle verkoopkanalen hebben een eigen klantreis; de standaard is het startpunt voor nieuwe kanalen."}
+      </p>
+      <ErrorBox error={createOwn.error ?? removeOwn.error} />
+      {!current.salesChannel && <InstallationDays groupId={group.productGroup.id} />}
       <div className="card flush">
         <table>
           <thead><tr><th>Fase</th><th>Status</th><th>Mag door naar</th><th>Automatisch bij</th><th>Factuur</th><th className="num">Projecten</th></tr></thead>
@@ -59,9 +119,25 @@ export function JourneysPage() {
           </tbody>
         </table>
       </div>
+      {manage && current.salesChannel && (
+        <div className="row" style={{ marginTop: 12 }}>
+          {confirmDelete ? (
+            <>
+              <span>Eigen klantreis van {current.salesChannel.name} verwijderen? Nieuwe projecten volgen dan weer de standaard.</span>
+              <button className="btn small danger" onClick={() => removeOwn.mutate({ groupId: group.productGroup.id, channelId: current.salesChannel!.id })}>Verwijderen</button>
+              <button className="btn small" onClick={() => setConfirmDelete(false)}>Annuleren</button>
+            </>
+          ) : (
+            <button className="btn small" disabled={inUse > 0} title={inUse > 0 ? "In gebruik door projecten" : undefined} onClick={() => setConfirmDelete(true)}>
+              Eigen klantreis verwijderen
+            </button>
+          )}
+        </div>
+      )}
       {editing && (
         <StatusForm
-          productGroupId={current.productGroup.id}
+          productGroupId={group.productGroup.id}
+          salesChannelId={current.salesChannel?.id ?? null}
           status={editing === "new" ? undefined : editing}
           all={statuses}
           onClose={() => setEditing(null)}
@@ -71,7 +147,7 @@ export function JourneysPage() {
   );
 }
 
-function StatusForm({ productGroupId, status, all, onClose }: { productGroupId: string; status?: JourneyStatus; all: JourneyStatus[]; onClose: () => void }) {
+function StatusForm({ productGroupId, salesChannelId, status, all, onClose }: { productGroupId: string; salesChannelId: string | null; status?: JourneyStatus; all: JourneyStatus[]; onClose: () => void }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({
     key: status?.key ?? "",
@@ -97,7 +173,7 @@ function StatusForm({ productGroupId, status, all, onClose }: { productGroupId: 
       const rest = { ...other, invoiceTrigger: invoiceTrigger || null };
       const saved = status
         ? await api.patch<JourneyStatus>(`/journey-statuses/${status.id}`, rest)
-        : await api.post<JourneyStatus>(`/journeys/${productGroupId}/statuses`, { key, ...rest });
+        : await api.post<JourneyStatus>(`/journeys/${productGroupId}/statuses`, { key, ...rest, salesChannelId });
       await api.put(`/journey-statuses/${saved.id}/transitions`, { toStatusIds: form.isFinal ? [] : next });
     },
     onSuccess: done,

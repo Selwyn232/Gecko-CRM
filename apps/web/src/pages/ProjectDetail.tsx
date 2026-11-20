@@ -53,7 +53,7 @@ export function ProjectDetailPage() {
   if (project.isLoading) return <Loading />;
   if (!project.data) return <ErrorBox error={project.error ?? "Niet gevonden"} />;
   const p = project.data;
-  const allStatuses = journeys.data?.find((j) => j.productGroup.id === p.productGroupId)?.statuses ?? [];
+  const allStatuses = (journeys.data?.find((j) => j.statuses.some((s) => s.id === p.statusId)) ?? journeys.data?.find((j) => j.productGroup.id === p.productGroupId))?.statuses ?? [];
   const statusName = (sid: string | null) => (sid ? allStatuses.find((s) => s.id === sid)?.name ?? "—" : "—");
   const manage = can("projects.manage");
 

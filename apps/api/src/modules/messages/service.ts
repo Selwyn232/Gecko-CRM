@@ -4,7 +4,7 @@ import type { ActorContext } from "../../lib/context.js";
 import { todayIso } from "../../lib/dates.js";
 import { badRequest, notFound } from "../../lib/errors.js";
 import { recordAudit } from "../audit/service.js";
-import { productGroups } from "../catalog/schema.js";
+import { productGroups, salesChannels } from "../catalog/schema.js";
 import { customers, properties } from "../customers/schema.js";
 import { escapeHtml, layout, type Company } from "../email/layout.js";
 import { outboundEmails } from "../email/schema.js";
@@ -182,12 +182,24 @@ export async function listTemplates(db: DbOrTx) {
   const statuses = groups.length
     ? await db.select().from(journeyStatuses).where(inArray(journeyStatuses.productGroupId, groups.map((g) => g.id))).orderBy(asc(journeyStatuses.sortOrder))
     : [];
+  // Eén tabblad per klantreis: de standaard per productgroep, plus eigen klantreizen van verkoopkanalen (B80).
+  const channels = await db.select({ id: salesChannels.id, name: salesChannels.name }).from(salesChannels);
+  const journeys = groups.flatMap((g) => {
+    const own = [...new Set(statuses.filter((s) => s.productGroupId === g.id && s.salesChannelId).map((s) => s.salesChannelId!))];
+    return [
+      { g, channel: null as { id: string; name: string } | null },
+      ...own.map((id) => ({ g, channel: channels.find((c) => c.id === id) ?? { id, name: "?" } })),
+    ];
+  });
   return {
     fixed,
-    groups: groups.map((g) => ({
+    groups: journeys.map(({ g, channel }) => ({
+      key: channel ? `${g.id}:${channel.id}` : g.id,
+      label: channel ? `${g.name} · ${channel.name}` : g.name,
       productGroup: { id: g.id, name: g.name },
+      salesChannel: channel,
       statuses: statuses
-        .filter((s) => s.productGroupId === g.id)
+        .filter((s) => s.productGroupId === g.id && (s.salesChannelId ?? null) === (channel?.id ?? null))
         .map((s) => {
           const row = rows.find((r) => r.journeyStatusId === s.id);
           return {

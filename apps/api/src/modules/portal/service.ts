@@ -13,6 +13,7 @@ import type { EmailTransport } from "../email/transport.js";
 import { invoices } from "../invoices/schema.js";
 import { onlinePaymentAvailable, publicInvoiceById, startPaymentForInvoice, type BillingDeps } from "../invoices/service.js";
 import { journeyStatuses } from "../journeys/schema.js";
+import { inJourney } from "../journeys/service.js";
 import { organizations } from "../organizations/schema.js";
 import { appointments } from "../planning/schema.js";
 import { addDays, cancelAppointment, findSlots, scheduleAppointment } from "../planning/service.js";
@@ -114,7 +115,7 @@ export async function portalOverview(db: DbOrTx, email: string, deps?: BillingDe
     const phases = await db
       .selectDistinct({ phase: journeyStatuses.phase, sort: sql<number>`min(${journeyStatuses.sortOrder}) OVER (PARTITION BY ${journeyStatuses.phase})` })
       .from(journeyStatuses)
-      .where(and(eq(journeyStatuses.productGroupId, r.p.productGroupId), eq(journeyStatuses.isActive, true), ne(journeyStatuses.key, "geannuleerd")));
+      .where(and(inJourney(r.status.productGroupId, r.status.salesChannelId), eq(journeyStatuses.isActive, true), ne(journeyStatuses.key, "geannuleerd")));
     const appts = await db
       .select({ a: appointments, partnerName: organizations.name })
       .from(appointments)

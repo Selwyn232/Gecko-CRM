@@ -8,6 +8,7 @@ import { invoices } from "../invoices/schema.js";
 import { creditInvoice } from "../invoices/service.js";
 import { CANCEL_KEY } from "../journeys/defaults.js";
 import { journeyStatuses } from "../journeys/schema.js";
+import { statusByKeyInJourneyOf } from "../journeys/service.js";
 import { appointments } from "../planning/schema.js";
 import { cancelAppointment } from "../planning/service.js";
 import { quotes } from "../quotes/schema.js";
@@ -21,7 +22,7 @@ export async function cancellationPreview(db: DbOrTx, projectId: string) {
   const [p] = await db.select().from(projects).where(eq(projects.id, projectId));
   if (!p) throw notFound("Project");
   const [status] = await db.select().from(journeyStatuses).where(eq(journeyStatuses.id, p.statusId));
-  const [cancelStatus] = await db.select().from(journeyStatuses).where(and(eq(journeyStatuses.productGroupId, p.productGroupId), eq(journeyStatuses.key, CANCEL_KEY)));
+  const cancelStatus = await statusByKeyInJourneyOf(db, p.statusId, CANCEL_KEY);
   const appts = await db.select().from(appointments).where(and(eq(appointments.projectId, projectId), eq(appointments.status, "planned")));
   const invs = await db.select().from(invoices).where(and(eq(invoices.projectId, projectId), inArray(invoices.status, ["open", "paid"]), ne(invoices.type, "credit")));
   const openQuotes = await db.select().from(quotes).where(and(eq(quotes.projectId, projectId), eq(quotes.status, "sent")));
@@ -66,7 +67,7 @@ export async function cancelProject(
   for (const id of input.creditInvoiceIds) credits.push(await creditInvoice(db, actor, id, `Annulering: ${input.reason}`));
 
   const [p] = await db.select().from(projects).where(eq(projects.id, projectId));
-  const [cancelStatus] = await db.select().from(journeyStatuses).where(and(eq(journeyStatuses.productGroupId, p!.productGroupId), eq(journeyStatuses.key, CANCEL_KEY)));
+  const cancelStatus = await statusByKeyInJourneyOf(db, p!.statusId, CANCEL_KEY);
   await changeStatus(db, actor, projectId, { toStatusId: cancelStatus!.id, note: `Geannuleerd: ${input.reason}`, allowFromAnyOpen: true });
   await recordAudit(db, actor, {
     action: "project.canceled",

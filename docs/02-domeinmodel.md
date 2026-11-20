@@ -112,7 +112,7 @@ Dit wordt in de database afgedwongen, niet alleen in de UI.
 |---|---|
 | Klanten | `customers` (klantnummer K-000001), `properties` (adres, postcode genormaliseerd) |
 | Projecten | `projects` (projectnummer P-000001, productgroep, kanaal, status, partner, betaalwijze), `project_status_history` |
-| Klantreis | `journey_statuses` (per productgroep, fase, start/eind, kleur), `journey_transitions` |
+| Klantreis | `journey_statuses` (per productgroep + optioneel verkoopkanaal (B80), fase, start/eind, kleur), `journey_transitions` |
 | Gebeurtenissen | `outbox_events` (`customer.created`, `project.created`, `project.status_changed`) |
 
 Telefoonnummers worden opgeslagen als +31…, zodat inkomende WhatsApp/telefonie later automatisch aan de klant te koppelen is.

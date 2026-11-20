@@ -26,7 +26,7 @@ interface StatusMessage {
 }
 interface MessageOverview {
   fixed: FixedMessage[];
-  groups: { productGroup: { id: string; name: string }; statuses: StatusMessage[] }[];
+  groups: { key: string; label: string; productGroup: { id: string; name: string }; salesChannel: { id: string; name: string } | null; statuses: StatusMessage[] }[];
   placeholders: Record<string, string>;
 }
 type Editing =
@@ -52,7 +52,7 @@ export function MessagesPage() {
   if (overview.isLoading) return <Loading />;
   if (!overview.data) return <ErrorBox error={overview.error} />;
   const { fixed, groups, placeholders } = overview.data;
-  const current = groups.find((g) => g.productGroup.id === groupId) ?? groups[0];
+  const current = groups.find((g) => g.key === groupId) ?? groups[0];
   const manage = can("journeys.manage");
 
   return (
@@ -89,8 +89,8 @@ export function MessagesPage() {
             <p className="muted" style={{ margin: "4px 0 8px", fontSize: 13 }}>Gaat naar de klant zodra een project deze status bereikt, ook bij een automatische statuswissel.</p>
             <div className="tabs" style={{ marginBottom: 0 }}>
               {groups.map((g) => (
-                <button key={g.productGroup.id} className={g.productGroup.id === current.productGroup.id ? "active" : ""} onClick={() => setGroupId(g.productGroup.id)}>
-                  {g.productGroup.name}
+                <button key={g.key} className={g.key === current.key ? "active" : ""} onClick={() => setGroupId(g.key)}>
+                  {g.label}
                 </button>
               ))}
             </div>
@@ -103,7 +103,7 @@ export function MessagesPage() {
                   key={s.journeyStatusId}
                   className={manage || s.template ? "clickable" : ""}
                   style={{ opacity: s.statusActive ? 1 : 0.5 }}
-                  onClick={() => (manage || s.template) && setEditing({ kind: "status", item: s, groupName: current.productGroup.name })}
+                  onClick={() => (manage || s.template) && setEditing({ kind: "status", item: s, groupName: current.label })}
                 >
                   <td className="muted">{s.phase}</td>
                   <td><StatusPill status={s} /></td>

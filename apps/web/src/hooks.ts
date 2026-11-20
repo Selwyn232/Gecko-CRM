@@ -15,7 +15,15 @@ export const nameById = <T extends { id: string; name: string }>(list: T[] | und
 
 import type { JourneyStatus, ProductGroup as PG } from "./api";
 export const useJourneys = () =>
-  useQuery({ queryKey: ["journeys"], queryFn: () => api.get<{ productGroup: PG; statuses: JourneyStatus[] }[]>("/journeys") });
+  useQuery({ queryKey: ["journeys"], queryFn: () => api.get<Journey[]>("/journeys") });
+
+/** Klantreis = productgroep + verkoopkanaal (leeg = standaard, B80). */
+export interface Journey {
+  productGroup: PG;
+  salesChannel: { id: string; name: string } | null;
+  channels: { id: string; name: string }[];
+  statuses: JourneyStatus[];
+}
 
 import type { Advisor } from "./api";
 export const useAdvisors = (organizationId?: string | null) =>

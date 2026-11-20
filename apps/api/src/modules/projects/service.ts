@@ -141,7 +141,7 @@ export async function createProjectInTx(tx: DbOrTx, actor: ActorContext, input: 
     if (!allowed) throw badRequest("product_group_not_in_channel", "Dit verkoopkanaal verkoopt deze productgroep niet");
     await assertPartner(tx, input.installationPartnerId, input.productGroupId);
 
-    const start = await initialStatus(tx, input.productGroupId);
+    const start = await initialStatus(tx, input.productGroupId, input.salesChannelId);
     const [p] = await tx.insert(projects).values({ ...input, statusId: start.id }).returning();
     await tx.insert(projectStatusHistory).values({ projectId: p!.id, fromStatusId: null, toStatusId: start.id, changedBy: actor.userId });
     await recordAudit(tx, actor, { action: "project.created", entityType: "project", entityId: p!.id, after: p });
@@ -183,8 +183,11 @@ export async function changeStatus(
       throw conflict("status_changed", "De status is intussen door iemand anders gewijzigd; vernieuw de pagina");
     }
     const [to] = await tx.select().from(journeyStatuses).where(eq(journeyStatuses.id, input.toStatusId));
-    if (!to || to.productGroupId !== p.productGroupId || !to.isActive) throw badRequest("invalid_status", "Ongeldige status");
     const [current] = await tx.select().from(journeyStatuses).where(eq(journeyStatuses.id, p.statusId));
+    // Alleen statussen uit de klantreis van het project zelf (zelfde productgroep én hetzelfde kanaal, B80).
+    if (!to || to.productGroupId !== p.productGroupId || to.salesChannelId !== (current?.salesChannelId ?? null) || !to.isActive) {
+      throw badRequest("invalid_status", "Ongeldige status");
+    }
     if (!(input.allowFromAnyOpen && !current?.isFinal) && !(await isTransitionAllowed(tx, p.statusId, to.id))) {
       throw badRequest("transition_not_allowed", "Deze statusovergang is niet toegestaan in de klantreis");
     }

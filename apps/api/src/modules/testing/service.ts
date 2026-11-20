@@ -8,10 +8,11 @@ import { recordAudit } from "../audit/service.js";
 import { roles, users } from "../auth/schema.js";
 import { addPriceVersion, effectivePrice } from "../catalog/prices.js";
 import { productGroups, products, salesChannelProductGroups, salesChannels } from "../catalog/schema.js";
-import { journeyStatuses } from "../journeys/schema.js";
+import { statusByKeyInJourneyOf } from "../journeys/service.js";
 import { advisors, organizations } from "../organizations/schema.js";
 import { addDays, postalNumber, setAvailability, setPartnerRegions } from "../planning/service.js";
 import { regions } from "../planning/schema.js";
+import { projects } from "../projects/schema.js";
 import { changeStatus } from "../projects/service.js";
 import { acceptQuote, addLine, createQuote, sendQuote } from "../quotes/service.js";
 import { createCustomer } from "../customers/service.js";
@@ -171,10 +172,8 @@ export async function createTestScenario(db: Db, actor: ActorContext, input: { p
   const projectId = accepted.projectId!;
 
   // Naar "Schouw in te plannen" (of de eerste status die naar het inplannen van de schouw leidt).
-  const [target] = await db
-    .select()
-    .from(journeyStatuses)
-    .where(and(eq(journeyStatuses.productGroupId, group.id), eq(journeyStatuses.key, "schouw_inplannen")));
+  const [proj] = await db.select({ statusId: projects.statusId }).from(projects).where(eq(projects.id, projectId));
+  const target = proj ? await statusByKeyInJourneyOf(db, proj.statusId, "schouw_inplannen") : undefined;
   if (target) {
     try {
       await changeStatus(db, actor, projectId, { toStatusId: target.id, note: "Testscenario" });

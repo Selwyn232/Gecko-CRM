@@ -201,6 +201,7 @@ export interface Property {
 export interface JourneyStatus {
   id: string;
   productGroupId: string;
+  salesChannelId?: string | null;
   key: string;
   name: string;
   phase: string;

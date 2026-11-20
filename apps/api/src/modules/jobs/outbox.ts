@@ -6,6 +6,7 @@ import { invoiceProjectAndSend, type BillingDeps } from "../invoices/service.js"
 import { applyJourneyEvent } from "../journeys/auto.js";
 import type { JourneyEvent } from "../journeys/events.js";
 import { journeyStatuses } from "../journeys/schema.js";
+import { statusByKeyInJourneyOf } from "../journeys/service.js";
 import { sendStatusMessage } from "../messages/service.js";
 import type { Permission } from "../auth/permissions.js";
 import { notifyPermission } from "../tasks/service.js";
@@ -75,12 +76,8 @@ const HANDLERS: Record<string, Handler[]> = {
       let statusId = payload.toStatusId as string | undefined;
       if (!statusId) {
         // Oudere gebeurtenissen hebben alleen de sleutel van de status.
-        const [row] = await db
-          .select({ id: journeyStatuses.id })
-          .from(projects)
-          .innerJoin(journeyStatuses, and(eq(journeyStatuses.productGroupId, projects.productGroupId), eq(journeyStatuses.key, String(payload.toStatusKey))))
-          .where(eq(projects.id, projectId));
-        statusId = row?.id;
+        const [p] = await db.select({ statusId: projects.statusId }).from(projects).where(eq(projects.id, projectId));
+        statusId = p ? (await statusByKeyInJourneyOf(db, p.statusId, String(payload.toStatusKey)))?.id : undefined;
       }
       if (statusId) await sendStatusMessage(db, deps.emailTransport, projectId, statusId, `project.status:${eventId}`);
     },

@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Db } from "../../db/client.js";
 import { requirePermission } from "../../http/auth-plugin.js";
 import { JOURNEY_EVENTS } from "./events.js";
-import { createStatus, deleteStatus, getJourney, listJourneys, setTransitions, updateStatus } from "./service.js";
+import { createChannelJourney, createStatus, deleteChannelJourney, deleteStatus, getJourney, listJourneys, setTransitions, updateStatus } from "./service.js";
 
 const IdParams = z.object({ id: z.string().uuid() });
 const COLORS = ["gray", "blue", "green", "yellow", "red", "purple"] as const;
@@ -25,10 +25,28 @@ export const journeyRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db
   const manage = requirePermission("journeys.manage");
 
   app.get("/journeys", { preValidation: read }, async () => listJourneys(db));
-  app.get("/journeys/:id", { preValidation: read, schema: { params: IdParams } }, async (req) => getJourney(db, req.params.id));
-  app.post("/journeys/:id/statuses", { preValidation: manage, schema: { params: IdParams, body: StatusBody } }, async (req, reply) => {
+  const ChannelQuery = z.object({ salesChannelId: z.string().uuid().optional() });
+  app.get("/journeys/:id", { preValidation: read, schema: { params: IdParams, querystring: ChannelQuery } }, async (req) =>
+    getJourney(db, req.params.id, req.query.salesChannelId ?? null),
+  );
+  app.post(
+    "/journeys/:id/statuses",
+    { preValidation: manage, schema: { params: IdParams, body: StatusBody.extend({ salesChannelId: z.string().uuid().nullish() }) } },
+    async (req, reply) => {
+      const { salesChannelId, ...input } = req.body;
+      reply.code(201);
+      return createStatus(db, req.actor, req.params.id, input, salesChannelId ?? null);
+    },
+  );
+  /** Eigen klantreis voor een verkoopkanaal (kopie van de standaard), of weer verwijderen. */
+  const ChannelParams = z.object({ id: z.string().uuid(), channelId: z.string().uuid() });
+  app.post("/journeys/:id/channels/:channelId", { preValidation: manage, schema: { params: ChannelParams } }, async (req, reply) => {
     reply.code(201);
-    return createStatus(db, req.actor, req.params.id, req.body);
+    return createChannelJourney(db, req.actor, req.params.id, req.params.channelId);
+  });
+  app.delete("/journeys/:id/channels/:channelId", { preValidation: manage, schema: { params: ChannelParams } }, async (req, reply) => {
+    await deleteChannelJourney(db, req.actor, req.params.id, req.params.channelId);
+    reply.code(204);
   });
   app.patch(
     "/journey-statuses/:id",
