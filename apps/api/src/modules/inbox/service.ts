@@ -39,12 +39,22 @@ export async function receiveInbound(
     const [dup] = await db.select({ id: inboundEmails.id }).from(inboundEmails).where(eq(inboundEmails.messageId, input.messageId));
     if (dup) return { id: dup.id, duplicate: true };
   }
-  const [customer] = await db.select({ id: customers.id }).from(customers).where(sql`lower(${customers.email}) = ${from.address}`).limit(1);
+  // Klanten met dit afzenderadres (soms meerdere, bv. een gezin of testklanten); de nieuwste eerst.
+  const matches = await db
+    .select({ id: customers.id })
+    .from(customers)
+    .where(sql`lower(${customers.email}) = ${from.address}`)
+    .orderBy(desc(customers.createdAt));
+  let customer: { id: string } | undefined = matches[0];
   let projectId: string | null = null;
   const pn = input.subject.match(/\bP-?0*(\d{1,9})\b/i);
   if (pn) {
     const [p] = await db.select({ id: projects.id, customerId: projects.customerId }).from(projects).where(eq(projects.number, Number(pn[1])));
-    if (p && (!customer || p.customerId === customer.id)) projectId = p.id;
+    // Het projectnummer in het onderwerp beslist bij welke klant de mail hoort (als de afzender bij die klant hoort).
+    if (p && (!matches.length || matches.some((m) => m.id === p.customerId))) {
+      projectId = p.id;
+      customer = { id: p.customerId };
+    }
   }
   const [row] = await db
     .insert(inboundEmails)
