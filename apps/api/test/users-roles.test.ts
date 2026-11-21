@@ -38,6 +38,7 @@ describe("gebruikers en rollen", () => {
       payload: { organizationId: await geckoOrgId(ctx.db), email: "nieuwe@gecko.test", name: "x", password: PASSWORD },
     });
     expect(dup.statusCode).toBe(409);
+    expect(dup.json().error.message).toContain("e-mailadres");
   });
 
   it("weigert zwakke wachtwoorden", async () => {

@@ -147,7 +147,13 @@ export async function buildApp({
     }
     const pgCode = (err.cause as { code?: string } | undefined)?.code ?? err.code;
     if (pgCode === PG_UNIQUE_VIOLATION) {
-      return reply.code(409).send({ error: { code: "already_exists", message: "Bestaat al" } });
+      // Duidelijke melding per bekende unieke regel; anders algemeen.
+      const constraint = (err.cause as { constraint?: string } | undefined)?.constraint ?? (err as { constraint?: string }).constraint ?? "";
+      const KNOWN: Record<string, string> = {
+        users_email_unique: "Er is al een gebruiker met dit e-mailadres. Elk account heeft een eigen e-mailadres nodig.",
+        users_username_unique: "Er is al een gebruiker met deze gebruikersnaam.",
+      };
+      return reply.code(409).send({ error: { code: "already_exists", message: KNOWN[constraint] ?? "Dit bestaat al (dubbele waarde)." } });
     }
     if (pgCode === PG_FOREIGN_KEY_VIOLATION) {
       return reply.code(400).send({ error: { code: "invalid_reference", message: "Verwijzing naar een onbekend of gebruikt record" } });
