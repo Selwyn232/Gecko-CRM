@@ -1,3 +1,4 @@
+import { ownCustomerFilter } from "../specialists/service.js";
 import { and, asc, desc, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
 import type { Db, DbOrTx } from "../../db/client.js";
 import type { ActorContext } from "../../lib/context.js";
@@ -150,8 +151,11 @@ export function redactCosts(q: QuoteView) {
 export async function listQuotes(
   db: DbOrTx,
   q: { status?: Quote["status"]; customerId?: string; projectId?: string; search?: string; limit: number; offset: number },
+  actor?: ActorContext,
 ) {
   const filters: SQL[] = [];
+  const own = actor && ownCustomerFilter(actor, quotes.customerId);
+  if (own) filters.push(own);
   if (q.status) filters.push(eq(quotes.status, q.status));
   if (q.customerId) filters.push(eq(quotes.customerId, q.customerId));
   if (q.projectId) filters.push(eq(quotes.projectId, q.projectId));

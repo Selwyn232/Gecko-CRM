@@ -1,3 +1,4 @@
+import { SpecialistCell } from "../components/Specialist";
 import { CustomerExternalQuotes } from "../components/GreenteamImport";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useState, type FormEvent } from "react";
@@ -62,6 +63,7 @@ export function CustomerDetailPage() {
             <dt>E-mail</dt><dd>{c.email ? <a href={`mailto:${c.email}`}>{c.email}</a> : "—"}</dd>
             <dt>Telefoon</dt><dd>{c.phone ? <a href={`tel:${c.phone}`}>{c.phone}</a> : "—"}</dd>
             <dt>Klant sinds</dt><dd>{formatDate(c.createdAt)}</dd>
+            <dt>Klantspecialist</dt><dd><SpecialistCell customerId={c.id} specialist={c.specialist} serviceSince={c.serviceSince} /></dd>
           </dl>
           {c.notes && <p style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>{c.notes}</p>}
         </div>

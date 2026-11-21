@@ -1,3 +1,4 @@
+import { ownCustomerFilter } from "../specialists/service.js";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { Db, DbOrTx } from "../../db/client.js";
@@ -69,8 +70,11 @@ export async function receiveInbound(
   return { id: row!.id, duplicate: false };
 }
 
-export async function listInbound(db: DbOrTx, q: { status?: "new" | "handled"; customerId?: string }) {
+export async function listInbound(db: DbOrTx, q: { status?: "new" | "handled"; customerId?: string }, actor?: ActorContext) {
   const filters = [];
+  // Klantspecialist: alleen mail van eigen klanten; niet-gekoppelde mail verdeelt de manager (B81).
+  const own = actor && ownCustomerFilter(actor, inboundEmails.customerId);
+  if (own) filters.push(own);
   if (q.status) filters.push(eq(inboundEmails.status, q.status));
   if (q.customerId) filters.push(eq(inboundEmails.customerId, q.customerId));
   const rows = await db

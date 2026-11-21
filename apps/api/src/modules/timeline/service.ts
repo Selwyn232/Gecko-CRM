@@ -1,3 +1,4 @@
+import { ownCustomersOnly } from "../specialists/service.js";
 import { externalQuotes } from "../imports/schema.js";
 import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { DbOrTx } from "../../db/client.js";
@@ -137,6 +138,9 @@ export async function search(db: DbOrTx, actor: ActorContext, qInput: string) {
   const num = /^[a-z]?-?\d+$/i.test(q.replace(/\s/g, "")) && digits ? Number(digits) : null;
   const postal = q.replace(/\s/g, "").toUpperCase();
   const results: { kind: string; label: string; detail: string; href: string }[] = [];
+  // Klantspecialist: alleen eigen klanten (B81).
+  const own = ownCustomersOnly(actor);
+  const mine = own ? eq(customers.specialistUserId, own) : undefined;
 
   if (can("customers.read")) {
     // Losse, elk via een index uit te voeren zoekopdrachten (migratie 0029), samengevoegd met UNION.
@@ -154,7 +158,7 @@ export async function search(db: DbOrTx, actor: ActorContext, qInput: string) {
         .select({ c: customers, street: properties.street, houseNumber: properties.houseNumber, city: properties.city })
         .from(customers)
         .leftJoin(properties, eq(properties.customerId, customers.id))
-        .where(inArray(customers.id, ids));
+        .where(and(inArray(customers.id, ids), mine));
       const seen = new Set<string>();
       for (const r of rows) {
         if (seen.has(r.c.id)) continue;
@@ -174,12 +178,12 @@ export async function search(db: DbOrTx, actor: ActorContext, qInput: string) {
         .select({ p: projects, c: customers })
         .from(projects)
         .innerJoin(customers, eq(customers.id, projects.customerId))
-        .where(eq(projects.number, num))
+        .where(and(eq(projects.number, num), mine))
         .limit(3);
       for (const { p, c } of ps) results.push({ kind: "Project", label: formatProjectNumber(p.number), detail: [c.firstName, c.lastName].filter(Boolean).join(" "), href: `/projecten/${p.id}` });
     }
     if (can("quotes.read") && (!/^[a-z]/i.test(q) || /^o/i.test(q))) {
-      const qs = await db.select({ q: quotes, c: customers }).from(quotes).innerJoin(customers, eq(customers.id, quotes.customerId)).where(eq(quotes.number, num)).limit(3);
+      const qs = await db.select({ q: quotes, c: customers }).from(quotes).innerJoin(customers, eq(customers.id, quotes.customerId)).where(and(eq(quotes.number, num), mine)).limit(3);
       for (const { q: qu, c } of qs) results.push({ kind: "Offerte", label: formatQuoteNumber(qu.number), detail: [c.firstName, c.lastName].filter(Boolean).join(" "), href: `/offertes/${qu.id}` });
     }
   }
@@ -188,7 +192,7 @@ export async function search(db: DbOrTx, actor: ActorContext, qInput: string) {
       .select({ i: invoices, c: customers })
       .from(invoices)
       .innerJoin(customers, eq(customers.id, invoices.customerId))
-      .where(sql`${invoices.number} ILIKE ${`%${digits.padStart(Math.min(6, digits.length), "0")}%`} AND (${/^f/i.test(q) || q.includes("-") || digits.length >= 4})`)
+      .where(and(sql`${invoices.number} ILIKE ${`%${digits.padStart(Math.min(6, digits.length), "0")}%`} AND (${/^f/i.test(q) || q.includes("-") || digits.length >= 4})`, mine))
       .orderBy(desc(invoices.createdAt))
       .limit(5);
     for (const { i, c } of inv) results.push({ kind: i.type === "credit" ? "Creditnota" : "Factuur", label: i.number!, detail: [c.firstName, c.lastName].filter(Boolean).join(" "), href: `/facturen/${i.id}` });

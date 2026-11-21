@@ -37,7 +37,7 @@ export const inboxRoutes: FastifyPluginAsyncZod<{ db: Db; emailTransport: EmailT
   const read = requirePermission("customers.read");
   const manage = requirePermission("customers.manage");
   app.get("/inbox", { preValidation: read, schema: { querystring: z.object({ status: z.enum(["new", "handled"]).optional(), customerId: z.string().uuid().optional() }) } }, async (req) =>
-    listInbound(db, req.query),
+    listInbound(db, req.query, req.actor),
   );
   app.patch(
     "/inbox/:id",

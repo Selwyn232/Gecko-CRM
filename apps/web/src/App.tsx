@@ -1,3 +1,5 @@
+import { OwnPhotoButton } from "./components/Specialist";
+import { SpecialistsPage } from "./pages/Specialists";
 import { PasskeyPrompt, PasskeysButton, shouldPromptPasskey } from "./components/Passkeys";
 import { Avatar } from "./components/Avatar";
 import { NavIcon } from "./components/icons";
@@ -163,6 +165,7 @@ export function App() {
           {can("planning.read") && <NavLink to="/checklists"><NavIcon name="checklists" />Checklists</NavLink>}
           {can("planning.read") && <NavLink to="/regios"><NavIcon name="regios" />Regio's</NavLink>}
           {can("planning.read") && <NavLink to="/beschikbaarheid"><NavIcon name="beschikbaarheid" />Beschikbaarheid</NavLink>}
+          {can("specialists.manage") && <NavLink to="/klantspecialisten"><NavIcon name="klanten" />Klantspecialisten</NavLink>}
           {can("users.read") && <NavLink to="/gebruikers"><NavIcon name="gebruikers" />Gebruikers</NavLink>}
           {can("users.read") && <NavLink to="/rollen"><NavIcon name="rollen" />Rollen &amp; rechten</NavLink>}
           {can("audit.read") && <NavLink to="/logboek"><NavIcon name="logboek" />Logboek</NavLink>}
@@ -181,6 +184,7 @@ export function App() {
           <div className="row" style={{ marginTop: 8 }}>
             <button className="btn small" onClick={() => setChangingPassword(true)}>Wachtwoord</button>
             <PasskeysButton />
+            {can("customers.read") && !can("customers.all") && <OwnPhotoButton />}
             <button className="btn small" onClick={logout}>Uitloggen</button>
           </div>
         </div>
@@ -223,6 +227,7 @@ export function App() {
           <Route path="/verkoopkanalen" element={<ChannelsPage />} />
           <Route path="/organisaties" element={<OrganizationsPage />} />
           <Route path="/gebruikers" element={<UsersPage />} />
+          <Route path="/klantspecialisten" element={<SpecialistsPage />} />
           <Route path="/rollen" element={<RolesPage />} />
           <Route path="/logboek" element={<AuditPage />} />
           <Route path="*" element={<div className="empty">Pagina niet gevonden</div>} />

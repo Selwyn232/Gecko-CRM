@@ -246,6 +246,8 @@ export interface ProjectSummary {
 }
 export interface CustomerDetail extends CustomerSummary {
   projects: ProjectSummary[];
+  specialist: { id: string; name: string; email: string | null; hasPhoto: boolean } | null;
+  serviceSince: string | null;
 }
 export interface ProjectListItem extends ProjectSummary {
   customer: { id: string; displayNumber: string; firstName: string | null; lastName: string };

@@ -1,3 +1,4 @@
+import { ownCustomerFilter } from "../specialists/service.js";
 import { and, asc, desc, eq, isNull, lte, or, sql } from "drizzle-orm";
 import type { DbOrTx } from "../../db/client.js";
 import type { ActorContext } from "../../lib/context.js";
@@ -46,8 +47,10 @@ export async function markRead(db: DbOrTx, userId: string, id: string | "all") {
 
 // ---------------------------------------------------------------- Taken
 
-export async function listTasks(db: DbOrTx, q: { assigneeUserId?: string; customerId?: string; projectId?: string; open?: boolean }) {
+export async function listTasks(db: DbOrTx, q: { assigneeUserId?: string; customerId?: string; projectId?: string; open?: boolean }, actor?: ActorContext) {
   const filters = [];
+  const own = actor && ownCustomerFilter(actor, tasks.customerId);
+  if (own && actor?.userId) filters.push(or(own, eq(tasks.assigneeUserId, actor.userId))!);
   if (q.assigneeUserId) filters.push(eq(tasks.assigneeUserId, q.assigneeUserId));
   if (q.customerId) filters.push(eq(tasks.customerId, q.customerId));
   if (q.projectId) filters.push(eq(tasks.projectId, q.projectId));

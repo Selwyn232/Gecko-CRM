@@ -1,3 +1,5 @@
+import { ownCustomerFilter, ownCustomersOnly } from "../specialists/service.js";
+import { users } from "../auth/schema.js";
 import { and, asc, count, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import type { Db, DbOrTx } from "../../db/client.js";
 import type { ActorContext } from "../../lib/context.js";
@@ -70,8 +72,10 @@ function cleanCustomer<T extends Partial<CustomerInput>>(c: T): T {
   return out;
 }
 
-export async function listCustomers(db: DbOrTx, q: { search?: string; limit: number; offset: number }) {
+export async function listCustomers(db: DbOrTx, q: { search?: string; limit: number; offset: number }, actor?: ActorContext) {
   const filters: SQL[] = [];
+  const own = actor && ownCustomerFilter(actor, customers.id);
+  if (own) filters.push(own);
   if (q.search) {
     const s = q.search.trim();
     const like = `%${s}%`;
@@ -130,9 +134,13 @@ export async function getCustomer(db: DbOrTx, id: string) {
     .innerJoin(journeyStatuses, eq(journeyStatuses.id, projects.statusId))
     .where(eq(projects.customerId, id))
     .orderBy(desc(projects.createdAt));
+  const [specialist] = c.specialistUserId
+    ? await db.select({ id: users.id, name: users.name, email: users.email, hasPhoto: sql<boolean>`${users.photoDataUrl} IS NOT NULL` }).from(users).where(eq(users.id, c.specialistUserId))
+    : [];
   return {
     ...c,
     displayNumber: formatCustomerNumber(c.number),
+    specialist: specialist ?? null,
     properties: props,
     projects: projs.map((p) => ({ ...p.project, displayNumber: `P-${String(p.project.number).padStart(6, "0")}`, status: p.status })),
   };
@@ -145,7 +153,12 @@ export async function createCustomer(db: Db, actor: ActorContext, input: Custome
       const [ch] = await tx.select().from(salesChannels).where(eq(salesChannels.id, data.salesChannelId));
       if (!ch) throw badRequest("unknown_sales_channel", "Verkoopkanaal bestaat niet");
     }
-    const [c] = await tx.insert(customers).values({ ...cleanCustomer(data), createdBy: actor.userId }).returning();
+    // Een klantspecialist die zelf een klant aanmaakt, wordt er de specialist van (anders ziet hij hem niet meer).
+    const own = ownCustomersOnly(actor);
+    const [c] = await tx
+      .insert(customers)
+      .values({ ...cleanCustomer(data), createdBy: actor.userId, ...(own ? { specialistUserId: own, specialistAssignedAt: new Date() } : {}) })
+      .returning();
     await recordAudit(tx, actor, { action: "customer.created", entityType: "customer", entityId: c!.id, after: c });
     if (property) {
       const [p] = await tx.insert(properties).values({ ...cleanProperty(property), customerId: c!.id }).returning();

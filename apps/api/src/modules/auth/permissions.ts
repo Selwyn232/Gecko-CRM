@@ -20,6 +20,8 @@ export const PERMISSIONS = {
   "purchase_prices.manage": "Inkoopprijzen en partnertarieven beheren",
   "settings.manage": "Systeeminstellingen beheren (o.a. btw-tarieven)",
   "customers.read": "Klanten en woningen bekijken",
+  "customers.all": "Alle klanten zien (zonder dit recht: alleen de klanten waarvan je de klantspecialist bent)",
+  "specialists.manage": "Klantspecialisten beheren: bezetting, maximum aantal klanten, klanten overzetten",
   "customers.manage": "Klanten en woningen aanmaken en wijzigen",
   "projects.read": "Projecten en hun status bekijken",
   "projects.manage": "Projecten aanmaken, wijzigen en status aanpassen",

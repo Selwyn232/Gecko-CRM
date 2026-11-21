@@ -52,7 +52,7 @@ export const quoteRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; emailT
         }),
       },
     },
-    async (req) => listQuotes(db, req.query),
+    async (req) => listQuotes(db, req.query, req.actor),
   );
 
   app.get(

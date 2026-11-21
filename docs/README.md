@@ -19,3 +19,4 @@ Elke wijziging in het ontwerp hoort hier eerst te landen, daarna in code.
 Taal: documentatie en UI in het Nederlands; code (namen van tabellen, variabelen) in het Engels.
 - [11 — API voor koppelingen](11-api.md)
 - [12 — Backup en herstel](12-backup.md)
+- [13 — Privacyverklaring: klantcontact en AI (concept)](13-privacyverklaring-klantcontact.md)

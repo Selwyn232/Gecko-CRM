@@ -45,6 +45,12 @@ export const users = pgTable(
     failedLoginCount: integer("failed_login_count").notNull().default(0),
     lockedUntil: timestamp("locked_until", { withTimezone: true }),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    /** Klantspecialist (B81): maximum aantal lopende klanten; leeg = geen maximum. */
+    maxCustomers: integer("max_customers"),
+    /** Klantspecialist: krijgt automatisch nieuwe klanten (uit bij afwezigheid of vol). */
+    acceptsNewCustomers: boolean("accepts_new_customers").notNull().default(true),
+    /** Pasfoto (klein JPEG/PNG, als data-URL), getoond aan klanten in het welkomstbericht. */
+    photoDataUrl: text("photo_data_url"),
     /** Gebruiker van een verkooppartner die één adviseur is: ziet dan alleen de eigen offertes. */
     advisorId: uuid("advisor_id").references(() => advisors.id),
     ...timestamps(),

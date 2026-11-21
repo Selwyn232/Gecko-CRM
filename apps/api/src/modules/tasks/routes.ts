@@ -17,7 +17,7 @@ export const taskRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db })
   app.get(
     "/tasks",
     { preValidation: read, schema: { querystring: z.object({ mine: z.coerce.boolean().optional(), customerId: z.string().uuid().optional(), projectId: z.string().uuid().optional(), open: z.coerce.boolean().optional() }) } },
-    async (req) => listTasks(db, { ...req.query, assigneeUserId: req.query.mine ? req.actor.userId! : undefined }),
+    async (req) => listTasks(db, { ...req.query, assigneeUserId: req.query.mine ? req.actor.userId! : undefined }, req.actor),
   );
   app.post(
     "/tasks",

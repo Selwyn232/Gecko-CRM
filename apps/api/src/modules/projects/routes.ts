@@ -32,12 +32,12 @@ export const projectRoutes: FastifyPluginAsyncZod<{ db: Db; emailTransport: Emai
         }),
       },
     },
-    async (req) => listProjects(db, req.query),
+    async (req) => listProjects(db, req.query, req.actor),
   );
   app.get(
     "/projects/status-counts",
     { preValidation: read, schema: { querystring: z.object({ productGroupId: z.string().uuid().optional() }) } },
-    async (req) => statusCounts(db, req.query.productGroupId),
+    async (req) => statusCounts(db, req.query.productGroupId, req.actor),
   );
   app.get("/projects/:id", { preValidation: read, schema: { params: IdParams } }, async (req) => getProject(db, req.params.id));
   app.get("/projects/:id/cancellation", { preValidation: manage, schema: { params: IdParams } }, async (req) => cancellationPreview(db, req.params.id));

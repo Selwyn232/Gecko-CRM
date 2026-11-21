@@ -1,3 +1,4 @@
+import { ownCustomerFilter } from "../specialists/service.js";
 import { and, asc, desc, eq, gte, inArray, lte, ne, sql, type SQL } from "drizzle-orm";
 import type { Config } from "../../config.js";
 import type { Db, DbOrTx } from "../../db/client.js";
@@ -63,8 +64,11 @@ export type InvoiceView = Awaited<ReturnType<typeof getInvoice>>;
 export async function listInvoices(
   db: DbOrTx,
   q: { status?: Invoice["status"]; customerId?: string; projectId?: string; overdue?: boolean; limit: number; offset: number },
+  actor?: ActorContext,
 ) {
   const filters: SQL[] = [];
+  const own = actor && ownCustomerFilter(actor, invoices.customerId);
+  if (own) filters.push(own);
   if (q.status) filters.push(eq(invoices.status, q.status));
   if (q.customerId) filters.push(eq(invoices.customerId, q.customerId));
   if (q.projectId) filters.push(eq(invoices.projectId, q.projectId));

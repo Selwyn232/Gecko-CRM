@@ -1,3 +1,4 @@
+import { ownCustomersOnly } from "../specialists/service.js";
 import { desc, eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -48,13 +49,14 @@ export const invoiceRoutes: FastifyPluginAsyncZod<{ db: Db; deps: BillingDeps }>
         }),
       },
     },
-    async (req) => listInvoices(db, req.query),
+    async (req) => listInvoices(db, req.query, req.actor),
   );
 
   app.get(
     "/invoices/export.csv",
     { preValidation: read, schema: { querystring: z.object({ from: IsoDate, to: IsoDate }) } },
     async (req, reply) => {
+      if (ownCustomersOnly(req.actor)) throw forbidden("export_not_allowed", "Exporteren kan alleen met toegang tot alle klanten");
       reply.header("content-type", "text/csv; charset=utf-8").header("content-disposition", `attachment; filename="facturen-${req.query.from}-${req.query.to}.csv"`);
       return exportCsv(db, req.query.from, req.query.to);
     },

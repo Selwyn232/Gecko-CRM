@@ -288,6 +288,13 @@
       "when": 1795163250255,
       "tag": "0040_journey_per_channel",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1795253802316,
+      "tag": "0041_customer_specialists",
+      "breakpoints": true
     }
   ]
 }

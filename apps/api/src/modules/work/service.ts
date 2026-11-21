@@ -1,3 +1,4 @@
+import { ownCustomerFilter, ownCustomersOnly } from "../specialists/service.js";
 import { and, asc, desc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
 import type { DbOrTx } from "../../db/client.js";
 import type { ActorContext } from "../../lib/context.js";
@@ -47,6 +48,13 @@ export async function myWork(db: DbOrTx, actor: ActorContext) {
   const today = todayIso();
   const sections: WorkSection[] = [];
   const add = (s: WorkSection) => s.count > 0 && sections.push(s);
+  // Klantspecialist: alleen eigen klanten (B81).
+  const own = ownCustomersOnly(actor);
+  const mine = own ? eq(customers.specialistUserId, own) : undefined;
+  const ownProjects = own
+    ? new Set((await db.select({ id: projects.id }).from(projects).innerJoin(customers, eq(customers.id, projects.customerId)).where(eq(customers.specialistUserId, own))).map((r) => r.id))
+    : null;
+  const keep = <T extends { projectId: string }>(list: T[]) => (ownProjects ? list.filter((x) => ownProjects.has(x.projectId)) : list);
 
   if (actor.userId) {
     const mine = await dueTasks(db, actor.userId, addDays(today, 7));
@@ -67,7 +75,7 @@ export async function myWork(db: DbOrTx, actor: ActorContext) {
   }
 
   if (can("customers.read")) {
-    const inbox = await db.select().from(inboundEmails).where(eq(inboundEmails.status, "new")).orderBy(asc(inboundEmails.receivedAt));
+    const inbox = await db.select().from(inboundEmails).where(and(eq(inboundEmails.status, "new"), ownCustomerFilter(actor, inboundEmails.customerId) ?? undefined)).orderBy(asc(inboundEmails.receivedAt));
     add({
       key: "inbox",
       title: "Inbox: nieuwe e-mails",
@@ -86,7 +94,7 @@ export async function myWork(db: DbOrTx, actor: ActorContext) {
       .innerJoin(sql`appointments a`, sql`a.id = ${reports.appointmentId}`)
       .innerJoin(projects, sql`${projects.id} = a.project_id`)
       .innerJoin(customers, eq(customers.id, projects.customerId))
-      .where(eq(reports.review, "pending"))
+      .where(and(eq(reports.review, "pending"), mine))
       .orderBy(asc(reports.submittedAt));
     add({
       key: "reports",
@@ -104,7 +112,7 @@ export async function myWork(db: DbOrTx, actor: ActorContext) {
     });
 
     const unpaid = (await listAppointments(db, { status: "planned", from: today, to: addDays(today, 60) })) as Awaited<ReturnType<typeof listAppointments>>;
-    const flagged = unpaid.filter((a) => (a as { depositUnpaid?: boolean }).depositUnpaid);
+    const flagged = keep(unpaid.filter((a) => (a as { depositUnpaid?: boolean }).depositUnpaid));
     add({
       key: "deposit",
       title: "Schouw gepland, aanbetaling open",
@@ -116,7 +124,7 @@ export async function myWork(db: DbOrTx, actor: ActorContext) {
     });
 
     for (const type of ["survey", "installation"] as const) {
-      const list = await toPlan(db, type);
+      const list = keep(await toPlan(db, type));
       add({
         key: `toplan-${type}`,
         title: type === "survey" ? "Schouw inplannen" : "Installatie inplannen",
@@ -134,7 +142,7 @@ export async function myWork(db: DbOrTx, actor: ActorContext) {
       .select({ q: quotes, customer: customers })
       .from(quotes)
       .innerJoin(customers, eq(customers.id, quotes.customerId))
-      .where(and(eq(quotes.kind, "extra_work"), eq(quotes.status, "draft")))
+      .where(and(eq(quotes.kind, "extra_work"), eq(quotes.status, "draft"), mine))
       .orderBy(asc(quotes.createdAt));
     add({
       key: "extra-drafts",
@@ -149,7 +157,7 @@ export async function myWork(db: DbOrTx, actor: ActorContext) {
       .select({ q: quotes, customer: customers })
       .from(quotes)
       .innerJoin(customers, eq(customers.id, quotes.customerId))
-      .where(and(eq(quotes.status, "sent"), gte(quotes.validUntil, today), lte(quotes.sentAt, new Date(Date.now() - 5 * 86_400_000))))
+      .where(and(eq(quotes.status, "sent"), gte(quotes.validUntil, today), lte(quotes.sentAt, new Date(Date.now() - 5 * 86_400_000)), mine))
       .orderBy(asc(quotes.validUntil));
     add({
       key: "quotes-waiting",
@@ -163,7 +171,7 @@ export async function myWork(db: DbOrTx, actor: ActorContext) {
   }
 
   if (can("projects.read")) {
-    const stuck = await stuckProjects(db, {}, 14);
+    const stuck = keep(await stuckProjects(db, {}, 14));
     add({
       key: "stuck",
       title: "Blijft hangen (> 14 dagen in dezelfde status)",
@@ -180,7 +188,7 @@ export async function myWork(db: DbOrTx, actor: ActorContext) {
       .select({ i: invoices, customer: customers })
       .from(invoices)
       .innerJoin(customers, eq(customers.id, invoices.customerId))
-      .where(and(eq(invoices.status, "open"), lt(invoices.dueDate, today), sql`${invoices.totalCents} > ${invoices.paidCents}`))
+      .where(and(eq(invoices.status, "open"), lt(invoices.dueDate, today), sql`${invoices.totalCents} > ${invoices.paidCents}`, mine))
       .orderBy(asc(invoices.dueDate));
     add({
       key: "overdue",

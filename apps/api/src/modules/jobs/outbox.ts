@@ -11,6 +11,7 @@ import { sendStatusMessage } from "../messages/service.js";
 import type { Permission } from "../auth/permissions.js";
 import { notifyPermission } from "../tasks/service.js";
 import { projects } from "../projects/schema.js";
+import { assignOnSignedOrder, releaseIfDone } from "../specialists/service.js";
 
 const MAX_ATTEMPTS = 5;
 const system: ActorContext = { userId: null, organizationId: null, permissions: new Set() };
@@ -39,6 +40,10 @@ const HANDLERS: Record<string, Handler[]> = {
     async (db, _deps, payload, eventId) => {
       await notifyOnce(db, eventId, "quotes.manage", { title: "Offerte geaccepteerd door de klant", body: null, href: `/offertes/${String(payload.quoteId)}` });
     },
+    // B81: getekende order → vaste klantspecialist + welkomstbericht (als de klant er nog geen heeft).
+    async (db, deps, payload, eventId) => {
+      if (payload.customerId) await assignOnSignedOrder(db, deps, String(payload.customerId), eventId);
+    },
   ],
   "invoice.collection": [
     async (db, _deps, payload, eventId) => {
@@ -59,6 +64,10 @@ const HANDLERS: Record<string, Handler[]> = {
     },
   ],
   "project.status_changed": [
+    // B81: alle projecten van de klant in een eindstatus → specialist los; na een afgeronde installatie naar Service.
+    async (db, _deps, payload) => {
+      await releaseIfDone(db, String(payload.projectId));
+    },
     async (db, deps, payload) => {
       const [row] = await db
         .select({ trigger: journeyStatuses.invoiceTrigger })

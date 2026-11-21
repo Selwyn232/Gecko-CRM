@@ -109,7 +109,7 @@ describe("offertes", () => {
   it("kostprijs en marge zijn verborgen zonder recht op inkoopprijzen", async () => {
     const q = await newQuote();
     await api("POST", `/quotes/${q.id}/lines`, { productId: pkgId, quantity: 1 });
-    const u = await makeUser(ctx.db, ["klantspecialist"]);
+    const u = await makeUser(ctx.db, ["planner"]);
     const { headers } = await loginWithMfa(ctx.app, u.email);
     const res = (await api("GET", `/quotes/${q.id}`, undefined, headers)).json();
     expect(res.margin).toBeNull();

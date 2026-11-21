@@ -40,7 +40,7 @@ export const customerRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { d
         }),
       },
     },
-    async (req) => listCustomers(db, req.query),
+    async (req) => listCustomers(db, req.query, req.actor),
   );
   app.get("/customers/:id", { preValidation: read, schema: { params: IdParams } }, async (req) => getCustomer(db, req.params.id));
   app.post(

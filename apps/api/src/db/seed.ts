@@ -37,6 +37,7 @@ const DEFAULT_ROLES: { key: string; name: string; description: string; isSystem?
     description: "Kan het hele CRM gebruiken, maar geen instellingen wijzigen",
     permissions: [
       "customers.read",
+      "customers.all",
       "customers.manage",
       "projects.read",
       "projects.manage",
@@ -55,14 +56,20 @@ const DEFAULT_ROLES: { key: string; name: string; description: string; isSystem?
   {
     key: "klantspecialist",
     name: "Klantspecialist",
-    description: "Klantcontact en dossierbeheer",
-    permissions: ["catalog.read", "organizations.read", "users.read", "customers.read", "customers.manage", "projects.read", "projects.manage", "quotes.read", "quotes.manage", "planning.read"],
+    description: "Vaste contactpersoon van eigen klanten tot en met de installatie; ziet alleen eigen klanten",
+    permissions: ["catalog.read", "organizations.read", "users.read", "customers.read", "customers.manage", "projects.read", "projects.manage", "quotes.read", "quotes.manage", "invoices.read", "planning.read", "planning.manage"],
+  },
+  {
+    key: "manager_klantenservice",
+    name: "Manager klantenservice",
+    description: "Overzicht over alle klantspecialisten: bezetting, maximum aantal klanten, klanten overzetten",
+    permissions: ["catalog.read", "organizations.read", "users.read", "customers.read", "customers.all", "customers.manage", "projects.read", "projects.manage", "quotes.read", "quotes.manage", "invoices.read", "planning.read", "planning.manage", "specialists.manage"],
   },
   {
     key: "planner",
     name: "Planner",
     description: "Planning van schouwen en installaties",
-    permissions: ["catalog.read", "organizations.read", "users.read", "customers.read", "projects.read", "projects.manage", "quotes.read", "planning.read", "planning.manage"],
+    permissions: ["catalog.read", "organizations.read", "users.read", "customers.read", "customers.all", "projects.read", "projects.manage", "quotes.read", "planning.read", "planning.manage"],
   },
   {
     key: "finance",
@@ -79,6 +86,7 @@ const DEFAULT_ROLES: { key: string; name: string; description: string; isSystem?
       "invoices.read",
       "invoices.manage",
       "customers.read",
+      "customers.all",
       "projects.read",
       "quotes.read",
       "planning.read",

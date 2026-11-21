@@ -1,3 +1,4 @@
+import { keepOwnProjects } from "../specialists/service.js";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import type { Db } from "../../db/client.js";
@@ -66,7 +67,7 @@ export const planningRoutes: FastifyPluginAsyncZod<{ db: Db; emailTransport: Ema
     async (req) => setPartnerRegions(db, req.actor, req.params.id, req.body.regionIds),
   );
 
-  app.get("/planning/to-plan", { preValidation: read, schema: { querystring: z.object({ type: Type }) } }, async (req) => toPlan(db, req.query.type));
+  app.get("/planning/to-plan", { preValidation: read, schema: { querystring: z.object({ type: Type }) } }, async (req) => keepOwnProjects(db, req.actor, await toPlan(db, req.query.type)));
   app.get(
     "/planning/slots",
     { preValidation: read, schema: { querystring: z.object({ projectId: z.string().uuid(), type: Type }) } },
@@ -88,7 +89,7 @@ export const planningRoutes: FastifyPluginAsyncZod<{ db: Db; emailTransport: Ema
         }),
       },
     },
-    async (req) => listAppointments(db, req.query),
+    async (req) => keepOwnProjects(db, req.actor, await listAppointments(db, req.query)),
   );
   app.get("/appointments/:id", { preValidation: read, schema: { params: IdParams } }, async (req) => getAppointment(db, req.params.id));
   app.post(
@@ -129,7 +130,11 @@ export const planningRoutes: FastifyPluginAsyncZod<{ db: Db; emailTransport: Ema
       preValidation: read,
       schema: { querystring: z.object({ review: z.enum(["pending", "approved", "rejected"]).optional(), projectId: z.string().uuid().optional() }) },
     },
-    async (req) => listReports(db, req.query),
+    async (req) => {
+      const list = await listReports(db, req.query);
+      const own = new Set((await keepOwnProjects(db, req.actor, list.map((r) => ({ projectId: r.appointment.projectId, id: r.id })))).map((x) => x.id));
+      return list.filter((r) => own.has(r.id));
+    },
   );
   app.get("/reports/:id", { preValidation: read, schema: { params: IdParams } }, async (req) => {
     const report = await getReport(db, req.params.id);

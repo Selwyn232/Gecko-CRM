@@ -1,3 +1,5 @@
+import { registerSpecialistGuard } from "./modules/specialists/guard.js";
+import { specialistRoutes } from "./modules/specialists/routes.js";
 import { smsTransportFromConfig, type SmsTransport } from "./modules/auth/sms.js";
 import cookie from "@fastify/cookie";
 import helmet from "@fastify/helmet";
@@ -171,6 +173,7 @@ export async function buildApp({
   // Alle API-routes onder /api; de rest van de paden is voor de webapplicatie.
   await app.register(
     async (api) => {
+      registerSpecialistGuard(api, db);
       await api.register(authRoutes, { authService, config, db });
       await api.register(userRoutes, { db });
       await api.register(apiKeyRoutes, { db });
@@ -202,6 +205,7 @@ export async function buildApp({
       await api.register(importRoutes, { db });
       await api.register(inboundWebhook, { db, config });
       await api.register(portalRoutes, { db, config, deps: billing });
+      await api.register(specialistRoutes, { db, config, emailTransport });
     },
     { prefix: "/api" },
   );

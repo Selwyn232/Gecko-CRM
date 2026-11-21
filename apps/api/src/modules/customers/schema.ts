@@ -1,6 +1,7 @@
-import { bigint, index, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { bigint, index, pgTable, text, timestamp, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { id, timestamps } from "../../db/columns.js";
+import { users } from "../auth/schema.js";
 import { salesChannels } from "../catalog/schema.js";
 
 /** Consument. Gecko is eigenaar van de klantrelatie. */
@@ -19,9 +20,17 @@ export const customers = pgTable(
     /** Wie de klant aanmaakte (o.a. om adviseurs alleen hun eigen klanten te tonen). */
     createdBy: uuid("created_by"),
     notes: text("notes"),
+    /**
+     * Vaste klantspecialist (B81): gekoppeld bij de getekende order, tot en met de afgeronde installatie.
+     * Daarna gaat de klant naar de afdeling Service (serviceSince gezet, specialist leeg).
+     */
+    specialistUserId: uuid("specialist_user_id").references((): AnyPgColumn => users.id),
+    specialistAssignedAt: timestamp("specialist_assigned_at", { withTimezone: true }),
+    serviceSince: timestamp("service_since", { withTimezone: true }),
     ...timestamps(),
   },
   (t) => [
+    index("customers_specialist_idx").on(t.specialistUserId),
     index("customers_email_idx").on(sql`lower(${t.email})`),
     index("customers_phone_idx").on(t.phone),
     index("customers_last_name_idx").on(sql`lower(${t.lastName})`),

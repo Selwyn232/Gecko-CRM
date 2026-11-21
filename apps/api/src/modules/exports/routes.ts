@@ -1,3 +1,5 @@
+import { forbidden } from "../../lib/errors.js";
+import { ownCustomersOnly } from "../specialists/service.js";
 import { sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -55,6 +57,7 @@ const EXPORTS = {
 
 export const exportRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db }) => {
   app.get("/exports/:kind", { schema: { params: z.object({ kind: z.enum(["klanten.csv", "projecten.csv", "offertes.csv"]) }) } }, async (req, reply) => {
+    if (ownCustomersOnly(req.actor)) throw forbidden("export_not_allowed", "Exporteren kan alleen met toegang tot alle klanten");
     const kind = req.params.kind.replace(".csv", "") as keyof typeof EXPORTS;
     const def = EXPORTS[kind];
     await requirePermission(def.permission)(req, reply);

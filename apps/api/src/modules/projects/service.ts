@@ -1,3 +1,4 @@
+import { ownCustomerFilter } from "../specialists/service.js";
 import { and, asc, count, desc, eq, ilike, or, type SQL } from "drizzle-orm";
 import type { Db, DbOrTx } from "../../db/client.js";
 import type { ActorContext } from "../../lib/context.js";
@@ -36,8 +37,11 @@ async function assertPartner(tx: DbOrTx, id: string | null | undefined, productG
 export async function listProjects(
   db: DbOrTx,
   q: { statusId?: string; productGroupId?: string; phase?: string; partnerId?: string; search?: string; includeFinal?: boolean; limit: number; offset: number },
+  actor?: ActorContext,
 ) {
   const filters: SQL[] = [];
+  const own = actor && ownCustomerFilter(actor, projects.customerId);
+  if (own) filters.push(own);
   if (q.statusId) filters.push(eq(projects.statusId, q.statusId));
   if (q.productGroupId) filters.push(eq(projects.productGroupId, q.productGroupId));
   if (q.partnerId) filters.push(eq(projects.installationPartnerId, q.partnerId));
@@ -216,11 +220,12 @@ export async function changeStatus(
 }
 
 /** Aantal open projecten per status, voor het overzicht. */
-export async function statusCounts(db: DbOrTx, productGroupId?: string) {
+export async function statusCounts(db: DbOrTx, productGroupId?: string, actor?: ActorContext) {
+  const own = actor && ownCustomerFilter(actor, projects.customerId);
   return db
     .select({ statusId: projects.statusId, n: count() })
     .from(projects)
-    .where(productGroupId ? eq(projects.productGroupId, productGroupId) : undefined)
+    .where(and(productGroupId ? eq(projects.productGroupId, productGroupId) : undefined, own ?? undefined))
     .groupBy(projects.statusId);
 }
 
