@@ -235,12 +235,12 @@ export async function initialStatus(db: DbOrTx, productGroupId: string, salesCha
  * aanlooptijd van het kanaal) en bij het inplannen gaat de aanbetalingsfactuur de deur uit.
  */
 const NO_SURVEY_DROP = ["schouw_inplannen", "schouw_ingepland", "schouw_uitgevoerd", "meerwerk_akkoord"];
-const NO_SURVEY: Record<string, { name?: string; phase?: string; invoiceTrigger?: "deposit" | "final" | null; autoOnEvents?: string[]; next: string[] }> = {
+const NO_SURVEY: Record<string, { name?: string; phase?: string; sortAfter?: string; invoiceTrigger?: "deposit" | "final" | null; autoOnEvents?: string[]; next: string[] }> = {
   order_getekend: { next: ["wacht_financiering", "installatie_ingepland"] },
   wacht_financiering: { next: ["installatie_ingepland"] },
   installatie_inplannen: { autoOnEvents: [], next: ["installatie_ingepland"] },
   installatie_ingepland: { name: "Installatie ingepland — aanbetaling open", invoiceTrigger: "deposit", autoOnEvents: ["installation.scheduled"], next: ["aanbetaling_ontvangen", "oplevering_controle", "installatie_inplannen"] },
-  aanbetaling_ontvangen: { name: "Installatie ingepland — aanbetaling ontvangen", phase: "Installatie", autoOnEvents: ["deposit.paid"], next: ["oplevering_controle", "installatie_inplannen"] },
+  aanbetaling_ontvangen: { name: "Installatie ingepland — aanbetaling ontvangen", phase: "Installatie", sortAfter: "installatie_ingepland", autoOnEvents: ["deposit.paid"], next: ["oplevering_controle", "installatie_inplannen"] },
 };
 const NO_SURVEY_MESSAGES: Record<string, { subject: string; body: string }> = {
   order_getekend: {
@@ -304,6 +304,8 @@ export async function createChannelJourney(db: Db, actor: ActorContext, productG
         ...(change?.phase ? { phase: change.phase } : {}),
         ...(change && "invoiceTrigger" in change ? { invoiceTrigger: change.invoiceTrigger ?? null } : {}),
         ...(change?.autoOnEvents ? { autoOnEvents: change.autoOnEvents } : {}),
+        // In de lijst direct na de status waar hij op volgt (bv. aanbetaling ontvangen na installatie ingepland).
+        ...(change?.sortAfter ? { sortOrder: (source.find((x) => x.key === change.sortAfter)?.sortOrder ?? st.sortOrder) + 5 } : {}),
       };
       const [row] = await tx.insert(journeyStatuses).values(values).returning({ id: journeyStatuses.id });
       idMap.set(oldId, row!.id);
