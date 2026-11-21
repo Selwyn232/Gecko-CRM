@@ -55,6 +55,7 @@ export type SalesChannelInput = {
   /** Fee per productgroep (basispunten); ontbreekt of null = fee van het kanaal. */
   groupFees?: Record<string, number | null>;
   quoteValidityDays?: number;
+  installationLeadDays?: number | null;
   isActive?: boolean;
   productGroupIds: string[];
 };

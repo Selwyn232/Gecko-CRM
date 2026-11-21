@@ -100,6 +100,7 @@ export interface SalesChannel {
   salesPartnerOrganizationId: string | null;
   feeBasisPoints: number | null;
   quoteValidityDays: number;
+  installationLeadDays?: number | null;
   isActive: boolean;
   productGroupIds: string[];
   /** Fee per productgroep (basispunten); null = fee van het kanaal. */

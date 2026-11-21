@@ -262,3 +262,52 @@ describe("planning en partnerportaal", () => {
     expect((await call("GET", `/planning/slots?projectId=${outside}&type=survey`)).json().message).toContain("werkt in deze regio");
   });
 });
+
+describe("klantreis zonder schouw (B82)", () => {
+  it("direct installatie inplannen na de aanlooptijd van het kanaal; bij inplannen gaat de aanbetaling eruit", async () => {
+    // Eigen klantreis zonder schouw voor dit kanaal + 30 dagen aanlooptijd
+    const own = await call("POST", `/journeys/${groupId}/channels/${channelId}`, { template: "no_survey" });
+    expect(own.statusCode, own.body).toBe(201);
+    const keys = own.json().map((s: { key: string }) => s.key);
+    expect(keys).not.toContain("schouw_inplannen");
+    expect(keys).not.toContain("schouw_ingepland");
+    const planned = own.json().find((s: { key: string }) => s.key === "installatie_ingepland");
+    expect(planned).toMatchObject({ invoiceTrigger: "deposit", autoOnEvents: ["installation.scheduled"] });
+    expect((await call("PATCH", `/sales-channels/${channelId}`, { installationLeadDays: 30 })).statusCode).toBe(200);
+    // Partner A beschikbaar de komende 45 dagen
+    const today = todayIso();
+    const changes = Array.from({ length: 45 }, (_, d) => (["morning", "afternoon"] as const).map((part) => ({ date: addDays(today, d), part, available: true }))).flat();
+    expect((await call("PUT", "/partner/availability", { changes }, partnerAHeaders)).statusCode).toBe(200);
+
+    const c = (await call("POST", "/customers", { lastName: "Zonderschouw", email: "zonder@example.nl", property: { street: "Weg", houseNumber: "9", postalCode: "1234AB", city: "Ede" } })).json();
+    const q = (await call("POST", "/quotes", { customerId: c.id, propertyId: c.properties[0].id, productGroupId: groupId, salesChannelId: channelId })).json();
+    await call("POST", `/quotes/${q.id}/lines`, { productId: pkgId, quantity: 1 });
+    await call("POST", `/quotes/${q.id}/send`);
+    const projectId = (await call("POST", `/quotes/${q.id}/accept`, { acceptedByName: "Zonder", method: "email" })).json().projectId as string;
+    await flush();
+    expect(await statusKey(projectId)).toBe("order_getekend");
+    // Staat meteen bij "Installatie inplannen", niet bij de schouw
+    expect((await call("GET", "/planning/to-plan?type=installation")).json().some((p: { projectId: string }) => p.projectId === projectId)).toBe(true);
+    expect((await call("GET", "/planning/to-plan?type=survey")).json().some((p: { projectId: string }) => p.projectId === projectId)).toBe(false);
+    // Eerste mogelijke installatiedatum = over 30 dagen
+    const slots = (await call("GET", `/planning/slots?projectId=${projectId}&type=installation`)).json();
+    expect(slots.slots.length).toBeGreaterThan(0);
+    expect(slots.slots.every((s: { date: string }) => s.date >= addDays(today, 30))).toBe(true);
+    const slot = slots.slots[0];
+    const res = await call("POST", `/projects/${projectId}/appointments`, { type: "installation", date: slot.date, partnerId: slot.partnerId, part: slot.part });
+    expect(res.statusCode, res.body).toBe(201);
+    await flush();
+    expect(await statusKey(projectId)).toBe("installatie_ingepland");
+    const invs = (await call("GET", `/invoices?projectId=${projectId}`)).json();
+    const deposit = invs.find((i: { type: string }) => i.type === "deposit");
+    expect(deposit).toBeTruthy();
+    expect(deposit.status).toBe("open");
+    expect(deposit.dueDate <= slot.date).toBe(true);
+    // Aanbetaling betaald → "Installatie ingepland — aanbetaling ontvangen"
+    await call("POST", `/invoices/${deposit.id}/payments`, { amountCents: deposit.totalCents, method: "bank_transfer" });
+    await flush();
+    expect(await statusKey(projectId)).toBe("aanbetaling_ontvangen");
+    // Opruimen voor eventuele latere tests: kanaal weer zonder aanlooptijd
+    await call("PATCH", `/sales-channels/${channelId}`, { installationLeadDays: null });
+  });
+});

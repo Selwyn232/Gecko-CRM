@@ -65,6 +65,7 @@ function ChannelForm({ channel, onClose }: { channel?: SalesChannel; onClose: ()
     salesPartnerOrganizationId: channel?.salesPartnerOrganizationId ?? "",
     fee: channel?.feeBasisPoints == null ? "" : String(channel.feeBasisPoints / 100).replace(".", ","),
     quoteValidityDays: channel?.quoteValidityDays ?? 30,
+    installationLeadDays: channel?.installationLeadDays?.toString() ?? "",
     isActive: channel?.isActive ?? true,
     productGroupIds: channel?.productGroupIds ?? [],
   });
@@ -86,7 +87,9 @@ function ChannelForm({ channel, onClose }: { channel?: SalesChannel; onClose: ()
       const fees = Object.fromEntries(
         form.productGroupIds.map((id) => [id, parse(groupFees[id] ?? "", groups.data?.find((g) => g.id === id)?.name ?? "productgroep")]),
       );
-      const body = { ...rest, feeBasisPoints: feeNum, groupFees: fees, salesPartnerOrganizationId: form.salesPartnerOrganizationId || null };
+      const lead = form.installationLeadDays.trim() === "" ? null : Number(form.installationLeadDays);
+      if (lead !== null && (!Number.isInteger(lead) || lead < 0 || lead > 365)) throw new Error("Ongeldig aantal dagen voor de installatie");
+      const body = { ...rest, installationLeadDays: lead, feeBasisPoints: feeNum, groupFees: fees, salesPartnerOrganizationId: form.salesPartnerOrganizationId || null };
       if (channel) {
         const { key: _key, ...rest } = body;
         return api.patch(`/sales-channels/${channel.id}`, rest);
@@ -117,6 +120,9 @@ function ChannelForm({ channel, onClose }: { channel?: SalesChannel; onClose: ()
       <div className="grid-2">
         <Field label="Standaard fee (% over orderwaarde ex btw)"><input value={form.fee} onChange={(e) => setForm({ ...form, fee: e.target.value })} placeholder="bv. 5" /></Field>
         <Field label="Geldigheid offerte (dagen)"><input type="number" min={1} max={365} value={form.quoteValidityDays} onChange={(e) => setForm({ ...form, quoteValidityDays: Number(e.target.value) })} /></Field>
+        <Field label="Installatie op zijn vroegst na (dagen na binnenkomst order; leeg = algemene instelling)">
+          <input type="number" min={0} max={365} value={form.installationLeadDays} onChange={(e) => setForm({ ...form, installationLeadDays: e.target.value })} />
+        </Field>
       </div>
       <div className="field">Productgroepen en fee per productgroep</div>
       {groups.data?.map((g) => (

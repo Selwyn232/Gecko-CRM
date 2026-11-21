@@ -115,11 +115,11 @@ export async function myWork(db: DbOrTx, actor: ActorContext) {
     const flagged = keep(unpaid.filter((a) => (a as { depositUnpaid?: boolean }).depositUnpaid));
     add({
       key: "deposit",
-      title: "Schouw gepland, aanbetaling open",
-      hint: "De aanbetaling moet vóór de schouw binnen zijn. Neem contact op met de klant of verzet de schouw.",
+      title: "Afspraak gepland, aanbetaling open",
+      hint: "De aanbetaling moet vóór de schouw (of, zonder schouw, vóór de installatie) binnen zijn. Neem contact op met de klant of verzet de afspraak.",
       severity: "high",
       count: flagged.length,
-      items: flagged.slice(0, LIMIT).map((a) => ({ label: name(a.customer), detail: `${a.projectNumber} · schouw ${a.date}`, href: `/projecten/${a.projectId}`, date: a.date })),
+      items: flagged.slice(0, LIMIT).map((a) => ({ label: name(a.customer), detail: `${a.projectNumber} · ${a.type === "survey" ? "schouw" : "installatie"} ${a.date}`, href: `/projecten/${a.projectId}`, date: a.date })),
       href: "/planning",
     });
 

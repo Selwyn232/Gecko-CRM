@@ -230,7 +230,52 @@ export async function initialStatus(db: DbOrTx, productGroupId: string, salesCha
  * (statussen, overgangen, automatische wissels, factuurmomenten en klantberichten). Daarna los aan te passen.
  * Geldt voor nieuwe projecten van dat kanaal; lopende projecten houden hun klantreis.
  */
-export async function createChannelJourney(db: Db, actor: ActorContext, productGroupId: string, salesChannelId: string) {
+/**
+ * Sjabloon "zonder schouw" (B82): de klant komt binnen, de installatie wordt direct ingepland (op zijn vroegst na de
+ * aanlooptijd van het kanaal) en bij het inplannen gaat de aanbetalingsfactuur de deur uit.
+ */
+const NO_SURVEY_DROP = ["schouw_inplannen", "schouw_ingepland", "schouw_uitgevoerd", "meerwerk_akkoord"];
+const NO_SURVEY: Record<string, { name?: string; phase?: string; invoiceTrigger?: "deposit" | "final" | null; autoOnEvents?: string[]; next: string[] }> = {
+  order_getekend: { next: ["wacht_financiering", "installatie_ingepland"] },
+  wacht_financiering: { next: ["installatie_ingepland"] },
+  installatie_inplannen: { autoOnEvents: [], next: ["installatie_ingepland"] },
+  installatie_ingepland: { name: "Installatie ingepland — aanbetaling open", invoiceTrigger: "deposit", autoOnEvents: ["installation.scheduled"], next: ["aanbetaling_ontvangen", "oplevering_controle", "installatie_inplannen"] },
+  aanbetaling_ontvangen: { name: "Installatie ingepland — aanbetaling ontvangen", phase: "Installatie", autoOnEvents: ["deposit.paid"], next: ["oplevering_controle", "installatie_inplannen"] },
+};
+const NO_SURVEY_MESSAGES: Record<string, { subject: string; body: string }> = {
+  order_getekend: {
+    subject: "Bedankt voor uw opdracht",
+    body: `Beste {naam},
+
+Bedankt voor uw opdracht voor een {productgroep}. Wij plannen nu de installatie in. U ontvangt binnenkort een e-mail met de datum, samen met de factuur voor de aanbetaling.
+
+Uw projectnummer is {projectnummer}.`,
+  },
+  wacht_financiering: {
+    subject: "Wij wachten op uw financiering",
+    body: `Beste {naam},
+
+Wij hebben uw opdracht voor een {productgroep} ontvangen. Zodra uw financiering rond is, plannen wij de installatie in.
+
+Uw projectnummer is {projectnummer}.`,
+  },
+  aanbetaling_ontvangen: {
+    subject: "Uw aanbetaling is ontvangen",
+    body: `Beste {naam},
+
+Wij hebben uw aanbetaling ontvangen, dank u wel. De installatie gaat door zoals gepland.`,
+  },
+  installatie_inplannen: {
+    subject: "We plannen uw installatie opnieuw in",
+    body: `Beste {naam},
+
+Wij plannen de installatie van uw {productgroep} opnieuw in. U ontvangt hierover binnenkort een e-mail met de nieuwe datum.`,
+  },
+};
+
+export type JourneyTemplate = "copy" | "no_survey";
+
+export async function createChannelJourney(db: Db, actor: ActorContext, productGroupId: string, salesChannelId: string, template: JourneyTemplate = "copy") {
   return db.transaction(async (tx) => {
     const [link] = await tx
       .select()
@@ -239,30 +284,62 @@ export async function createChannelJourney(db: Db, actor: ActorContext, productG
     if (!link) throw badRequest("product_group_not_in_channel", "Dit verkoopkanaal verkoopt deze productgroep niet");
     const [exists] = await tx.select({ id: journeyStatuses.id }).from(journeyStatuses).where(inJourney(productGroupId, salesChannelId)).limit(1);
     if (exists) throw conflict("channel_journey_exists", "Dit verkoopkanaal heeft al een eigen klantreis voor deze productgroep");
-    const source = await tx.select().from(journeyStatuses).where(inJourney(productGroupId, null)).orderBy(asc(journeyStatuses.sortOrder));
+    let source = await tx.select().from(journeyStatuses).where(inJourney(productGroupId, null)).orderBy(asc(journeyStatuses.sortOrder));
     if (!source.length) throw badRequest("no_standard_journey", "De standaardklantreis van deze productgroep is leeg");
+    if (template === "no_survey") {
+      const keys = new Set(source.map((x) => x.key));
+      const missing = Object.keys(NO_SURVEY).filter((k) => !keys.has(k));
+      if (missing.length) throw badRequest("template_mismatch", `De standaardklantreis mist statussen voor dit sjabloon: ${missing.join(", ")}`);
+      source = source.filter((x) => !NO_SURVEY_DROP.includes(x.key));
+    }
     const idMap = new Map<string, string>();
+    const byKey = new Map<string, string>();
     for (const st of source) {
       const { id: oldId, createdAt: _c, updatedAt: _u, ...rest } = st;
-      const [row] = await tx.insert(journeyStatuses).values({ ...rest, salesChannelId }).returning({ id: journeyStatuses.id });
+      const change = template === "no_survey" ? NO_SURVEY[st.key] : undefined;
+      const values = {
+        ...rest,
+        salesChannelId,
+        ...(change?.name ? { name: change.name } : {}),
+        ...(change?.phase ? { phase: change.phase } : {}),
+        ...(change && "invoiceTrigger" in change ? { invoiceTrigger: change.invoiceTrigger ?? null } : {}),
+        ...(change?.autoOnEvents ? { autoOnEvents: change.autoOnEvents } : {}),
+      };
+      const [row] = await tx.insert(journeyStatuses).values(values).returning({ id: journeyStatuses.id });
       idMap.set(oldId, row!.id);
+      byKey.set(st.key, row!.id);
     }
-    const transitions = await tx.select().from(journeyTransitions).where(inArray(journeyTransitions.fromStatusId, [...idMap.keys()]));
-    const copies = transitions
-      .filter((t) => idMap.has(t.toStatusId))
-      .map((t) => ({ fromStatusId: idMap.get(t.fromStatusId)!, toStatusId: idMap.get(t.toStatusId)! }));
+    let copies: { fromStatusId: string; toStatusId: string }[];
+    if (template === "no_survey") {
+      // Overgangen volgens het sjabloon; overige statussen houden hun overgangen; annuleren kan vanuit elke open status.
+      const transitions = await tx.select().from(journeyTransitions).where(inArray(journeyTransitions.fromStatusId, [...idMap.keys()]));
+      const keyOf = new Map(source.map((x) => [x.id, x.key]));
+      copies = [];
+      for (const st of source) {
+        const next = NO_SURVEY[st.key]?.next ?? transitions.filter((t) => t.fromStatusId === st.id && idMap.has(t.toStatusId)).map((t) => keyOf.get(t.toStatusId)!);
+        const withCancel = st.isFinal ? next : [...new Set([...next, CANCEL_KEY])];
+        for (const k of withCancel) if (byKey.has(k) && k !== st.key) copies.push({ fromStatusId: byKey.get(st.key)!, toStatusId: byKey.get(k)! });
+      }
+    } else {
+      const transitions = await tx.select().from(journeyTransitions).where(inArray(journeyTransitions.fromStatusId, [...idMap.keys()]));
+      copies = transitions.filter((t) => idMap.has(t.toStatusId)).map((t) => ({ fromStatusId: idMap.get(t.fromStatusId)!, toStatusId: idMap.get(t.toStatusId)! }));
+    }
     if (copies.length) await tx.insert(journeyTransitions).values(copies);
     const templates = await tx.select().from(messageTemplates).where(inArray(messageTemplates.journeyStatusId, [...idMap.keys()]));
     if (templates.length) {
+      const keyOfOld = new Map(source.map((x) => [x.id, x.key]));
       await tx.insert(messageTemplates).values(
-        templates.map(({ id: _id, createdAt: _c, updatedAt: _u, journeyStatusId, ...t }) => ({ ...t, journeyStatusId: idMap.get(journeyStatusId!)! })),
+        templates.map(({ id: _id, createdAt: _c, updatedAt: _u, journeyStatusId, ...t }) => {
+          const text = template === "no_survey" ? NO_SURVEY_MESSAGES[keyOfOld.get(journeyStatusId!)!] : undefined;
+          return { ...t, ...(text ?? {}), journeyStatusId: idMap.get(journeyStatusId!)! };
+        }),
       );
     }
     await recordAudit(tx, actor, {
       action: "journey.channel_created",
       entityType: "product_group",
       entityId: productGroupId,
-      metadata: { salesChannelId, statuses: source.length, transitions: copies.length, messages: templates.length },
+      metadata: { salesChannelId, template, statuses: source.length, transitions: copies.length, messages: templates.length },
     });
     return getJourney(tx, productGroupId, salesChannelId);
   });

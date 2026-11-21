@@ -4,7 +4,7 @@ import type { ActorContext } from "../../lib/context.js";
 import { todayIso } from "../../lib/dates.js";
 import { badRequest, conflict, forbidden, notFound } from "../../lib/errors.js";
 import { recordAudit } from "../audit/service.js";
-import { productGroups, products } from "../catalog/schema.js";
+import { productGroups, products, salesChannels } from "../catalog/schema.js";
 import { customers, properties } from "../customers/schema.js";
 import type { EmailTransport } from "../email/transport.js";
 import { emitEvent } from "../events/service.js";
@@ -238,10 +238,22 @@ export async function findSlots(db: DbOrTx, projectId: string, type: Appointment
   }
 
   // In testmodus mag vandaag al worden gepland.
-  const lead = (await getSetting(db, "test.mode")) ? 0 : await getSetting(db, type === "survey" ? "planning.survey_lead_days" : "planning.installation_lead_days");
+  const testMode = Boolean(await getSetting(db, "test.mode"));
+  const lead = testMode ? 0 : await getSetting(db, type === "survey" ? "planning.survey_lead_days" : "planning.installation_lead_days");
   const horizon = await getSetting(db, "planning.horizon_days");
-  const from = addDays(todayIso(), lead);
-  const to = addDays(todayIso(), horizon);
+  let from = addDays(todayIso(), lead);
+  let to = addDays(todayIso(), horizon);
+  // B82: per verkoopkanaal een aanlooptijd voor de installatie, gerekend vanaf binnenkomst van de order (niet in testmodus).
+  if (type === "installation" && !testMode) {
+    const [ch] = await db.select({ days: salesChannels.installationLeadDays }).from(salesChannels).where(eq(salesChannels.id, ctx.project.salesChannelId));
+    if (ch?.days) {
+      const channelFrom = addDays(ctx.project.createdAt.toISOString().slice(0, 10), ch.days);
+      if (channelFrom > from) {
+        from = channelFrom;
+        if (to < addDays(from, 28)) to = addDays(from, 28);
+      }
+    }
+  }
   const days = type === "installation" ? ctx.group.installationDays : 1;
   const partnerIds = [...new Set(partners.map((p) => p.id))];
 
@@ -491,11 +503,11 @@ export async function getAppointment(db: DbOrTx, id: string) {
 }
 
 /**
- * Signalering (O11): geplande schouwen waarvoor de aanbetaling nog niet is voldaan.
- * Geeft de id's van de betreffende afspraken terug.
+ * Signalering (O11): geplande schouwen (en installaties, bij een klantreis zonder schouw, B82) waarvoor de
+ * aanbetaling nog niet is voldaan. Geeft de id's van de betreffende afspraken terug.
  */
 async function depositFlags(db: DbOrTx, appts: (typeof appointments.$inferSelect)[]) {
-  const surveys = appts.filter((a) => a.type === "survey" && a.status === "planned");
+  const surveys = appts.filter((a) => a.status === "planned");
   if (!surveys.length) return new Set<string>();
   const deposits = await db
     .select({ projectId: invoices.projectId, status: invoices.status })
@@ -584,14 +596,14 @@ export async function toPlan(db: DbOrTx, type: AppointmentType) {
 }
 
 /** Eerstvolgende geplande schouw van een project (voor de vervaldatum van de aanbetaling). */
+/** Eerstvolgende geplande schouw; zonder schouw (B82) de eerstvolgende installatie. */
 export async function nextSurveyDate(db: DbOrTx, projectId: string) {
-  const [a] = await db
-    .select({ date: appointments.date })
+  const planned = await db
+    .select({ date: appointments.date, type: appointments.type })
     .from(appointments)
-    .where(and(eq(appointments.projectId, projectId), eq(appointments.type, "survey"), eq(appointments.status, "planned")))
-    .orderBy(asc(appointments.date))
-    .limit(1);
-  return a?.date ?? null;
+    .where(and(eq(appointments.projectId, projectId), eq(appointments.status, "planned")))
+    .orderBy(asc(appointments.date));
+  return (planned.find((a) => a.type === "survey") ?? planned.find((a) => a.type === "installation"))?.date ?? null;
 }
 
 // ---------------------------------------------------------------- Rapporten

@@ -40,10 +40,14 @@ export const journeyRoutes: FastifyPluginAsyncZod<{ db: Db }> = async (app, { db
   );
   /** Eigen klantreis voor een verkoopkanaal (kopie van de standaard), of weer verwijderen. */
   const ChannelParams = z.object({ id: z.string().uuid(), channelId: z.string().uuid() });
-  app.post("/journeys/:id/channels/:channelId", { preValidation: manage, schema: { params: ChannelParams } }, async (req, reply) => {
-    reply.code(201);
-    return createChannelJourney(db, req.actor, req.params.id, req.params.channelId);
-  });
+  app.post(
+    "/journeys/:id/channels/:channelId",
+    { preValidation: manage, schema: { params: ChannelParams, body: z.object({ template: z.enum(["copy", "no_survey"]).optional() }).nullish() } },
+    async (req, reply) => {
+      reply.code(201);
+      return createChannelJourney(db, req.actor, req.params.id, req.params.channelId, req.body?.template ?? "copy");
+    },
+  );
   app.delete("/journeys/:id/channels/:channelId", { preValidation: manage, schema: { params: ChannelParams } }, async (req, reply) => {
     await deleteChannelJourney(db, req.actor, req.params.id, req.params.channelId);
     reply.code(204);

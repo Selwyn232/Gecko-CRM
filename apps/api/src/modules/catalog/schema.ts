@@ -86,6 +86,8 @@ export const salesChannels = pgTable("sales_channels", {
   feeBasisPoints: integer("fee_basis_points"),
   /** Standaard geldigheid van offertes in dagen. */
   quoteValidityDays: integer("quote_validity_days").notNull().default(30),
+  /** Installatie op zijn vroegst zoveel dagen na binnenkomst van de order (B82, bv. Greenteam 30). Leeg = algemene instelling. */
+  installationLeadDays: integer("installation_lead_days"),
   isActive: boolean("is_active").notNull().default(true),
   ...timestamps(),
 });

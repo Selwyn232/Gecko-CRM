@@ -20,7 +20,7 @@ export function JourneysPage() {
   const refresh = () => qc.invalidateQueries({ queryKey: ["journeys"] });
   const createOwn = useMutation({
     meta: { toast: "Eigen klantreis gemaakt" },
-    mutationFn: (v: { groupId: string; channelId: string }) => api.post(`/journeys/${v.groupId}/channels/${v.channelId}`),
+    mutationFn: (v: { groupId: string; channelId: string; template: "copy" | "no_survey" }) => api.post(`/journeys/${v.groupId}/channels/${v.channelId}`, { template: v.template }),
     onSuccess: async (_d, v) => {
       await refresh();
       setChannelId(v.channelId);
@@ -81,10 +81,18 @@ export function JourneysPage() {
             aria-label="Eigen klantreis maken voor verkoopkanaal"
             value=""
             disabled={createOwn.isPending}
-            onChange={(e) => e.target.value && createOwn.mutate({ groupId: group.productGroup.id, channelId: e.target.value })}
+            onChange={(e) => {
+              const [channelId, template] = e.target.value.split("|");
+              if (channelId) createOwn.mutate({ groupId: group.productGroup.id, channelId, template: template as "copy" | "no_survey" });
+            }}
           >
             <option value="">+ Eigen klantreis voor…</option>
-            {usingStandard.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {usingStandard.map((c) => (
+              <optgroup key={c.id} label={c.name}>
+                <option value={`${c.id}|copy`}>{c.name}: kopie van de standaard</option>
+                <option value={`${c.id}|no_survey`}>{c.name}: zonder schouw (direct installatie inplannen)</option>
+              </optgroup>
+            ))}
           </select>
         )}
       </div>
