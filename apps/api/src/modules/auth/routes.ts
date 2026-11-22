@@ -9,6 +9,7 @@ import { users } from "./schema.js";
 import { forbidden, notFound, unauthorized } from "../../lib/errors.js";
 import { createHash } from "node:crypto";
 import { recordAudit } from "../audit/service.js";
+import { cutout, cutoutProvider } from "../photos/cutout.js";
 import { loadPermissions } from "./access.js";
 import { PasskeyService } from "./passkeys.js";
 import { maskPhone, mfaMethod, type AuthService } from "./service.js";
@@ -126,6 +127,22 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
       await db.update(users).set({ photoDataUrl: req.body.dataUrl }).where(eq(users.id, req.auth!.user.id));
       await recordAudit(db, req.actor, { action: "user.photo_set", entityType: "user", entityId: req.auth!.user.id });
       return { ok: true };
+    },
+  );
+
+  /** Professionele uitsnede van de eigen selfie (Photoroom of remove.bg); de browser maakt daarna de eindfoto. */
+  app.get("/auth/me/photo/cutout", async () => ({ provider: cutoutProvider() }));
+  app.post(
+    "/auth/me/photo/cutout",
+    {
+      bodyLimit: 4 * 1024 * 1024,
+      config: { rateLimit: { max: 10, timeWindow: "10 minutes" } },
+      schema: { body: z.object({ dataUrl: z.string().max(3_000_000).regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/, "Foto moet een JPEG zijn") }) },
+    },
+    async (req) => {
+      if (req.auth!.impersonatorUserId) throw forbidden("impersonation_not_allowed", "Een selfie maakt de gebruiker zelf");
+      const r = await cutout(Buffer.from(req.body.dataUrl.split(",")[1]!, "base64"));
+      return { dataUrl: `data:image/png;base64,${r.png.toString("base64")}`, provider: r.provider, relit: r.relit };
     },
   );
 

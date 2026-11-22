@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { setCutoutFetcher } from "../src/modules/photos/cutout.js";
 import { adminSession, createTestContext, type TestContext } from "./helpers.js";
 
 // Verplichte profielfoto (selfie in de huisstijl, op het toestel bewerkt).
@@ -27,5 +28,31 @@ describe("profielfoto", () => {
     expect(img.headers["content-type"]).toBe("image/jpeg");
     // Niet ingelogd: geen foto
     expect((await ctx.app.inject({ method: "GET", url: `/api/users/${me.id}/photo` })).statusCode).toBe(401);
+  });
+
+  it("professionele uitsnede: Photoroom (met terugval naar alleen uitsnede) of remove.bg; zonder sleutel uit", async () => {
+    const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    const post = () => ctx.app.inject({ method: "POST", url: "/api/auth/me/photo/cutout", headers: h, payload: { dataUrl: JPEG } });
+    expect((await ctx.app.inject({ method: "GET", url: "/api/auth/me/photo/cutout", headers: h })).json().provider).toBeNull();
+    expect((await post()).json().error.code).toBe("cutout_unavailable");
+
+    const urls: string[] = [];
+    process.env.PHOTOROOM_API_KEY = "test";
+    setCutoutFetcher(async (url) => {
+      urls.push(url);
+      // Plan zonder studiobelichting: v2 geeft 402, daarna v1 (alleen uitsnede)
+      return url.includes("/v2/") ? new Response("plan", { status: 402 }) : new Response(PNG, { status: 200 });
+    });
+    const r = (await post()).json();
+    expect(r).toMatchObject({ provider: "photoroom", relit: false });
+    expect(r.dataUrl).toMatch(/^data:image\/png;base64,/);
+    expect(urls).toEqual(["https://image-api.photoroom.com/v2/edit", "https://sdk.photoroom.com/v1/segment"]);
+    delete process.env.PHOTOROOM_API_KEY;
+
+    process.env.REMOVEBG_API_KEY = "test";
+    setCutoutFetcher(async (url) => (url.includes("remove.bg") ? new Response(PNG, { status: 200 }) : new Response("x", { status: 500 })));
+    expect((await post()).json()).toMatchObject({ provider: "removebg", relit: false });
+    delete process.env.REMOVEBG_API_KEY;
+    setCutoutFetcher(null);
   });
 });

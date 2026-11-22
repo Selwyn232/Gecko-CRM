@@ -13,9 +13,9 @@ import { ErrorBox } from "./ui";
 
 const OUT = 640;
 /** Gezichtshoogte als deel van de foto, en waar het midden van het gezicht komt. */
-const FACE_HEIGHT = 0.42;
+const FACE_HEIGHT = 0.36;
 const FACE_X = 0.5;
-const FACE_Y = 0.46;
+const FACE_Y = 0.42;
 /** Doel-helderheid (0–255) en maximale correcties. */
 const TARGET_LUMA = 150;
 
@@ -62,7 +62,56 @@ function landmarkBox(points: { x: number; y: number }[], w: number, h: number): 
 }
 
 /** Bewerkt een vastgelegd camerabeeld (canvas) met het gezichtskader tot de profielfoto in huisstijl. */
+/** Vaste Gecko-achtergrond met daarop de vrijstaande persoon. */
+function compose(person: HTMLCanvasElement) {
+  const out = document.createElement("canvas");
+  out.width = out.height = OUT;
+  const oc = out.getContext("2d")!;
+  const bg = oc.createRadialGradient(OUT * 0.5, OUT * 0.38, OUT * 0.05, OUT * 0.5, OUT * 0.5, OUT * 0.75);
+  bg.addColorStop(0, "#fff3e3");
+  bg.addColorStop(0.55, "#ffd8a8");
+  bg.addColorStop(1, "#fbb46a");
+  oc.fillStyle = bg;
+  oc.fillRect(0, 0, OUT, OUT);
+  oc.drawImage(person, 0, 0, OUT, OUT);
+  return out.toDataURL("image/jpeg", 0.9);
+}
+
+let cutoutProvider: Promise<string | null> | null = null;
+/** Professionele uitsnede via de server (Photoroom of remove.bg), als die aan staat. */
+async function professionalCutout(src: HTMLCanvasElement, bb: Box): Promise<string | null> {
+  cutoutProvider ??= api.get<{ provider: string | null }>("/auth/me/photo/cutout").then((r) => r.provider).catch(() => null);
+  if (!(await cutoutProvider)) return null;
+  // Portretuitsnede (hoofd en schouders) op hoge resolutie, met het gezicht al op de vaste plek.
+  const SIZE = 1024;
+  const scale = (SIZE * FACE_HEIGHT) / bb.height;
+  const crop = document.createElement("canvas");
+  crop.width = crop.height = SIZE;
+  const cc = crop.getContext("2d")!;
+  cc.fillStyle = "#808080";
+  cc.fillRect(0, 0, SIZE, SIZE);
+  cc.setTransform(scale, 0, 0, scale, SIZE * FACE_X - (bb.originX + bb.width / 2) * scale, SIZE * FACE_Y - (bb.originY + bb.height / 2) * scale);
+  cc.drawImage(src, 0, 0, src.width, src.height);
+  const r = await api.post<{ dataUrl: string; relit: boolean }>("/auth/me/photo/cutout", { dataUrl: crop.toDataURL("image/jpeg", 0.92) });
+  const img = new Image();
+  img.src = r.dataUrl;
+  await img.decode();
+  const person = document.createElement("canvas");
+  person.width = person.height = OUT;
+  const pc = person.getContext("2d", { willReadFrequently: true })!;
+  pc.drawImage(img, 0, 0, OUT, OUT);
+  // Belichting: bij Photoroom met studiobelichting niets meer doen; anders onze licht- en kleurcorrectie.
+  if (!r.relit) normalize(pc, pc, { x: OUT * FACE_X, y: OUT * FACE_Y, r: (OUT * FACE_HEIGHT) / 2 });
+  return compose(person);
+}
+
 export async function processSelfie(src: HTMLCanvasElement, bb: Box): Promise<string> {
+  try {
+    const pro = await professionalCutout(src, bb);
+    if (pro) return pro;
+  } catch {
+    /* dienst niet bereikbaar: dan de uitsnede op het toestel */
+  }
   const { seg } = await loadModels();
   // Achtergrond: kans per pixel dat het de persoon is.
   const res = seg.segment(src);
@@ -111,19 +160,7 @@ export async function processSelfie(src: HTMLCanvasElement, bb: Box): Promise<st
   normalize(pc, mc, { x: OUT * FACE_X, y: OUT * FACE_Y, r: (OUT * FACE_HEIGHT) / 2 });
   pc.globalCompositeOperation = "destination-in";
   pc.drawImage(mask, 0, 0);
-
-  // Vaste Gecko-achtergrond.
-  const out = document.createElement("canvas");
-  out.width = out.height = OUT;
-  const oc = out.getContext("2d")!;
-  const bg = oc.createRadialGradient(OUT * 0.5, OUT * 0.38, OUT * 0.05, OUT * 0.5, OUT * 0.5, OUT * 0.75);
-  bg.addColorStop(0, "#fff3e3");
-  bg.addColorStop(0.55, "#ffd8a8");
-  bg.addColorStop(1, "#fbb46a");
-  oc.fillStyle = bg;
-  oc.fillRect(0, 0, OUT, OUT);
-  oc.drawImage(person, 0, 0);
-  return out.toDataURL("image/jpeg", 0.88);
+  return compose(person);
 }
 
 /** Alleen de persoon bij het gevonden gezicht houden (mensen naast je vallen weg). */
