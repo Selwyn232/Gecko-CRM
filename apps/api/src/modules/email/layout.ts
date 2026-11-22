@@ -58,12 +58,29 @@ const initials = (name: string) =>
 export function specialistHead(sp: { name: string; photoUrl: string | null; brand: string }) {
   const first = sp.name.trim().split(/\s+/)[0] ?? sp.name;
   const avatar = sp.photoUrl
-    ? `<img src="${escapeHtml(sp.photoUrl)}" width="52" height="52" alt="${escapeHtml(first)}" style="display:block;width:52px;height:52px;border-radius:26px;border:3px solid #fc8801;object-fit:cover">`
-    : `<div style="width:52px;height:52px;line-height:52px;border-radius:26px;border:3px solid #fc8801;background:#2f7a4f;color:#ffffff;text-align:center;font-weight:bold;font-size:17px">${escapeHtml(initials(sp.name))}</div>`;
-  return `<tr><td style="background:#1f3b2c;padding:20px 28px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
+    ? `<img src="${escapeHtml(sp.photoUrl)}" width="52" height="52" alt="${escapeHtml(first)}" style="display:block;width:52px;height:52px;border-radius:26px;border:3px solid #ffffff;object-fit:cover">`
+    : `<div style="width:52px;height:52px;line-height:52px;border-radius:26px;border:3px solid #ffffff;background:#1c1712;color:#ffffff;text-align:center;font-weight:bold;font-size:17px">${escapeHtml(initials(sp.name))}</div>`;
+  return `<tr><td style="background:#fc8801;padding:20px 28px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
 <td style="padding-right:14px;vertical-align:middle">${avatar}</td>
-<td style="vertical-align:middle;color:#ffffff"><div style="font-size:13px;color:#c9d6cd">Bericht van uw klantspecialist</div><div style="font-size:17px;font-weight:bold">${escapeHtml(first)} van ${escapeHtml(sp.brand)}</div></td>
+<td style="vertical-align:middle;color:#1c1712"><div style="font-size:13px;color:#5a3300">Bericht van uw klantspecialist</div><div style="font-size:17px;font-weight:bold;color:#1c1712">${escapeHtml(first)} van ${escapeHtml(sp.brand)}</div></td>
 </tr></table></td></tr>`;
+}
+
+const MONTHS = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+
+/** Kalenderblaadje met de datum en ernaast wanneer, waar en door wie. */
+export function calendarBlock(a: { iso: string; dateLabel: string; when: string; address: string; partner: string }) {
+  const [, m, d] = a.iso.split("-").map(Number);
+  const label = a.dateLabel ? a.dateLabel.charAt(0).toUpperCase() + a.dateLabel.slice(1) : a.iso;
+  const when = a.when ? a.when.charAt(0).toUpperCase() + a.when.slice(1) : "";
+  const lines = [when, a.address, a.partner && `Door ${a.partner}`].filter(Boolean).map((l) => escapeHtml(l!)).join("<br>");
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:18px 0"><tr>
+<td style="vertical-align:top;padding-right:16px"><table role="presentation" cellpadding="0" cellspacing="0" width="68" style="width:68px;border:1px solid #e1e5df;border-radius:10px;border-collapse:separate;overflow:hidden;text-align:center">
+<tr><td style="background:#fc8801;color:#1c1712;font-size:12px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;padding:4px 0;border-radius:9px 9px 0 0">${MONTHS[(m ?? 1) - 1]}</td></tr>
+<tr><td style="font-size:28px;font-weight:bold;color:#1c211d;padding:4px 0 8px;line-height:1.1">${d ?? ""}</td></tr>
+</table></td>
+<td style="vertical-align:middle;font-size:15px;line-height:1.5"><strong>${escapeHtml(label)}</strong><br><span style="color:#6b746d;font-size:14px">${lines}</span></td>
+</tr></table>`;
 }
 
 /** Ondertekening door de specialist (als de tekst zelf geen afsluiting heeft). */

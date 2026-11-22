@@ -6,7 +6,7 @@ import { badRequest, notFound } from "../../lib/errors.js";
 import { recordAudit } from "../audit/service.js";
 import { productGroups, salesChannels } from "../catalog/schema.js";
 import { customers, properties } from "../customers/schema.js";
-import { escapeHtml, layout, type Company } from "../email/layout.js";
+import { calendarBlock, escapeHtml, layout, type Company } from "../email/layout.js";
 import { outboundEmails } from "../email/schema.js";
 import { sendEmail } from "../email/service.js";
 import type { EmailTransport } from "../email/transport.js";
@@ -35,16 +35,30 @@ const WINDOW_LABEL = { morning: "in de ochtend (8:00–12:00)", afternoon: "in d
 const dateNl = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
 /** Platte tekst met invulvelden → e-mail in de huisstijl. Een lege regel = nieuwe alinea. */
+const tidyDays = (t: string) => t.replace(/\s*\(1 dag\(en\)\)/g, "").replace(/\((\d+) dag\(en\)\)/g, "($1 dagen)");
+
+/** Platte tekst met invulvelden → e-mail in de huisstijl. Een lege regel = nieuwe alinea; {afspraak_blok} = kalenderblok. */
 export function renderMessage(company: Company, tpl: { subject: string; body: string }, vars: MessageVars) {
   const subject = fill(tpl.subject, vars).replace(/\s+/g, " ").trim();
   // Oude standaardtekst "({n} dag(en))" netjes maken (ook in sjablonen die al in de database staan).
-  const text = fill(tpl.body, vars)
-    .replace(/\s*\(1 dag\(en\)\)/g, "")
-    .replace(/\((\d+) dag\(en\)\)/g, "($1 dagen)")
-    .trim();
-  const html = text
+  const text = tidyDays(fill(tpl.body, vars)).trim();
+  const html = tpl.body
+    .trim()
     .split(/\n{2,}/)
-    .map((p) => `<p>${escapeHtml(p.trim()).replace(/\n/g, "<br>")}</p>`)
+    .map((raw) => {
+      if (raw.trim() === "{afspraak_blok}") {
+        if (!vars.afspraak_iso) return "";
+        return calendarBlock({
+          iso: vars.afspraak_iso,
+          dateLabel: vars.afspraak_datum ?? "",
+          when: [vars.dagdeel, Number(vars.aantal_dagen) > 1 ? `${vars.aantal_dagen} dagen` : null].filter(Boolean).join(" · "),
+          address: vars.adres ?? "",
+          partner: vars.partner ?? "",
+        });
+      }
+      const p = tidyDays(fill(raw, vars)).trim();
+      return p ? `<p>${escapeHtml(p).replace(/\n/g, "<br>")}</p>` : "";
+    })
     .join("");
   return { subject, text, html: layout(company, html) };
 }
@@ -111,6 +125,12 @@ export function appointmentVars(a: {
     dagdeel: WINDOW_LABEL[a.timeWindow as keyof typeof WINDOW_LABEL] ?? "",
     aantal_dagen: String(a.days),
     partner: a.partnerName,
+    afspraak_iso: a.date,
+    afspraak_blok: [
+      `${dateNl(a.date)}, ${WINDOW_LABEL[a.timeWindow as keyof typeof WINDOW_LABEL] ?? ""}${a.days > 1 ? ` (${a.days} dagen)` : ""}`,
+      `Adres: ${a.address}`,
+      `Uitgevoerd door: ${a.partnerName}`,
+    ].join("\n"),
   };
 }
 
@@ -153,6 +173,8 @@ export async function projectVars(db: DbOrTx, projectId: string) {
       dagdeel: WINDOW_LABEL[next.a.timeWindow as keyof typeof WINDOW_LABEL] ?? "",
       aantal_dagen: String(next.a.days),
       partner: next.partnerName,
+      afspraak_iso: next.a.date,
+      afspraak_blok: `${dateNl(next.a.date)}, ${WINDOW_LABEL[next.a.timeWindow as keyof typeof WINDOW_LABEL] ?? ""}\nAdres: ${vars.adres}\nUitgevoerd door: ${next.partnerName}`,
     });
   }
   return { vars, customer: row.customer };

@@ -17,10 +17,12 @@ export const PLACEHOLDERS = {
   dagdeel: "in de ochtend (8:00–12:00), in de middag (12:00–17:00) of de hele dag",
   aantal_dagen: "Aantal dagen van de installatie",
   partner: "Naam van de installatiepartner",
+  afspraak_blok: "Kalenderblok met datum, tijd, adres en installateur (zet dit op een eigen regel)",
 } as const;
 
 export type PlaceholderKey = keyof typeof PLACEHOLDERS;
-export type MessageVars = Partial<Record<PlaceholderKey, string>>;
+/** afspraak_iso: datum (JJJJ-MM-DD) voor het kalenderblok; geen invulveld voor teksten. */
+export type MessageVars = Partial<Record<PlaceholderKey | "afspraak_iso", string>>;
 
 /** Vaste momenten die niet aan een status hangen. */
 export const FIXED_MESSAGES = {
@@ -30,10 +32,9 @@ export const FIXED_MESSAGES = {
     subject: "Uw schouw is ingepland op {afspraak_datum}",
     body: `Beste {naam},
 
-De schouw voor uw {productgroep} is ingepland op {afspraak_datum}, {dagdeel}.
+De schouw voor uw {productgroep} is ingepland.
 
-Adres: {adres}
-Uitgevoerd door: {partner}
+{afspraak_blok}
 
 Tijdens de schouw bekijkt de installateur de situatie in uw woning en bespreekt de installatie met u. Zorgt u ervoor dat er iemand thuis is?
 
@@ -45,10 +46,9 @@ Komt deze datum niet uit? Beantwoord dan deze e-mail.`,
     subject: "Uw installatie is ingepland op {afspraak_datum}",
     body: `Beste {naam},
 
-De installatie van uw {productgroep} is ingepland op {afspraak_datum}, {dagdeel} ({aantal_dagen} dag(en)).
+De installatie van uw {productgroep} is ingepland.
 
-Adres: {adres}
-Uitgevoerd door: {partner}
+{afspraak_blok}
 
 Komt deze datum niet uit? Beantwoord dan deze e-mail.`,
   },
@@ -66,9 +66,9 @@ De {afspraak_soort} op {afspraak_datum} gaat helaas niet door. Wij nemen contact
     subject: "Herinnering: morgen uw schouw",
     body: `Beste {naam},
 
-Morgen, {afspraak_datum}, komt {partner} {dagdeel} voor de schouw van uw {productgroep}.
+Morgen komt {partner} voor de schouw van uw {productgroep}.
 
-Adres: {adres}
+{afspraak_blok}
 
 Zorgt u ervoor dat er iemand thuis is en dat de meterkast en de plek van de installatie goed bereikbaar zijn? Lukt het onverhoopt niet? Beantwoord dan zo snel mogelijk deze e-mail.`,
   },
@@ -78,9 +78,9 @@ Zorgt u ervoor dat er iemand thuis is en dat de meterkast en de plek van de inst
     subject: "Herinnering: morgen de installatie van uw {productgroep}",
     body: `Beste {naam},
 
-Morgen, {afspraak_datum}, start {partner} met de installatie van uw {productgroep}.
+Morgen start {partner} met de installatie van uw {productgroep}.
 
-Adres: {adres}
+{afspraak_blok}
 
 Zorgt u ervoor dat er iemand thuis is en dat de plek van de installatie vrij en goed bereikbaar is? Na afloop vraagt de installateur u om de oplevering te tekenen.`,
   },
@@ -182,4 +182,6 @@ export const SAMPLE_VARS: Required<MessageVars> = {
   dagdeel: "in de ochtend (8:00–12:00)",
   aantal_dagen: "1",
   partner: "Installatiebedrijf Voorbeeld",
+  afspraak_iso: "2026-11-17",
+  afspraak_blok: "dinsdag 17 november 2026, in de ochtend (8:00–12:00)\nAdres: Dorpsstraat 1, 1234 AB Voorbeeld\nUitgevoerd door: Installatiebedrijf Voorbeeld",
 };
