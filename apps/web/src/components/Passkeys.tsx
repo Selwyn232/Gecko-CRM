@@ -48,6 +48,8 @@ export async function verifyWithPasskey() {
   assertDomain(options.rpId);
   const response = await startAuthentication({ optionsJSON: options as never }).catch((e) => Promise.reject(friendly(e)));
   await api.post("/auth/passkeys/verify", { challengeId, response });
+  // Bevestigd met Face ID: dit toestel heeft dus al een passkey; niet nog eens vragen om hem in te stellen.
+  markLoginMethod("passkey");
 }
 
 /** Nieuwe passkey; geeft herstelcodes terug als dit de eerste 2FA-methode is. */
@@ -172,7 +174,13 @@ export function shouldPromptPasskey(me: { id: string; hasPasskey?: boolean; pass
   if (me.passkeyDomain && me.passkeyDomain !== location.hostname) return false;
   if (safe(() => sessionStorage.getItem(promptKey(me.id)), null) === "1") return false;
   if (!me.hasPasskey) return "first";
-  const viaPassword = safe(() => sessionStorage.getItem("gecko-login-method"), null) === "password";
+  const method = safe(() => sessionStorage.getItem("gecko-login-method"), null);
+  if (method === "passkey") {
+    // Met Face ID ingelogd of bevestigd: dit toestel onthouden, zodat de vraag hier niet meer komt.
+    markPasskeyDevice(me.id);
+    return false;
+  }
+  const viaPassword = method === "password";
   const knownDevice = safe(() => localStorage.getItem(deviceKey(me.id)), null) === "1";
   return viaPassword && !knownDevice ? "device" : false;
 }
