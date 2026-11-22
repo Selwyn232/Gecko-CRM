@@ -25,7 +25,10 @@ gaat ook via WhatsApp (behalve beveiligingscodes). Berichten van klanten komen b
 1. **Meta Business-account** (business.facebook.com) voor Gecko BV en **bedrijfsverificatie** (KvK-uittreksel e.d.).
 2. **developers.facebook.com → Mijn apps → App maken** (type Business) → product **WhatsApp** toevoegen.
 3. **Telefoonnummer** toevoegen in WhatsApp Manager: een nummer dat **niet** in de gewone WhatsApp(-Business)-app
-   wordt gebruikt (anders eerst daar verwijderen). Weergavenaam "Gecko" laten goedkeuren.
+   wordt gebruikt (anders eerst daar verwijderen). Weergavenaam "Gecko" laten goedkeuren. Gecko gebruikt een
+   **085-nummer van CM.com** (B85): kies bij de verificatie "Telefoongesprek" en schakel inkomende oproepen door
+   naar een mobiel. Daarna het nummer **registreren** bij de Cloud API (`POST /{telefoonnummer-id}/register` met
+   een zelfgekozen pincode van 6 cijfers voor tweestapsverificatie) en `WHATSAPP_PHONE_NUMBER_ID` aanpassen.
 4. **Permanente toegangssleutel**: Bedrijfsinstellingen → Gebruikers → **Systeemgebruikers** → systeemgebruiker
    (beheerder) → app en WhatsApp-account toewijzen → **Token genereren** met de rechten
    `whatsapp_business_messaging` en `whatsapp_business_management`, geen vervaldatum.
