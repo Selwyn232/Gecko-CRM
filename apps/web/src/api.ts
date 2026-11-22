@@ -399,9 +399,10 @@ export interface Region {
   postalRanges: [number, number][];
   isActive: boolean;
 }
-export type DayPart = "morning" | "afternoon";
+/** B87: 2-uursblokken 08–10, 10–12, 12–14, 14–16. */
+export type DayPart = "08" | "10" | "12" | "14";
 export interface AvailabilityBlock {
-  partnerOrganizationId: string;
+  technicianId: string;
   date: string;
   part: DayPart;
   /** Gevuld als er een afspraak in dit blok staat. */
@@ -418,10 +419,22 @@ export interface Appointment {
   partnerName: string;
   regionName: string;
   productGroupName: string;
-  type: "survey" | "installation";
+  type: "survey" | "installation" | "service";
   date: string;
   days: number;
   timeWindow: "morning" | "afternoon" | "day";
+  technicianUserId: string | null;
+  technicianName: string | null;
+  startMinute: number | null;
+  durationMinutes: number | null;
+  /** bv. "10:15–12:15" */
+  time: string | null;
+  /** Tekst voor de klant, bv. "tussen 09:15 en 11:15 uur (verwachte aankomst)" */
+  arrival: string | null;
+  enRouteAt?: string | null;
+  etaAt?: string | null;
+  checkedInAt?: string | null;
+  checkedOutAt?: string | null;
   status: "planned" | "completed" | "canceled" | "partner_no_show";
   notes: string | null;
   cancelReason: string | null;
@@ -471,4 +484,33 @@ export interface ToPlanItem {
   productGroupName: string;
   statusName: string;
   waitingSince: string;
+}
+
+export interface Technician {
+  id: string;
+  name: string;
+  email?: string | null;
+  isTechnician?: boolean;
+  isActive?: boolean;
+  lastLoginAt?: string | null;
+  lastLocationAt?: string | null;
+}
+export interface TechnicianJob {
+  id: string;
+  type: "survey" | "installation" | "service";
+  status: "planned" | "completed";
+  date: string;
+  days: number;
+  time: string;
+  startMinute: number;
+  projectNumber: string;
+  address: string;
+  postalCode: string;
+  customerName: string;
+  customerPhone: string | null;
+  travelMinutes: number | null;
+  enRouteAt: string | null;
+  etaAt: string | null;
+  checkedInAt: string | null;
+  checkedOutAt: string | null;
 }

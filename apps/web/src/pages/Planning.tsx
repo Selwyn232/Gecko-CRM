@@ -73,13 +73,24 @@ function ToPlan({ type }: { type: "survey" | "installation" }) {
 
 interface Slot {
   date: string;
-  part: "morning" | "afternoon" | null;
+  startMinute: number;
+  endMinute: number;
+  time: string;
+  technicianId: string;
+  technicianName: string;
   partnerId: string;
   partnerName: string;
   regionId: string;
   days: number;
+  travelBefore: number | null;
+  travelAfter: number | null;
 }
 
+const same = (a: Slot | null, b: Slot) => !!a && a.date === b.date && a.startMinute === b.startMinute && a.technicianId === b.technicianId;
+const travelText = (s: Slot) =>
+  s.travelBefore === null ? "eerste klus" : `${s.travelBefore} min rijden`;
+
+/** B87: kies monteur en starttijd. De klant krijgt 08:00 (eerste klus) of een tijdvak van 2 uur. */
 export function PlanModal({ projectId, type, title, onClose }: { projectId: string; type: "survey" | "installation"; title: string; onClose: () => void }) {
   const qc = useQueryClient();
   const slots = useQuery({
@@ -90,7 +101,7 @@ export function PlanModal({ projectId, type, title, onClose }: { projectId: stri
   const [notes, setNotes] = useState("");
   const save = useMutation({
     meta: { toast: "Afspraak ingepland" },
-    mutationFn: () => api.post(`/projects/${projectId}/appointments`, { type, date: chosen!.date, partnerId: chosen!.partnerId, part: chosen!.part, notes: notes || null }),
+    mutationFn: () => api.post(`/projects/${projectId}/appointments`, { type, date: chosen!.date, technicianId: chosen!.technicianId, startMinute: chosen!.startMinute, notes: notes || null }),
     onSuccess: async () => {
       await qc.invalidateQueries();
       onClose();
@@ -98,6 +109,7 @@ export function PlanModal({ projectId, type, title, onClose }: { projectId: stri
   });
   const byDate = new Map<string, Slot[]>();
   for (const s of slots.data?.slots ?? []) byDate.set(s.date, [...(byDate.get(s.date) ?? []), s]);
+  const first = slots.data?.slots[0];
 
   return (
     <Modal title={title} onClose={onClose}>
@@ -105,45 +117,45 @@ export function PlanModal({ projectId, type, title, onClose }: { projectId: stri
       {slots.isLoading ? <Loading /> : slots.data?.message ? <div className="alert warning">{slots.data.message}</div> : (
         <>
           <p className="muted" style={{ fontSize: 13 }}>
-            {type === "survey" ? "Kies een vrij dagdeel van een partner in deze regio." : `Kies een startdag; de installatie neemt ${slots.data?.slots[0]?.days ?? 1} hele dag(en) in.`} De klant krijgt automatisch een bevestiging per e-mail.
+            {type === "installation"
+              ? `Een installatie duurt 6 uur${first && first.days > 1 ? ` per dag, ${first.days} dagen` : ""}.`
+              : "Een schouw duurt 2 uur."}{" "}
+            De rijtijd vanaf de vorige klus van de monteur is al meegerekend. De klant krijgt een bevestiging: 08:00 als eerste klus, anders een tijdvak van 2 uur.
           </p>
           {!!slots.data?.suggestions.length && (
             <div style={{ marginBottom: 12 }}>
               <div className="field" style={{ marginBottom: 4 }}>Voorstel</div>
-              {slots.data.suggestions.map((s, i) => {
-                const match = slots.data!.slots.find((x) => x.date === s.date && x.part === s.part && x.partnerId === s.partnerId) ?? s;
-                const active = chosen?.date === s.date && chosen?.part === s.part && chosen?.partnerId === s.partnerId;
-                return (
-                  <button key={i} type="button" className={`suggestion ${active ? "active" : ""}`} onClick={() => setChosen(match)}>
-                    <strong>{i === 0 ? "★ " : ""}{weekday(s.date)}{s.part ? ` · ${TIME_WINDOW[s.part]}` : ""} · {s.partnerName}</strong>
-                    <span className="muted">{s.reasons.join(" · ")}</span>
-                  </button>
-                );
-              })}
+              {slots.data.suggestions.map((s, i) => (
+                <button key={i} type="button" className={`suggestion ${same(chosen, s) ? "active" : ""}`} onClick={() => setChosen(s)}>
+                  <strong>{i === 0 ? "★ " : ""}{weekday(s.date)} · {s.time} · {s.technicianName} ({s.partnerName})</strong>
+                  <span className="muted">{s.reasons.join(" · ")}</span>
+                </button>
+              ))}
             </div>
           )}
           <div className="field" style={{ marginBottom: 4 }}>Alle vrije momenten</div>
-          <div style={{ maxHeight: 280, overflow: "auto", border: "1px solid var(--border)", borderRadius: 6, marginBottom: 12 }}>
+          <div style={{ maxHeight: 300, overflow: "auto", border: "1px solid var(--border)", borderRadius: 6, marginBottom: 12 }}>
             {[...byDate.entries()].map(([date, list]) => (
               <div key={date} style={{ padding: "6px 12px", borderBottom: "1px solid var(--border)" }}>
                 <strong style={{ fontSize: 13 }}>{weekday(date)}</strong>
-                <div className="row" style={{ marginTop: 4 }}>
+                <div className="row" style={{ marginTop: 4, flexWrap: "wrap" }}>
                   {list.map((s) => (
-                    <button key={s.partnerId + (s.part ?? "")} className={`btn small ${chosen?.date === s.date && chosen?.part === s.part && chosen?.partnerId === s.partnerId ? "primary" : ""}`} onClick={() => setChosen(s)}>
-                      {s.part ? `${TIME_WINDOW[s.part]} · ` : ""}{s.partnerName}{s.days > 1 && <span className="muted"> ({s.days} dagen)</span>}
+                    <button key={s.technicianId + s.startMinute} className={`btn small ${same(chosen, s) ? "primary" : ""}`} onClick={() => setChosen(s)} title={`${s.partnerName} · ${travelText(s)}`}>
+                      {s.time.split("–")[0]} · {s.technicianName}
+                      <span className="muted"> ({travelText(s)}{s.days > 1 ? `, ${s.days} dagen` : ""})</span>
                     </button>
                   ))}
                 </div>
               </div>
             ))}
           </div>
-          <Field label="Notitie voor partner"><input value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
+          <Field label="Notitie voor de monteur"><input value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
         </>
       )}
       <div className="modal-actions">
         <button className="btn" onClick={onClose}>Annuleren</button>
         <button className="btn primary" disabled={!chosen || save.isPending} onClick={() => save.mutate()}>
-          {chosen ? `Inplannen op ${weekday(chosen.date)}${chosen.part ? ` (${TIME_WINDOW[chosen.part]!.toLowerCase()})` : ""}` : "Kies een moment"}
+          {chosen ? `Inplannen: ${weekday(chosen.date)} ${chosen.time.split("–")[0]} · ${chosen.technicianName}` : "Kies een moment"}
         </button>
       </div>
     </Modal>
@@ -154,15 +166,15 @@ export function AppointmentsTable({ items, onCancel }: { items: Appointment[]; o
   const navigate = useNavigate();
   return (
     <table>
-      <thead><tr><th>Datum</th><th>Soort</th><th>Project</th><th>Klant / adres</th><th>Partner</th><th>Status</th><th>Rapport</th>{onCancel && <th />}</tr></thead>
+      <thead><tr><th>Datum</th><th>Soort</th><th>Project</th><th>Klant / adres</th><th>Partner / monteur</th><th>Status</th><th>Rapport</th>{onCancel && <th />}</tr></thead>
       <tbody>
         {items.map((a) => (
           <tr key={a.id}>
-            <td style={{ whiteSpace: "nowrap" }}>{weekday(a.date)}{a.days > 1 && <span className="muted"> +{a.days - 1}d</span>}<div className="muted" style={{ fontSize: 12 }}>{TIME_WINDOW[a.timeWindow]}</div></td>
+            <td style={{ whiteSpace: "nowrap" }}>{weekday(a.date)}{a.days > 1 && <span className="muted"> +{a.days - 1}d</span>}<div className="muted" style={{ fontSize: 12 }}>{a.time ?? TIME_WINDOW[a.timeWindow]}</div></td>
             <td>{APPOINTMENT_TYPE[a.type]}</td>
             <td className="mono"><Link to={`/projecten/${a.projectId}`}>{a.projectNumber}</Link></td>
             <td>{[a.customer.firstName, a.customer.lastName].filter(Boolean).join(" ")}<div className="muted" style={{ fontSize: 12 }}>{a.address}</div></td>
-            <td>{a.partnerName}</td>
+            <td>{a.partnerName}{a.technicianName && <div className="muted" style={{ fontSize: 12 }}>{a.technicianName}</div>}</td>
             <td>
               <span className={`status ${APPOINTMENT_STATUS[a.status]!.color}`}>{APPOINTMENT_STATUS[a.status]!.label}</span>
               {a.depositUnpaid && <div><span className="badge red" style={{ marginTop: 4 }}>⚠ Aanbetaling niet betaald</span></div>}

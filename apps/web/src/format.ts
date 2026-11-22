@@ -81,7 +81,7 @@ export const DUNNING_STAGE: Record<string, string> = {
 };
 export const PAYMENT_METHOD: Record<string, string> = { online: "Online (iDEAL)", bank_transfer: "Overschrijving", warmtefonds: "Warmtefonds", other: "Overig" };
 
-export const APPOINTMENT_TYPE: Record<string, string> = { survey: "Schouw", installation: "Installatie" };
+export const APPOINTMENT_TYPE: Record<string, string> = { survey: "Schouw", installation: "Installatie", service: "Service" };
 export const TIME_WINDOW: Record<string, string> = { morning: "Ochtend", afternoon: "Middag", day: "Hele dag" };
 export const APPOINTMENT_STATUS: Record<string, { label: string; color: string }> = {
   planned: { label: "Gepland", color: "blue" },

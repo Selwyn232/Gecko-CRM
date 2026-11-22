@@ -51,6 +51,8 @@ export const users = pgTable(
     acceptsNewCustomers: boolean("accepts_new_customers").notNull().default(true),
     /** Pasfoto (klein JPEG/PNG, als data-URL), getoond aan klanten in het welkomstbericht. */
     photoDataUrl: text("photo_data_url"),
+    /** Monteur van een installatiepartner: krijgt klussen, eigen beschikbaarheid in 2-uursblokken (B87). */
+    isTechnician: boolean("is_technician").notNull().default(false),
     /** Gebruiker van een verkooppartner die één adviseur is: ziet dan alleen de eigen offertes. */
     advisorId: uuid("advisor_id").references(() => advisors.id),
     ...timestamps(),

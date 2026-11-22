@@ -35,9 +35,9 @@ beforeAll(async () => {
   await call("PUT", "/settings/test.mode", { value: true });
   await call("PUT", "/settings/quote.change_window_days", { value: 2 });
   scenario = (await call("POST", "/testing/scenario", { productGroupId: groupId, email: "Klant@Example.nl", postalCode: "3511 AB", salesChannelId: channelId })).json();
-  const slots = (await call("GET", `/planning/slots?projectId=${scenario.projectId}&type=survey`)).json().slots as { date: string; part: string; partnerId: string }[];
+  const slots = (await call("GET", `/planning/slots?projectId=${scenario.projectId}&type=survey`)).json().slots as { date: string; startMinute: number; technicianId: string; partnerId: string }[];
   const slot = slots.find((s) => s.date === addDays(todayIso(), 5))!;
-  appointmentId = (await call("POST", `/projects/${scenario.projectId}/appointments`, { type: "survey", date: slot.date, partnerId: slot.partnerId, part: slot.part })).json().id;
+  appointmentId = (await call("POST", `/projects/${scenario.projectId}/appointments`, { type: "survey", date: slot.date, technicianId: slot.technicianId, startMinute: slot.startMinute })).json().id;
   await processOutbox(ctx.db, ctx.app.billing); // aanbetalingsfactuur
 });
 afterAll(async () => ctx.close());

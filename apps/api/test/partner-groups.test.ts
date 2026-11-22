@@ -4,7 +4,8 @@ import { todayIso } from "../src/lib/dates.js";
 import { productGroups, salesChannels } from "../src/modules/catalog/schema.js";
 import { MemoryTransport } from "../src/modules/email/transport.js";
 import { quotes } from "../src/modules/quotes/schema.js";
-import { adminSession, createTestContext, type TestContext } from "./helpers.js";
+import { users } from "../src/modules/auth/schema.js";
+import { adminSession, createTestContext, makeUser, type TestContext } from "./helpers.js";
 
 const mail = new MemoryTransport();
 let ctx: TestContext;
@@ -101,6 +102,7 @@ describe("installatiepartner per productgroep", () => {
   let roke: string;
   let samen: string;
   let batProject: string;
+  const techOf: Record<string, string> = {};
 
   beforeAll(async () => {
     const orgs = (await call("GET", "/organizations?type=installation_partner")).json() as { id: string; name: string }[];
@@ -110,7 +112,15 @@ describe("installatiepartner per productgroep", () => {
     const today = todayIso();
     for (const p of [roke, samen]) {
       await call("PUT", `/planning/partner-regions/${p}`, { regionIds: [region] });
-      await call("PUT", "/planning/availability", { partnerId: p, changes: [{ date: today, part: "morning", available: true }, { date: today, part: "afternoon", available: true }] });
+      // B87: een monteur per partner
+      let [t] = (await call("GET", `/planning/technicians?partnerId=${p}`)).json() as { id: string }[];
+      if (!t) {
+        const u = await makeUser(ctx.db, ["monteur"]);
+        await ctx.db.update(users).set({ organizationId: p, isTechnician: true }).where(eq(users.id, u.id));
+        t = { id: u.id };
+      }
+      techOf[p] = t.id;
+      await call("PUT", "/planning/availability", { partnerId: p, technicianId: t.id, changes: ["08", "10", "12", "14"].map((part) => ({ date: today, part, available: true })) });
     }
     const c = (await call("POST", "/customers", { lastName: "Batterij", property: { street: "Trêd", houseNumber: "75", postalCode: "8603DZ", city: "Sneek" } })).json();
     batProject = (await call("POST", "/projects", { customerId: c.id, propertyId: c.properties[0].id, productGroupId: bat, salesChannelId: channelId })).json().id;
@@ -131,7 +141,7 @@ describe("installatiepartner per productgroep", () => {
   });
 
   it("de warmtepomppartner kan niet worden ingepland of gekozen voor een batterijproject", async () => {
-    const plan = await call("POST", `/projects/${batProject}/appointments`, { type: "survey", date: todayIso(), partnerId: roke, part: "morning" });
+    const plan = await call("POST", `/projects/${batProject}/appointments`, { type: "survey", date: todayIso(), technicianId: techOf[roke], startMinute: 480 });
     expect(plan.json().error?.code).toBe("partner_wrong_group");
     expect(plan.json().error.message).toMatch(/Roke Group installeert geen thuisbatterij/);
     const set = await call("PATCH", `/projects/${batProject}`, { installationPartnerId: roke });

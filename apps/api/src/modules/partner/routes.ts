@@ -42,6 +42,10 @@ const IsoDate = z.string().refine(isIsoDate, "Datum moet YYYY-MM-DD zijn");
  */
 export const partnerRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; emailTransport: EmailTransport | null }> = async (app, { db, config, emailTransport }) => {
   const portal = requirePermission("partner.portal");
+  /** Klus bekijken, foto's en opleverrapport: de partner, of de monteur van die klus (B87). */
+  const job = async (req: FastifyRequest) => {
+    if (!req.actor.permissions.has("partner.portal") && !req.actor.permissions.has("technician.portal")) throw forbidden("missing_permission", "Recht ontbreekt: partner.portal");
+  };
 
   /** Organisatie van de ingelogde partner (en controle dat het echt een installatiepartner is). */
   async function partnerId(req: FastifyRequest) {
@@ -56,6 +60,8 @@ export const partnerRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; emai
     const pid = await partnerId(req);
     const [a] = await db.select().from(appointments).where(eq(appointments.id, appointmentId));
     if (!a || a.partnerOrganizationId !== pid) throw notFound("Afspraak");
+    // Een monteur (zonder partnerrechten) ziet alleen zijn eigen klussen.
+    if (!req.actor.permissions.has("partner.portal") && a.technicianUserId !== req.actor.userId) throw notFound("Afspraak");
     return a;
   }
 
@@ -71,7 +77,7 @@ export const partnerRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; emai
     async (req) => listAppointments(db, { ...req.query, partnerId: await partnerId(req) }),
   );
 
-  app.get("/partner/appointments/:id", { preValidation: portal, schema: { params: IdParams } }, async (req) => {
+  app.get("/partner/appointments/:id", { preValidation: job, schema: { params: IdParams } }, async (req) => {
     const a = await ownAppointment(req, req.params.id);
     const view = await getAppointment(db, a.id);
     // Wat er geïnstalleerd moet worden: regels van de geaccepteerde offerte(s), zonder prijzen.
@@ -105,7 +111,7 @@ export const partnerRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; emai
   app.post(
     "/partner/appointments/:id/files",
     {
-      preValidation: portal,
+      preValidation: job,
       bodyLimit: 12 * 1024 * 1024,
       schema: { params: IdParams, body: z.object({ filename: z.string().min(1).max(200), dataBase64: z.string().min(10) }) },
     },
@@ -119,7 +125,7 @@ export const partnerRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; emai
   app.post(
     "/partner/appointments/:id/report",
     {
-      preValidation: portal,
+      preValidation: job,
       schema: {
         params: IdParams,
         body: z.object({
@@ -184,11 +190,11 @@ export const partnerRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; emai
   );
   app.get(
     "/partner/availability",
-    { preValidation: portal, schema: { querystring: z.object({ from: IsoDate, to: IsoDate }) } },
+    { preValidation: portal, schema: { querystring: z.object({ from: IsoDate, to: IsoDate, technicianId: z.string().uuid().optional() }) } },
     async (req) => listAvailability(db, { ...req.query, partnerId: await partnerId(req) }),
   );
-  app.put("/partner/availability", { preValidation: portal, schema: { body: z.object({ changes: BlockChanges }) } }, async (req) => {
-    await setAvailability(db, req.actor, await partnerId(req), req.body.changes);
+  app.put("/partner/availability", { preValidation: portal, schema: { body: z.object({ technicianId: z.string().uuid(), changes: BlockChanges }) } }, async (req) => {
+    await setAvailability(db, req.actor, await partnerId(req), req.body.technicianId, req.body.changes);
     return { ok: true };
   });
 
@@ -196,7 +202,7 @@ export const partnerRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; emai
   app.get("/files/:id", { schema: { params: IdParams } }, async (req, reply) => {
     const f = await loadFile(db, req.params.id);
     if (!req.actor.permissions.has("planning.read")) {
-      if (!req.actor.permissions.has("partner.portal") || f.ownerType !== "appointment") throw notFound("Bestand");
+      if ((!req.actor.permissions.has("partner.portal") && !req.actor.permissions.has("technician.portal")) || f.ownerType !== "appointment") throw notFound("Bestand");
       await ownAppointment(req, f.ownerId);
     }
     reply

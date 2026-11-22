@@ -13,7 +13,7 @@ interface PortalProject {
   address: string;
   status: { name: string; phase: string; isFinal: boolean; canceled: boolean };
   phases: string[];
-  appointments: { id: string; type: "survey" | "installation"; date: string; days: number; timeWindow: string; status: string; partnerName: string; canReschedule: boolean }[];
+  appointments: { id: string; type: "survey" | "installation" | "service"; date: string; days: number; timeWindow: string; arrival?: string | null; status: string; partnerName: string; canReschedule: boolean }[];
   quotes: { id: string; number: string; kind: "main" | "extra_work"; status: string; validUntil: string | null; acceptedAt: string | null; totalCents: number }[];
   invoices: { id: string; number: string; type: string; status: string; invoiceDate: string | null; dueDate: string | null; totalCents: number; outstandingCents: number; paymentReference: string }[];
 }
@@ -174,7 +174,7 @@ function ProjectCard({ p, windowDays, payment }: { p: PortalProject; windowDays:
         upcoming.map((a) => (
           <div key={a.id} className="portal-row">
             <div>
-              <strong>{TYPE[a.type]}</strong> — {longDate(a.date)}, {WINDOW[a.timeWindow]}{a.days > 1 && ` (${a.days} dagen)`}
+              <strong>{TYPE[a.type]}</strong> — {longDate(a.date)}, {a.arrival ?? WINDOW[a.timeWindow]}{a.days > 1 && ` (${a.days} dagen)`}
               <div className="muted" style={{ fontSize: 13 }}>Door {a.partnerName}</div>
             </div>
             {a.canReschedule ? (
@@ -229,12 +229,15 @@ function InvoiceModal({ id, onClose }: { id: string; onClose: () => void }) {
 
 function RescheduleModal({ a, onClose }: { a: PortalProject["appointments"][number]; onClose: () => void }) {
   const qc = useQueryClient();
-  const options = useQuery({ queryKey: ["portal-options", a.id], queryFn: () => api.get<{ date: string; part: "morning" | "afternoon" | null; days: number }[]>(`/public/portal/appointments/${a.id}/options`) });
+  const options = useQuery({
+    queryKey: ["portal-options", a.id],
+    queryFn: () => api.get<{ date: string; startMinute: number; technicianId: string; arrival: string | null; days: number }[]>(`/public/portal/appointments/${a.id}/options`),
+  });
   const [choice, setChoice] = useState<string>("");
   const save = useMutation({
     mutationFn: () => {
-      const [date, part] = choice.split("|");
-      return api.post(`/public/portal/appointments/${a.id}/reschedule`, { date, part: part || null });
+      const [date, start, technicianId] = choice.split("|");
+      return api.post(`/public/portal/appointments/${a.id}/reschedule`, { date, startMinute: Number(start), technicianId });
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["portal"] });
@@ -243,7 +246,7 @@ function RescheduleModal({ a, onClose }: { a: PortalProject["appointments"][numb
   });
   return (
     <Modal title={`${TYPE[a.type]} verzetten`} onClose={onClose}>
-      <p>Nu gepland: <strong>{longDate(a.date)}, {WINDOW[a.timeWindow]}</strong>. Kies een ander moment bij {a.partnerName}. U ontvangt een bevestiging per e-mail.</p>
+      <p>Nu gepland: <strong>{longDate(a.date)}, {a.arrival ?? WINDOW[a.timeWindow]}</strong>. Kies een ander moment bij {a.partnerName}. U ontvangt een bevestiging per e-mail.</p>
       <ErrorBox error={options.error ?? save.error} />
       {options.isLoading ? <Loading /> : !options.data?.length ? (
         <p className="muted">Er zijn op dit moment geen andere momenten beschikbaar. Neem contact met ons op.</p>
@@ -252,8 +255,8 @@ function RescheduleModal({ a, onClose }: { a: PortalProject["appointments"][numb
           <select value={choice} onChange={(e) => setChoice(e.target.value)}>
             <option value="">Kies een moment…</option>
             {options.data.map((o) => (
-              <option key={`${o.date}|${o.part ?? ""}`} value={`${o.date}|${o.part ?? ""}`}>
-                {longDate(o.date)}, {WINDOW[o.part ?? "day"]}{o.days > 1 ? ` (${o.days} dagen)` : ""}
+              <option key={`${o.date}|${o.startMinute}|${o.technicianId}`} value={`${o.date}|${o.startMinute}|${o.technicianId}`}>
+                {longDate(o.date)}, {o.arrival}{o.days > 1 ? ` (${o.days} dagen)` : ""}
               </option>
             ))}
           </select>

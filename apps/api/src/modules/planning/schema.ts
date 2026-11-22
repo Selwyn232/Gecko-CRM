@@ -1,4 +1,4 @@
-import { boolean, date, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { bigserial, boolean, date, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, real, smallint, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { id, timestamps } from "../../db/columns.js";
 import { users } from "../auth/schema.js";
 import { productGroups } from "../catalog/schema.js";
@@ -61,7 +61,54 @@ export const availabilityBlocks = pgTable(
   (t) => [unique("availability_blocks_unique").on(t.partnerOrganizationId, t.date, t.part), index("availability_blocks_date_idx").on(t.date)],
 );
 
-export const appointmentType = pgEnum("appointment_type", ["survey", "installation"]);
+/**
+ * B87: beschikbaarheid per monteur in blokken van 2 uur (werkdag 08:00–16:00): slot 0 = 08–10, 1 = 10–12, 2 = 12–14, 3 = 14–16.
+ * Vervangt de ochtend-/middagblokken per partner (B32) en de ploegen (B50).
+ */
+export const technicianAvailability = pgTable(
+  "technician_availability",
+  {
+    technicianUserId: uuid("technician_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    slot: smallint("slot").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.technicianUserId, t.date, t.slot] }), index("technician_availability_date_idx").on(t.date)],
+);
+
+/** Rijtijden tussen postcodes (Google Maps), bewaard om kosten en wachttijd te beperken. */
+export const travelTimes = pgTable(
+  "travel_times",
+  {
+    fromPostal: text("from_postal").notNull(),
+    toPostal: text("to_postal").notNull(),
+    minutes: integer("minutes").notNull(),
+    /** google of schatting */
+    source: text("source").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.fromPostal, t.toPostal] })],
+);
+
+/** Locatie van een monteur tijdens de werkdag (B87); wordt na korte tijd verwijderd. */
+export const technicianLocations = pgTable(
+  "technician_locations",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    technicianUserId: uuid("technician_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
+    lat: doublePrecision("lat").notNull(),
+    lng: doublePrecision("lng").notNull(),
+    accuracy: real("accuracy"),
+  },
+  (t) => [index("technician_locations_user_idx").on(t.technicianUserId, t.recordedAt)],
+);
+
+export const appointmentType = pgEnum("appointment_type", ["survey", "installation", "service"]);
 export const appointmentStatus = pgEnum("appointment_status", ["planned", "completed", "canceled", "partner_no_show"]);
 export const timeWindow = pgEnum("time_window", ["morning", "afternoon", "day"]);
 
@@ -77,6 +124,17 @@ export const appointments = pgTable(
     /** Aantal werkdagen dat de afspraak beslaat (installatie kan meerdere dagen zijn). */
     days: integer("days").notNull().default(1),
     timeWindow: timeWindow("time_window").notNull().default("day"),
+    /** B87: monteur, starttijd (minuten na middernacht, bv. 480 = 08:00) en duur per dag. */
+    technicianUserId: uuid("technician_user_id").references(() => users.id),
+    startMinute: integer("start_minute"),
+    durationMinutes: integer("duration_minutes"),
+    /** Rijtijd vanaf de vorige klus van de monteur die dag (minuten), ter info. */
+    travelMinutes: integer("travel_minutes"),
+    /** Monteur: onderweg, aangemeld op locatie, afgemeld (opgeleverd). */
+    enRouteAt: timestamp("en_route_at", { withTimezone: true }),
+    etaAt: timestamp("eta_at", { withTimezone: true }),
+    checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
+    checkedOutAt: timestamp("checked_out_at", { withTimezone: true }),
     status: appointmentStatus("status").notNull().default("planned"),
     notes: text("notes"),
     cancelReason: text("cancel_reason"),
@@ -86,6 +144,7 @@ export const appointments = pgTable(
   (t) => [
     index("appointments_project_idx").on(t.projectId),
     index("appointments_partner_date_idx").on(t.partnerOrganizationId, t.date),
+    index("appointments_technician_date_idx").on(t.technicianUserId, t.date),
   ],
 );
 

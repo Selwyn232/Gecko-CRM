@@ -32,6 +32,7 @@ export const PERMISSIONS = {
   "planning.read": "Planning en afspraken bekijken",
   "planning.manage": "Afspraken plannen, regio's en beschikbaarheid beheren, rapporten beoordelen",
   "partner.portal": "Partnerportaal (alleen eigen afspraken, beschikbaarheid en rapporten)",
+  "technician.portal": "Monteursportaal (eigen klussen: aanmelden, afmelden/opleveren, locatie tijdens de werkdag)",
   "sales.portal": "Verkooppartnerportaal (alleen eigen klanten, offertes en fee; geen inkoopprijzen)",
   "invoices.manage": "Facturen maken, crediteren, betalingen registreren en aanmaningen beheren",
   "mfa.sms": "Mag tweestapsverificatie via sms gebruiken (in plaats van een authenticator-app)",

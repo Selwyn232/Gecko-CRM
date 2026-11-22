@@ -98,7 +98,7 @@ async function createPartnerUser(tx: DbOrTx, actor: ActorContext, partnerId: str
   if (!role) throw badRequest("no_partner_role", "Rol 'installatiepartner' bestaat niet");
   const [taken] = await tx.select({ id: users.id }).from(users).where(sql`lower(${users.email}) = ${account.email.trim().toLowerCase()}`);
   if (taken) throw conflict("email_taken", `Er bestaat al een gebruiker met e-mailadres ${account.email}`);
-  return createUser(tx as unknown as Db, actor, {
+  const created = await createUser(tx as unknown as Db, actor, {
     organizationId: partnerId,
     email: account.email,
     name: account.name,
@@ -107,6 +107,9 @@ async function createPartnerUser(tx: DbOrTx, actor: ActorContext, partnerId: str
     mfaRequired: true,
     roleIds: [role.id],
   });
+  // B87: de eerste partnergebruiker is ook monteur (eenmanszaak); de partner kan dat zelf aanpassen.
+  await tx.update(users).set({ isTechnician: true }).where(eq(users.id, created.id));
+  return created;
 }
 
 export interface PartnerSetup {

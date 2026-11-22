@@ -29,7 +29,7 @@ import {
 const IdParams = z.object({ id: z.string().uuid() });
 const IsoDate = z.string().refine(isIsoDate, "Datum moet YYYY-MM-DD zijn");
 const Type = z.enum(["survey", "installation"]);
-export const BlockChanges = z.array(z.object({ date: IsoDate, part: z.enum(["morning", "afternoon"]), available: z.boolean() })).max(1000);
+export const BlockChanges = z.array(z.object({ date: IsoDate, part: z.enum(["08", "10", "12", "14"]), available: z.boolean() })).max(2000);
 const RegionBody = z.object({
   name: z.string().min(1).max(100),
   postalRanges: z.array(z.tuple([z.number().int(), z.number().int()])).min(1).max(100),
@@ -49,14 +49,14 @@ export const planningRoutes: FastifyPluginAsyncZod<{ db: Db; emailTransport: Ema
 
   app.get(
     "/planning/availability",
-    { preValidation: read, schema: { querystring: z.object({ from: IsoDate, to: IsoDate, partnerId: z.string().uuid().optional() }) } },
+    { preValidation: read, schema: { querystring: z.object({ from: IsoDate, to: IsoDate, partnerId: z.string().uuid().optional(), technicianId: z.string().uuid().optional() }) } },
     async (req) => listAvailability(db, req.query),
   );
   app.put(
     "/planning/availability",
-    { preValidation: manage, schema: { body: z.object({ partnerId: z.string().uuid(), changes: BlockChanges }) } },
+    { preValidation: manage, schema: { body: z.object({ partnerId: z.string().uuid(), technicianId: z.string().uuid(), changes: BlockChanges }) } },
     async (req) => {
-      await setAvailability(db, req.actor, req.body.partnerId, req.body.changes);
+      await setAvailability(db, req.actor, req.body.partnerId, req.body.technicianId, req.body.changes);
       return { ok: true };
     },
   );
@@ -101,8 +101,9 @@ export const planningRoutes: FastifyPluginAsyncZod<{ db: Db; emailTransport: Ema
         body: z.object({
           type: Type,
           date: IsoDate,
-          partnerId: z.string().uuid(),
-          part: z.enum(["morning", "afternoon"]).nullish(),
+          technicianId: z.string().uuid(),
+          startMinute: z.number().int().min(480).max(960),
+          partnerId: z.string().uuid().nullish(),
           notes: z.string().max(2000).nullish(),
         }),
       },

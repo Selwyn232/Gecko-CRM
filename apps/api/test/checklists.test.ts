@@ -37,7 +37,7 @@ describe("checklists", () => {
   it("partnerportaal krijgt de lijst; positief rapport alleen met verplichte punten en genoeg foto's; afkeuren telt voor first-time-right", async () => {
     const s = (await call("POST", "/testing/scenario", { productGroupId: groupId, email: "t@example.nl", postalCode: "3511 AB", salesChannelId: (await ctx.db.select().from(salesChannels).where(eq(salesChannels.key, "web")))[0]!.id })).json();
     const slots = (await call("GET", `/planning/slots?projectId=${s.projectId}&type=survey`)).json().slots;
-    const appt = (await call("POST", `/projects/${s.projectId}/appointments`, { type: "survey", date: slots[0].date, partnerId: s.partnerId, part: slots[0].part })).json();
+    const appt = (await call("POST", `/projects/${s.projectId}/appointments`, { type: "survey", date: slots[0].date, technicianId: slots[0].technicianId, startMinute: slots[0].startMinute })).json();
     await processOutbox(ctx.db, ctx.app.billing);
     const imp = await call("POST", `/users/${s.partnerUserId}/impersonate`);
     const ph = { cookie: `gecko_session=${imp.cookies.find((c) => c.name === "gecko_session")!.value}` };

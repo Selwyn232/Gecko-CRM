@@ -16,7 +16,8 @@ import { journeyStatuses } from "../journeys/schema.js";
 import { inJourney } from "../journeys/service.js";
 import { organizations } from "../organizations/schema.js";
 import { appointments } from "../planning/schema.js";
-import { addDays, cancelAppointment, findSlots, scheduleAppointment } from "../planning/service.js";
+import { addDays, cancelAppointment, findSlots, scheduleAppointment, type AppointmentType } from "../planning/service.js";
+import { arrivalText } from "../planning/time.js";
 import { projects } from "../projects/schema.js";
 import { formatProjectNumber } from "../projects/service.js";
 import { getCompany, issuePortalQuoteLink } from "../quotes/links.js";
@@ -159,6 +160,7 @@ export async function portalOverview(db: DbOrTx, email: string, deps?: BillingDe
         date: a.date,
         days: a.days,
         timeWindow: a.timeWindow,
+        arrival: arrivalText(a.startMinute),
         status: a.status,
         partnerName,
         canReschedule: a.status === "planned" && daysUntil(a.date) >= window,
@@ -232,31 +234,40 @@ async function ownAppointment(db: DbOrTx, email: string, appointmentId: string) 
 /** Andere momenten bij dezelfde installateur (na de minimale voorlooptijd). */
 export async function rescheduleOptions(db: DbOrTx, email: string, appointmentId: string) {
   const a = await ownAppointment(db, email, appointmentId);
-  const { slots } = await findSlots(db, a.projectId, a.type);
+  const { slots } = await findSlots(db, a.projectId, a.type as AppointmentType);
   const window = await getSetting(db, "quote.change_window_days");
   const earliest = addDays(todayIso(), window);
   return slots
-    .filter((s) => s.partnerId === a.partnerOrganizationId && s.date >= earliest && !(s.date === a.date && (s.part ?? "day") === a.timeWindow))
+    .filter((s) => s.partnerId === a.partnerOrganizationId && s.date >= earliest && !(s.date === a.date && s.startMinute === a.startMinute))
     .slice(0, 40)
-    .map((s) => ({ date: s.date, part: s.part, days: s.days }));
+    .map((s) => ({ date: s.date, startMinute: s.startMinute, technicianId: s.technicianId, arrival: arrivalText(s.startMinute), days: s.days, part: null }));
 }
 
 /** Verzetten: oude afspraak vervalt, nieuwe bij dezelfde installateur. Mislukt de nieuwe, dan blijft de oude staan. */
-export async function reschedule(db: Db, transport: EmailTransport | null, email: string, appointmentId: string, input: { date: string; part: "morning" | "afternoon" | null }) {
+export async function reschedule(
+  db: Db,
+  transport: EmailTransport | null,
+  email: string,
+  appointmentId: string,
+  input: { date: string; startMinute: number; technicianId: string },
+) {
   const a = await ownAppointment(db, email, appointmentId);
   const options = await rescheduleOptions(db, email, appointmentId);
-  if (!options.some((o) => o.date === input.date && (o.part ?? null) === (input.part ?? null))) {
+  if (!options.some((o) => o.date === input.date && o.startMinute === input.startMinute && o.technicianId === input.technicianId)) {
     throw badRequest("slot_unavailable", "Dit moment is niet (meer) beschikbaar; kies een ander moment");
   }
   const actor = system(email);
+  const type = a.type as AppointmentType;
   await cancelAppointment(db, transport, actor, a.id, { reason: "Verzet door klant via Mijn Gecko", notifyCustomer: false });
   try {
-    const next = await scheduleAppointment(db, transport, actor, a.projectId, { type: a.type, date: input.date, partnerId: a.partnerOrganizationId, part: input.part, notes: a.notes });
-    await recordAudit(db, actor, { action: "appointment.rescheduled_by_customer", entityType: "project", entityId: a.projectId, before: { date: a.date, part: a.timeWindow }, after: { date: input.date, part: input.part ?? "day" } });
+    const next = await scheduleAppointment(db, transport, actor, a.projectId, { type, date: input.date, technicianId: input.technicianId, startMinute: input.startMinute, notes: a.notes });
+    await recordAudit(db, actor, { action: "appointment.rescheduled_by_customer", entityType: "project", entityId: a.projectId, before: { date: a.date, start: a.startMinute }, after: { date: input.date, start: input.startMinute } });
     return next;
   } catch (err) {
-    // Terugzetten op het oude moment (dat blok is net vrijgekomen).
-    await scheduleAppointment(db, null, actor, a.projectId, { type: a.type, date: a.date, partnerId: a.partnerOrganizationId, part: a.timeWindow === "day" ? null : (a.timeWindow as "morning" | "afternoon"), notes: a.notes });
+    // Terugzetten op het oude moment (dat is net vrijgekomen).
+    if (a.technicianUserId && a.startMinute != null) {
+      await scheduleAppointment(db, null, actor, a.projectId, { type, date: a.date, technicianId: a.technicianUserId, startMinute: a.startMinute, notes: a.notes });
+    }
     throw err;
   }
 }

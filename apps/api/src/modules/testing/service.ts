@@ -48,6 +48,7 @@ async function ensureTestPartner(db: Db, actor: ActorContext) {
     });
     [user] = await db.select().from(users).where(eq(users.id, created.id));
   }
+  if (!user!.isTechnician) [user] = await db.update(users).set({ isTechnician: true }).where(eq(users.id, user!.id)).returning();
   return { org: org!, user: user! };
 }
 
@@ -145,7 +146,8 @@ export async function createTestScenario(db: Db, actor: ActorContext, input: { p
     db,
     actor,
     partner.id,
-    Array.from({ length: 14 }, (_, d) => addDays(today, d)).flatMap((date) => (["morning", "afternoon"] as const).map((part) => ({ date, part, available: true }))),
+    partnerUser.id,
+    Array.from({ length: 14 }, (_, d) => addDays(today, d)).flatMap((date) => (["08", "10", "12", "14"] as const).map((part) => ({ date, part, available: true }))),
   );
 
   const stamp = new Date().toLocaleString("nl-NL", { timeZone: "Europe/Amsterdam", dateStyle: "short", timeStyle: "short" });

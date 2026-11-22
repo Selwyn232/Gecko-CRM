@@ -3,7 +3,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { todayIso } from "../src/lib/dates.js";
 import { productGroups, salesChannels } from "../src/modules/catalog/schema.js";
 import { addDays } from "../src/modules/planning/service.js";
-import { adminSession, createTestContext, type TestContext } from "./helpers.js";
+import { users } from "../src/modules/auth/schema.js";
+import { adminSession, createTestContext, makeUser, type TestContext } from "./helpers.js";
 
 let ctx: TestContext;
 let h: Record<string, string>;
@@ -25,31 +26,34 @@ afterAll(async () => ctx.close());
 
 const scenario = async () => (await call("POST", "/testing/scenario", { productGroupId: groupId, email: "c@example.nl", postalCode: "3511 AB", salesChannelId: channelId })).json();
 
-describe("meerdere ploegen en planvoorstel", () => {
-  it("met 2 ploegen passen 2 schouwen in hetzelfde dagdeel, een derde niet", async () => {
+describe("meerdere monteurs en planvoorstel (B87)", () => {
+  it("met 2 monteurs passen 2 schouwen op hetzelfde moment, een derde niet; voorstel houdt rekening met rijtijd", async () => {
     const a = await scenario();
     const b = await scenario();
     const c = await scenario();
     const date = addDays(todayIso(), 3);
-    const plan = (projectId: string) => call("POST", `/projects/${projectId}/appointments`, { type: "survey", date, partnerId: a.partnerId, part: "morning" });
+    const techs = (await call("GET", `/planning/technicians?partnerId=${a.partnerId}`)).json() as { id: string }[];
+    const plan = (projectId: string, technicianId: string) => call("POST", `/projects/${projectId}/appointments`, { type: "survey", date, technicianId, startMinute: 480 });
 
-    expect((await plan(a.projectId)).statusCode).toBe(201);
-    expect((await plan(b.projectId)).json().error.code).toBe("no_capacity");
+    expect((await plan(a.projectId, techs[0]!.id)).statusCode).toBe(201);
+    expect((await plan(b.projectId, techs[0]!.id)).json().error.code).toBe("no_capacity");
 
-    expect((await call("PATCH", `/organizations/${a.partnerId}`, { crewCount: 2 })).statusCode).toBe(200);
-    expect((await plan(b.projectId)).statusCode).toBe(201);
-    expect((await plan(c.projectId)).json().error.code).toBe("no_capacity");
+    // Tweede monteur met dezelfde beschikbaarheid
+    const u = await makeUser(ctx.db, ["monteur"]);
+    await ctx.db.update(users).set({ organizationId: a.partnerId, isTechnician: true }).where(eq(users.id, u.id));
+    await call("PUT", "/planning/availability", { partnerId: a.partnerId, technicianId: u.id, changes: ["08", "10", "12", "14"].map((part) => ({ date, part, available: true })) });
+    expect((await plan(b.projectId, u.id)).statusCode).toBe(201);
+    expect((await plan(c.projectId, u.id)).json().error.code).toBe("no_capacity");
 
     const blocks = (await call("GET", `/planning/availability?from=${date}&to=${date}&partnerId=${a.partnerId}`)).json();
-    expect(blocks.find((x: { part: string }) => x.part === "morning")).toMatchObject({ appointmentCount: 2, capacity: 2 });
+    expect(blocks.filter((x: { part: string; appointmentId: string | null }) => x.part === "08" && x.appointmentId)).toHaveLength(2);
 
-    // Voorstel voor c: niet de volle ochtend; met uitleg
+    // Voorstel voor c: niet om 08:00 die dag; wel direct erna (zelfde adres, korte rijtijd), met uitleg
     const s = (await call("GET", `/planning/slots?projectId=${c.projectId}&type=survey`)).json();
     expect(s.suggestions.length).toBeGreaterThan(0);
     expect(s.suggestions[0].reasons.length).toBeGreaterThan(0);
-    expect(s.suggestions.some((x: { date: string; part: string }) => x.date === date && x.part === "morning")).toBe(false);
-    // Op dezelfde dag (middag) in dezelfde buurt scoort beter dan alleen "vroegst"
-    const sameDay = s.suggestions.find((x: { date: string; part: string }) => x.date === date && x.part === "afternoon");
-    expect(sameDay?.reasons.join(" ")).toMatch(/in de buurt/);
+    expect(s.suggestions.some((x: { date: string; startMinute: number }) => x.date === date && x.startMinute === 480)).toBe(false);
+    const sameDay = s.slots.find((x: { date: string; startMinute: number }) => x.date === date && x.startMinute > 480);
+    expect(sameDay.travelBefore).toBe(5);
   });
 });

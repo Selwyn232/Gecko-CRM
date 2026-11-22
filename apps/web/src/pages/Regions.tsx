@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, type AvailabilityBlock, type Region } from "../api";
+import { api, type AvailabilityBlock, type Technician, type Region } from "../api";
 import { WorkArea } from "../components/WorkArea";
 import { useAuth } from "../auth";
 import { AvailabilityGrid } from "../components/AvailabilityGrid";
@@ -98,14 +98,17 @@ export function AvailabilityPage() {
   const weeks = 8;
   const from = todayIso();
   const qc = useQueryClient();
+  const techs = useQuery({ queryKey: ["planning-technicians", pid], queryFn: () => api.get<Technician[]>(`/planning/technicians?partnerId=${pid}`), enabled: !!pid });
+  const [techId, setTechId] = useState("");
+  const tid = techs.data?.some((t) => t.id === techId) ? techId : techs.data?.[0]?.id ?? "";
   const blocks = useQuery({
-    queryKey: ["availability", pid, from],
-    queryFn: () => api.get<AvailabilityBlock[]>(`/planning/availability?from=${addDaysIso(from, -7)}&to=${addDaysIso(from, weeks * 7 + 7)}&partnerId=${pid}`),
-    enabled: !!pid,
+    queryKey: ["availability", tid, from],
+    queryFn: () => api.get<AvailabilityBlock[]>(`/planning/availability?from=${addDaysIso(from, -7)}&to=${addDaysIso(from, weeks * 7 + 7)}&technicianId=${tid}`),
+    enabled: !!tid,
   });
   return (
     <>
-      <PageHead title="Beschikbaarheid" sub="Werkgebied en beschikbare dagdelen per partner. Partners vullen dit normaal zelf in via hun portaal." />
+      <PageHead title="Beschikbaarheid" sub="Werkgebied per partner en beschikbaarheid per monteur in blokken van 2 uur. Partners vullen dit normaal zelf in via hun portaal." />
       {!partners.length ? <div className="empty">Nog geen installatiepartners.</div> : (
         <>
           <div className="row" style={{ marginBottom: 12 }}>
@@ -124,13 +127,21 @@ export function AvailabilityPage() {
               }}
             />
           )}
-          {blocks.isLoading ? <Loading /> : (
+          {!techs.data?.length ? <div className="empty">Deze partner heeft nog geen monteurs (toe te voegen in het partnerportaal).</div> : (
+            <div className="row" style={{ margin: "12px 0" }}>
+              <label className="field" style={{ margin: 0 }}>Monteur</label>
+              <select value={tid} onChange={(e) => setTechId(e.target.value)}>
+                {techs.data.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+          )}
+          {!tid ? null : blocks.isLoading ? <Loading /> : (
             <AvailabilityGrid
-              key={pid}
+              key={tid}
               blocks={blocks.data ?? []}
               weeks={weeks}
               onSave={async (changes) => {
-                await api.put("/planning/availability", { partnerId: pid, changes });
+                await api.put("/planning/availability", { partnerId: pid, technicianId: tid, changes });
                 await qc.invalidateQueries({ queryKey: ["availability"] });
               }}
             />

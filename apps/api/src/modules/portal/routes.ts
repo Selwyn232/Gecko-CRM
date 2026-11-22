@@ -60,7 +60,7 @@ export const portalRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; deps:
       config: pub(5),
       schema: {
         params: IdParams,
-        body: z.object({ date: z.string().refine(isIsoDate, "Ongeldige datum"), part: z.enum(["morning", "afternoon"]).nullable() }),
+        body: z.object({ date: z.string().refine(isIsoDate, "Ongeldige datum"), startMinute: z.number().int().min(480).max(960), technicianId: z.string().uuid() }),
       },
     },
     async (req) => {

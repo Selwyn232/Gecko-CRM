@@ -22,7 +22,14 @@ const DEFAULT_ROLES: { key: string; name: string; description: string; isSystem?
     name: "Installatiepartner",
     description: "Toegang tot het partnerportaal: eigen afspraken, beschikbaarheid en rapporten",
     isSystem: true,
-    permissions: ["partner.portal", "mfa.sms"],
+    permissions: ["partner.portal", "technician.portal", "mfa.sms"],
+  },
+  {
+    key: "monteur",
+    name: "Monteur",
+    description: "Monteur van een installatiepartner: eigen dagplanning, klus aanmelden en afmelden (opleveren), locatie tijdens de werkdag",
+    isSystem: true,
+    permissions: ["technician.portal", "mfa.sms"],
   },
   {
     key: "verkooppartner",

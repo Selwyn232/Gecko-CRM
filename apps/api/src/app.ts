@@ -34,6 +34,7 @@ import type { BillingDeps } from "./modules/invoices/service.js";
 import { settingsRoutes } from "./modules/settings/routes.js";
 import { partnerRoutes } from "./modules/partner/routes.js";
 import { planningRoutes } from "./modules/planning/routes.js";
+import { technicianRoutes } from "./modules/technicians/routes.js";
 import { testingRoutes } from "./modules/testing/routes.js";
 import { messageRoutes } from "./modules/messages/routes.js";
 import { selfBillingRoutes } from "./modules/selfbilling/routes.js";
@@ -200,6 +201,7 @@ export async function buildApp({
       await api.register(settingsRoutes, { db });
       await api.register(planningRoutes, { db, emailTransport });
       await api.register(partnerRoutes, { db, config, emailTransport });
+      await api.register(technicianRoutes, { db, config, emailTransport });
       await api.register(testingRoutes, { db });
       await api.register(messageRoutes, { db, emailTransport });
       await api.register(selfBillingRoutes, { db, config, emailTransport });

@@ -2,7 +2,8 @@ import { PasskeysButton } from "../components/Passkeys";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
-import { api, type Appointment, type AvailabilityBlock, type Penalty, type Region, type Report } from "../api";
+import { api, type Appointment, type AvailabilityBlock, type Penalty, type Region, type Report, type Technician } from "../api";
+import { TechnicianDay } from "./TechnicianDay";
 import { WorkArea } from "../components/WorkArea";
 import { sbStatus, SelfBillingDocument, type SelfBillingDetail } from "../components/SelfBillingDocument";
 import { ApprovalBox } from "../pages/SelfBilling";
@@ -14,18 +15,22 @@ import { SignaturePad } from "../components/SignaturePad";
 import { ErrorBox, Field, Loading, PageHead } from "../components/ui";
 import { addDaysIso, APPOINTMENT_STATUS, APPOINTMENT_TYPE, formatCents, formatDate, formatQty, REPORT_REVIEW, TIME_WINDOW, todayIso, weekday } from "../format";
 
-/** Portaal voor installatiepartners: alleen eigen afspraken, rapporten en beschikbaarheid. */
+/** Portaal voor installatiepartners: alleen eigen afspraken, rapporten en beschikbaarheid. Monteurs (B87) zien alleen hun eigen dag. */
 export function PartnerApp() {
-  const { me, logout } = useAuth();
+  const { me, logout, can } = useAuth();
   const [changingPassword, setChangingPassword] = useState(false);
+  const partner = can("partner.portal");
+  const technician = can("technician.portal");
   return (
     <div className="shell compact">
       <aside className="sidebar">
-        <div className="brand"><span className="brand-mark">G</span> Partnerportaal</div>
+        <div className="brand"><span className="brand-mark">G</span> {partner ? "Partnerportaal" : "Monteur"}</div>
         <nav className="nav">
-          <NavLink to="/afspraken">Afspraken</NavLink>
-          <NavLink to="/beschikbaarheid">Beschikbaarheid</NavLink>
-          <NavLink to="/uitbetalingen">Uitbetalingen</NavLink>
+          {technician && <NavLink to="/mijn-dag">Mijn dag</NavLink>}
+          {partner && <NavLink to="/afspraken">Afspraken</NavLink>}
+          {partner && <NavLink to="/monteurs">Monteurs</NavLink>}
+          {partner && <NavLink to="/beschikbaarheid">Beschikbaarheid</NavLink>}
+          {partner && <NavLink to="/uitbetalingen">Uitbetalingen</NavLink>}
         </nav>
         <div className="sidebar-footer">
           <div style={{ color: "var(--text)", fontWeight: 500 }}>{me?.name}</div>
@@ -39,17 +44,76 @@ export function PartnerApp() {
       </aside>
       <main className="main">
         <Routes>
-          <Route path="/" element={<Navigate to="/afspraken" replace />} />
-          <Route path="/afspraken" element={<PartnerAppointments />} />
+          <Route path="/" element={<Navigate to={partner ? "/afspraken" : "/mijn-dag"} replace />} />
+          {technician && <Route path="/mijn-dag" element={<TechnicianDay />} />}
           <Route path="/afspraken/:id" element={<PartnerAppointment />} />
-          <Route path="/beschikbaarheid" element={<PartnerAvailability />} />
-          <Route path="/uitbetalingen" element={<PartnerPayouts />} />
-          <Route path="/uitbetalingen/:id" element={<PartnerPayout />} />
-          <Route path="*" element={<Navigate to="/afspraken" replace />} />
+          {partner && <Route path="/afspraken" element={<PartnerAppointments />} />}
+          {partner && <Route path="/monteurs" element={<PartnerTechnicians />} />}
+          {partner && <Route path="/beschikbaarheid" element={<PartnerAvailability />} />}
+          {partner && <Route path="/uitbetalingen" element={<PartnerPayouts />} />}
+          {partner && <Route path="/uitbetalingen/:id" element={<PartnerPayout />} />}
+          <Route path="*" element={<Navigate to={partner ? "/afspraken" : "/mijn-dag"} replace />} />
         </Routes>
       </main>
       {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
     </div>
+  );
+}
+
+/** B87: monteurs met eigen inlog. Zij krijgen klussen, geven per blok van 2 uur beschikbaarheid op en melden zich aan en af. */
+function PartnerTechnicians() {
+  const qc = useQueryClient();
+  const list = useQuery({ queryKey: ["partner-technicians"], queryFn: () => api.get<Technician[]>("/partner/technicians") });
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const add = useMutation({
+    meta: { toast: "Monteur toegevoegd; uitnodiging verstuurd" },
+    mutationFn: () => api.post("/partner/technicians", { name, email }),
+    onSuccess: async () => {
+      setName("");
+      setEmail("");
+      await qc.invalidateQueries({ queryKey: ["partner-technicians"] });
+    },
+  });
+  const update = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: { isTechnician?: boolean; isActive?: boolean } }) => api.patch(`/partner/technicians/${id}`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["partner-technicians"] }),
+  });
+  return (
+    <>
+      <PageHead title="Monteurs" sub="Iedere monteur heeft een eigen inlog. Hij ziet alleen zijn eigen klussen, meldt zich aan en af (opleveren) en deelt tijdens de werkdag zijn locatie, zodat klanten een aankomsttijd krijgen." />
+      <ErrorBox error={list.error ?? add.error ?? update.error} />
+      <div className="card flush">
+        {list.isLoading ? <Loading /> : (
+          <table>
+            <thead><tr><th>Naam</th><th>E-mail</th><th>Monteur</th><th>Account</th><th>Laatste locatie</th></tr></thead>
+            <tbody>
+              {(list.data ?? []).map((t) => (
+                <tr key={t.id}>
+                  <td>{t.name}</td>
+                  <td>{t.email}</td>
+                  <td>
+                    <label className="checkbox"><input type="checkbox" checked={!!t.isTechnician} onChange={(e) => update.mutate({ id: t.id, body: { isTechnician: e.target.checked } })} /> krijgt klussen</label>
+                  </td>
+                  <td>
+                    {t.isActive ? <button className="btn small" onClick={() => update.mutate({ id: t.id, body: { isActive: false } })}>Uitzetten</button> : <button className="btn small" onClick={() => update.mutate({ id: t.id, body: { isActive: true } })}>Aanzetten</button>}
+                  </td>
+                  <td className="muted">{t.lastLocationAt ? new Date(t.lastLocationAt).toLocaleString("nl-NL", { dateStyle: "short", timeStyle: "short" }) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+      <form className="card" style={{ marginTop: 16 }} onSubmit={(e) => { e.preventDefault(); add.mutate(); }}>
+        <h2>Monteur toevoegen</h2>
+        <div className="grid-2">
+          <Field label="Naam"><input value={name} onChange={(e) => setName(e.target.value)} required minLength={2} /></Field>
+          <Field label="E-mailadres (inlognaam)"><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></Field>
+        </div>
+        <button className="btn primary" disabled={add.isPending}>Toevoegen en uitnodigen</button>
+      </form>
+    </>
   );
 }
 
@@ -135,7 +199,7 @@ function PartnerAppointments() {
             {list.data.map((a) => (
               <Link key={a.id} to={`/afspraken/${a.id}`} className="appt-card">
                 <div className="row" style={{ justifyContent: "space-between" }}>
-                  <strong>{weekday(a.date)} · {TIME_WINDOW[a.timeWindow]}</strong>
+                  <strong>{weekday(a.date)} · {a.time ?? TIME_WINDOW[a.timeWindow]}{a.technicianName ? ` · ${a.technicianName}` : ""}</strong>
                   {a.report ? <span className={`status ${REPORT_REVIEW[a.report.review]!.color}`}>{REPORT_REVIEW[a.report.review]!.label}</span> : a.status === "planned" && a.date <= todayIso() ? <span className="badge yellow">Rapport indienen</span> : <span className={`status ${APPOINTMENT_STATUS[a.status]!.color}`}>{APPOINTMENT_STATUS[a.status]!.label}</span>}
                 </div>
                 <div>{APPOINTMENT_TYPE[a.type]} {a.productGroupName.toLowerCase()}{a.days > 1 && ` (${a.days} dagen)`}</div>
@@ -148,7 +212,7 @@ function PartnerAppointments() {
             <tbody>
               {list.data.map((a) => (
                 <tr key={a.id} className="clickable" onClick={() => navigate(`/afspraken/${a.id}`)}>
-                  <td style={{ whiteSpace: "nowrap" }}>{weekday(a.date)}{a.days > 1 && <span className="muted"> ({a.days} dagen)</span>}<div className="muted" style={{ fontSize: 12 }}>{TIME_WINDOW[a.timeWindow]}</div></td>
+                  <td style={{ whiteSpace: "nowrap" }}>{weekday(a.date)}{a.days > 1 && <span className="muted"> ({a.days} dagen)</span>}<div className="muted" style={{ fontSize: 12 }}>{a.time ?? TIME_WINDOW[a.timeWindow]}{a.technicianName ? ` · ${a.technicianName}` : ""}</div></td>
                   <td>{APPOINTMENT_TYPE[a.type]} <span className="muted">{a.productGroupName}</span></td>
                   <td>{[a.customer.firstName, a.customer.lastName].filter(Boolean).join(" ")}<div className="muted" style={{ fontSize: 12 }}>{a.address}</div></td>
                   <td><span className={`status ${APPOINTMENT_STATUS[a.status]!.color}`}>{APPOINTMENT_STATUS[a.status]!.label}</span></td>
@@ -335,10 +399,18 @@ function PartnerAvailability() {
   const from = todayIso();
   const to = addDaysIso(from, weeks * 7 + 7);
   const regions = useQuery({ queryKey: ["partner-regions"], queryFn: () => api.get<(Region & { selected: boolean })[]>("/partner/regions") });
-  const blocks = useQuery({ queryKey: ["partner-availability", from], queryFn: () => api.get<AvailabilityBlock[]>(`/partner/availability?from=${addDaysIso(from, -7)}&to=${to}`) });
+  const techs = useQuery({ queryKey: ["partner-technicians"], queryFn: () => api.get<Technician[]>("/partner/technicians") });
+  const active = (techs.data ?? []).filter((t) => t.isTechnician && t.isActive);
+  const [techId, setTechId] = useState("");
+  const tid = techId || active[0]?.id || "";
+  const blocks = useQuery({
+    queryKey: ["partner-availability", from, tid],
+    queryFn: () => api.get<AvailabilityBlock[]>(`/partner/availability?from=${addDaysIso(from, -7)}&to=${to}&technicianId=${tid}`),
+    enabled: !!tid,
+  });
   return (
     <>
-      <PageHead title="Beschikbaarheid" sub="Klik per dag de ochtend en middag aan waarop u beschikbaar bent. Een schouw neemt één dagdeel in, een installatie de hele dag. U wordt aan deze beschikbaarheid gehouden." />
+      <PageHead title="Beschikbaarheid" sub="Per monteur: klik de blokken van 2 uur aan (08–10, 10–12, 12–14, 14–16). Een service of schouw duurt 2 uur, een installatie 6 uur; de rijtijd tussen klussen rekent het systeem zelf. U wordt aan deze beschikbaarheid gehouden." />
       {regions.data && (
         <WorkArea
           regions={regions.data}
@@ -349,15 +421,28 @@ function PartnerAvailability() {
           }}
         />
       )}
-      {blocks.isLoading ? <Loading /> : (
-        <AvailabilityGrid
-          blocks={blocks.data ?? []}
-          weeks={weeks}
-          onSave={async (changes) => {
-            await api.put("/partner/availability", { changes });
-            await qc.invalidateQueries({ queryKey: ["partner-availability"] });
-          }}
-        />
+      {!active.length ? (
+        <div className="empty">Nog geen monteurs. Voeg ze toe bij <Link to="/monteurs">Monteurs</Link>.</div>
+      ) : (
+        <>
+          <div className="row" style={{ margin: "12px 0" }}>
+            <label className="field" style={{ margin: 0 }}>Monteur</label>
+            <select value={tid} onChange={(e) => setTechId(e.target.value)}>
+              {active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </div>
+          {blocks.isLoading ? <Loading /> : (
+            <AvailabilityGrid
+              key={tid}
+              blocks={blocks.data ?? []}
+              weeks={weeks}
+              onSave={async (changes) => {
+                await api.put("/partner/availability", { technicianId: tid, changes });
+                await qc.invalidateQueries({ queryKey: ["partner-availability"] });
+              }}
+            />
+          )}
+        </>
       )}
     </>
   );

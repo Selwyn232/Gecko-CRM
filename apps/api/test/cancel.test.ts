@@ -27,7 +27,7 @@ describe("project annuleren", () => {
     // Standaard via Greenteam (test), met fee
     const s = (await call("POST", "/testing/scenario", { productGroupId: groupId, email: "a@example.nl", postalCode: "3511 AB" })).json();
     const slot = (await call("GET", `/planning/slots?projectId=${s.projectId}&type=survey`)).json().slots[2];
-    await call("POST", `/projects/${s.projectId}/appointments`, { type: "survey", date: slot.date, partnerId: slot.partnerId, part: slot.part });
+    await call("POST", `/projects/${s.projectId}/appointments`, { type: "survey", date: slot.date, technicianId: slot.technicianId, startMinute: slot.startMinute });
     await processOutbox(ctx.db, ctx.app.billing);
     const deposit = (await call("GET", `/invoices?projectId=${s.projectId}`)).json()[0];
     await call("POST", `/invoices/${deposit.id}/payments`, { amountCents: deposit.totalCents, method: "bank_transfer" });

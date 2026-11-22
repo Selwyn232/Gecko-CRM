@@ -13,6 +13,7 @@ import type { EmailTransport } from "../email/transport.js";
 import { journeyStatuses } from "../journeys/schema.js";
 import { organizations } from "../organizations/schema.js";
 import { appointments } from "../planning/schema.js";
+import { arrivalText } from "../planning/time.js";
 import { projects } from "../projects/schema.js";
 import { formatProjectNumber } from "../projects/service.js";
 import { getCompany } from "../quotes/links.js";
@@ -30,7 +31,7 @@ import {
 
 export type TemplateTarget = { key: FixedMessageKey } | { journeyStatusId: string };
 
-const TYPE_LABEL = { survey: "schouw", installation: "installatie" } as const;
+const TYPE_LABEL = { survey: "schouw", installation: "installatie", service: "serviceafspraak" } as const;
 const WINDOW_LABEL = { morning: "in de ochtend (8:00–12:00)", afternoon: "in de middag (12:00–17:00)", day: "de hele dag" } as const;
 const dateNl = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
@@ -109,6 +110,7 @@ export function appointmentVars(a: {
   date: string;
   days: number;
   timeWindow: string;
+  startMinute?: number | null;
   address: string;
   partnerName: string;
   productGroupName: string;
@@ -122,12 +124,12 @@ export function appointmentVars(a: {
     adres: a.address,
     afspraak_soort: TYPE_LABEL[a.type as keyof typeof TYPE_LABEL] ?? a.type,
     afspraak_datum: dateNl(a.date),
-    dagdeel: WINDOW_LABEL[a.timeWindow as keyof typeof WINDOW_LABEL] ?? "",
+    dagdeel: arrivalText(a.startMinute) ?? WINDOW_LABEL[a.timeWindow as keyof typeof WINDOW_LABEL] ?? "",
     aantal_dagen: String(a.days),
     partner: a.partnerName,
     afspraak_iso: a.date,
     afspraak_blok: [
-      `${dateNl(a.date)}, ${WINDOW_LABEL[a.timeWindow as keyof typeof WINDOW_LABEL] ?? ""}${a.days > 1 ? ` (${a.days} dagen)` : ""}`,
+      `${dateNl(a.date)}, ${arrivalText(a.startMinute) ?? WINDOW_LABEL[a.timeWindow as keyof typeof WINDOW_LABEL] ?? ""}${a.days > 1 ? ` (${a.days} dagen)` : ""}`,
       `Adres: ${a.address}`,
       `Uitgevoerd door: ${a.partnerName}`,
     ].join("\n"),
@@ -170,11 +172,11 @@ export async function projectVars(db: DbOrTx, projectId: string) {
     Object.assign(vars, {
       afspraak_soort: TYPE_LABEL[next.a.type],
       afspraak_datum: dateNl(next.a.date),
-      dagdeel: WINDOW_LABEL[next.a.timeWindow as keyof typeof WINDOW_LABEL] ?? "",
+      dagdeel: arrivalText(next.a.startMinute) ?? WINDOW_LABEL[next.a.timeWindow as keyof typeof WINDOW_LABEL] ?? "",
       aantal_dagen: String(next.a.days),
       partner: next.partnerName,
       afspraak_iso: next.a.date,
-      afspraak_blok: `${dateNl(next.a.date)}, ${WINDOW_LABEL[next.a.timeWindow as keyof typeof WINDOW_LABEL] ?? ""}\nAdres: ${vars.adres}\nUitgevoerd door: ${next.partnerName}`,
+      afspraak_blok: `${dateNl(next.a.date)}, ${arrivalText(next.a.startMinute) ?? WINDOW_LABEL[next.a.timeWindow as keyof typeof WINDOW_LABEL] ?? ""}\nAdres: ${vars.adres}\nUitgevoerd door: ${next.partnerName}`,
     });
   }
   return { vars, customer: row.customer };

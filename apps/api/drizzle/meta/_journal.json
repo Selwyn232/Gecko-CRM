@@ -309,6 +309,13 @@
       "when": 1795322829687,
       "tag": "0043_whatsapp",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1795340226772,
+      "tag": "0044_technicians",
+      "breakpoints": true
     }
   ]
 }

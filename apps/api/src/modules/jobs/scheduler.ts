@@ -4,6 +4,7 @@ import type { BillingDeps } from "../invoices/service.js";
 import { sendAppointmentReminders } from "../planning/service.js";
 import { autoWeeklyDrafts } from "../selfbilling/service.js";
 import { processOutbox } from "./outbox.js";
+import { purgeLocations } from "../technicians/service.js";
 
 /**
  * Achtergrondtaken in hetzelfde proces als de API (één server is voldoende bij dit volume).
@@ -38,6 +39,11 @@ export function startScheduler(db: Db, deps: BillingDeps, log: (msg: string, dat
       if (r.created) log("selfbilling-concepten aangemaakt", r);
     } catch (err) {
       log("selfbilling-bundeling fout", { error: String(err) });
+    }
+    try {
+      await purgeLocations(db);
+    } catch (err) {
+      log("locaties opruimen fout", { error: String(err) });
     }
     try {
       const r = await sendAppointmentReminders(db, deps.emailTransport);

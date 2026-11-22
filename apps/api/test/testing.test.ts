@@ -46,7 +46,7 @@ describe("testmodus en testscenario", () => {
     // In testmodus: vandaag plannen (zonder voorlooptijd) en direct rapport indienen
     const slots = (await call("GET", `/planning/slots?projectId=${s.projectId}&type=survey`)).json().slots;
     expect(slots[0]).toMatchObject({ date: todayIso(), partnerId: s.partnerId });
-    const appt = (await call("POST", `/projects/${s.projectId}/appointments`, { type: "survey", date: slots[3].date, partnerId: s.partnerId, part: slots[3].part })).json();
+    const appt = (await call("POST", `/projects/${s.projectId}/appointments`, { type: "survey", date: slots[3].date, technicianId: slots[3].technicianId, startMinute: slots[3].startMinute })).json();
     await processOutbox(ctx.db, ctx.app.billing);
     // Rapport als de testinstallateur (via inloggen-als) — ook als de afspraak pas later is
     const imp = await ctx.app.inject({ method: "POST", url: `/api/users/${s.partnerUserId}/impersonate`, headers: h });

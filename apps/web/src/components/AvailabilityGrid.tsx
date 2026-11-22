@@ -10,8 +10,10 @@ interface Props {
 }
 
 const PARTS: { key: DayPart; label: string }[] = [
-  { key: "morning", label: "Ochtend" },
-  { key: "afternoon", label: "Middag" },
+  { key: "08", label: "08–10" },
+  { key: "10", label: "10–12" },
+  { key: "12", label: "12–14" },
+  { key: "14", label: "14–16" },
 ];
 const DAY_NAMES = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"];
 
@@ -23,7 +25,7 @@ function mondayOf(iso: string) {
 }
 
 /**
- * Agenda met aanklikbare blokken: per dag een ochtend- en middagblok.
+ * Agenda met aanklikbare blokken: per dag vier blokken van 2 uur (08:00–16:00), per monteur (B87).
  * Groen = beschikbaar, grijs = niet beschikbaar, blauw = afspraak (kan niet uit).
  */
 export function AvailabilityGrid({ blocks, weeks, onSave }: Props) {
@@ -97,7 +99,7 @@ export function AvailabilityGrid({ blocks, weeks, onSave }: Props) {
         <div className="row" style={{ fontSize: 13 }}>
           <span className="avail-legend on" /> beschikbaar
           <span className="avail-legend" /> niet beschikbaar
-          <span className="avail-legend busy" /> afspraak
+          <span className="avail-legend busy" /> klus
           <label className="checkbox" style={{ marginLeft: 12 }}><input type="checkbox" checked={showWeekend} onChange={(e) => setShowWeekend(e.target.checked)} /> Weekend</label>
         </div>
         <div className="row">
@@ -142,7 +144,7 @@ export function AvailabilityGrid({ blocks, weeks, onSave }: Props) {
                             aria-label={`${DAY_NAMES[d]} ${date} ${p.label}: ${busy ? "afspraak" : on ? "beschikbaar" : "niet beschikbaar"}`}
                           >
                             {p.label}
-                            {busy && <span>{(block(date, p.key)?.capacity ?? 1) > 1 ? `${block(date, p.key)?.appointmentCount}/${block(date, p.key)?.capacity} bezet` : "afspraak"}</span>}
+                            {busy && <span>klus</span>}
                           </button>
                         );
                       })}

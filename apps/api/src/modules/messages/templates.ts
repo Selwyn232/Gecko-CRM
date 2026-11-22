@@ -17,6 +17,8 @@ export const PLACEHOLDERS = {
   dagdeel: "in de ochtend (8:00–12:00), in de middag (12:00–17:00) of de hele dag",
   aantal_dagen: "Aantal dagen van de installatie",
   partner: "Naam van de installatiepartner",
+  monteur: "Voornaam van de monteur (bericht 'monteur onderweg')",
+  aankomst: "Verwachte aankomst, bv. rond 10:45 uur (bericht 'monteur onderweg')",
   afspraak_blok: "Kalenderblok met datum, tijd, adres en installateur (zet dit op een eigen regel)",
 } as const;
 
@@ -59,6 +61,16 @@ Komt deze datum niet uit? Beantwoord dan deze e-mail.`,
     body: `Beste {naam},
 
 De {afspraak_soort} op {afspraak_datum} gaat helaas niet door. Wij nemen contact met u op voor een nieuwe afspraak.`,
+  },
+  "appointment.en_route": {
+    label: "Monteur onderweg",
+    when: "Zodra de monteur in zijn portaal op 'Ik vertrek' tikt",
+    subject: "Uw monteur is onderweg",
+    body: `Beste {naam},
+
+{monteur} is nu onderweg naar u. De verwachte aankomst is {aankomst}.
+
+Tot zo!`,
   },
   "appointment.reminder.survey": {
     label: "Herinnering schouw",
@@ -183,5 +195,7 @@ export const SAMPLE_VARS: Required<MessageVars> = {
   aantal_dagen: "1",
   partner: "Installatiebedrijf Voorbeeld",
   afspraak_iso: "2026-11-17",
+  monteur: "Jan",
+  aankomst: "rond 10:45 uur",
   afspraak_blok: "dinsdag 17 november 2026, in de ochtend (8:00–12:00)\nAdres: Dorpsstraat 1, 1234 AB Voorbeeld\nUitgevoerd door: Installatiebedrijf Voorbeeld",
 };

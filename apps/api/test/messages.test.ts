@@ -42,9 +42,9 @@ describe("klantberichten", () => {
 
   it("afspraak inplannen gebruikt het sjabloon; herinnering de dag ervoor, maar één keer", async () => {
     const tomorrow = addDays(todayIso(), 1);
-    const slots = (await call("GET", `/planning/slots?projectId=${scenario.projectId}&type=survey`)).json().slots as { date: string; part: string; partnerId: string }[];
+    const slots = (await call("GET", `/planning/slots?projectId=${scenario.projectId}&type=survey`)).json().slots as { date: string; startMinute: number; technicianId: string; partnerId: string }[];
     const slot = slots.find((s) => s.date === tomorrow)!;
-    const res = await call("POST", `/projects/${scenario.projectId}/appointments`, { type: "survey", date: slot.date, partnerId: slot.partnerId, part: slot.part });
+    const res = await call("POST", `/projects/${scenario.projectId}/appointments`, { type: "survey", date: slot.date, technicianId: slot.technicianId, startMinute: slot.startMinute });
     expect(res.statusCode, res.body).toBe(201);
     expect(to("klant@example.nl").some((m) => m.subject.startsWith("Uw schouw is ingepland op"))).toBe(true);
 

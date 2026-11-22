@@ -244,7 +244,7 @@ td.mono, .mono { white-space: nowrap; }
 .avail-day { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .avail-day.past { opacity: 0.45; }
 .avail-day-label { background: none; border: 0; font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); padding: 2px 0; cursor: pointer; text-align: center; }
-.avail-block { border: 1px dashed var(--border); background: var(--surface-2); color: var(--muted); border-radius: 6px; padding: 10px 4px; font: inherit; font-size: 12px; cursor: pointer; display: flex; flex-direction: column; align-items: center; min-height: 44px; justify-content: center; }
+.avail-block { border: 1px dashed var(--border); background: var(--surface-2); color: var(--muted); border-radius: 6px; padding: 6px 2px; font: inherit; font-size: 12px; cursor: pointer; display: flex; flex-direction: column; align-items: center; min-height: 34px; justify-content: center; }
 .avail-block.on { background: var(--accent); border: 1px solid var(--accent); color: var(--on-accent); font-weight: 600; }
 .avail-block.busy { background: #2f6fde; border: 1px solid #2f6fde; color: #fff; cursor: not-allowed; }
 .avail-block.busy span { font-size: 10px; opacity: 0.85; }
@@ -486,3 +486,8 @@ td.mono, .mono { white-space: nowrap; }
 .wa-compose textarea { flex: 1; min-width: 0; resize: vertical; }
 .wa-closed { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 12px; border-radius: 8px; background: var(--warning-soft); }
 .wa-template { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }
+
+/* B87: monteur — dagplanning */
+.tech-jobs { display: grid; gap: 12px; }
+.tech-job.done { opacity: 0.7; }
+.tech-job .btn { min-height: 40px; }
