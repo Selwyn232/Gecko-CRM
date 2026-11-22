@@ -11,7 +11,7 @@ import { productGroups, products, salesChannelProductGroups, salesChannels } fro
 import { statusByKeyInJourneyOf } from "../journeys/service.js";
 import { advisors, organizations } from "../organizations/schema.js";
 import { addDays, postalNumber, setAvailability, setPartnerRegions } from "../planning/service.js";
-import { regions } from "../planning/schema.js";
+import { appointments, regions, technicianAvailability } from "../planning/schema.js";
 import { projects } from "../projects/schema.js";
 import { changeStatus } from "../projects/service.js";
 import { acceptQuote, addLine, createQuote, sendQuote } from "../quotes/service.js";
@@ -25,11 +25,14 @@ export const TEST_CHANNEL_KEY = "greenteam_test";
 export const TEST_PARTNER_USERNAME = "testinstallateur";
 /** Inlognaam van de testinstallateur (fictief domein; inloggen gaat via "Inloggen als"). */
 export const TEST_PARTNER_EMAIL = "testinstallateur@gecko.test";
+/** Testmonteur (B87): alleen monteursrechten, ziet alleen zijn eigen klussen. */
+export const TEST_TECH_EMAIL = "monteur@gecko.test";
 
 /** Testinstallateur met gebruiker; wordt hergebruikt bij volgende scenario's. */
-async function ensureTestPartner(db: Db, actor: ActorContext) {
+export async function ensureTestPartner(db: Db, actor: ActorContext) {
   let [org] = await db.select().from(organizations).where(eq(organizations.name, TEST_PARTNER_NAME));
   if (!org) [org] = await db.insert(organizations).values({ name: TEST_PARTNER_NAME, type: "installation_partner" }).returning();
+  // Beheeraccount van de installateur (partnerportaal): geen monteur.
   let [user] = await db
     .select()
     .from(users)
@@ -40,7 +43,7 @@ async function ensureTestPartner(db: Db, actor: ActorContext) {
     const created = await createUser(db, actor, {
       organizationId: org!.id,
       email: TEST_PARTNER_EMAIL,
-      name: "Monteur Test",
+      name: "Beheer Testinstallateur",
       password: `${randomToken(18)}Aa1`,
       roleIds: [role!.id],
       mfaRequired: false,
@@ -48,8 +51,32 @@ async function ensureTestPartner(db: Db, actor: ActorContext) {
     });
     [user] = await db.select().from(users).where(eq(users.id, created.id));
   }
-  if (!user!.isTechnician) [user] = await db.update(users).set({ isTechnician: true }).where(eq(users.id, user!.id)).returning();
-  return { org: org!, user: user! };
+  // Monteur met alleen monteursrechten.
+  let [tech] = await db.select().from(users).where(sql`lower(${users.email}) = ${TEST_TECH_EMAIL}`);
+  if (!tech) {
+    const [role] = await db.select().from(roles).where(eq(roles.key, "monteur"));
+    const created = await createUser(db, actor, {
+      organizationId: org!.id,
+      email: TEST_TECH_EMAIL,
+      name: "Monteur Test",
+      password: `${randomToken(18)}Aa1`,
+      roleIds: [role!.id],
+      mfaRequired: false,
+      mustChangePassword: false,
+    });
+    [tech] = await db.update(users).set({ isTechnician: true }).where(eq(users.id, created.id)).returning();
+  }
+  // Oude opzet (beheeraccount was ook monteur): klussen en beschikbaarheid naar de testmonteur.
+  if (user!.isTechnician || user!.name === "Monteur Test") {
+    await db.update(appointments).set({ technicianUserId: tech!.id }).where(eq(appointments.technicianUserId, user!.id));
+    await db.execute(sql`
+      insert into technician_availability (technician_user_id, date, slot)
+      select ${tech!.id}, date, slot from technician_availability where technician_user_id = ${user!.id}
+      on conflict do nothing`);
+    await db.delete(technicianAvailability).where(eq(technicianAvailability.technicianUserId, user!.id));
+    [user] = await db.update(users).set({ isTechnician: false, name: "Beheer Testinstallateur" }).where(eq(users.id, user!.id)).returning();
+  }
+  return { org: org!, user: user!, tech: tech! };
 }
 
 /**
@@ -128,7 +155,7 @@ export async function createTestScenario(db: Db, actor: ActorContext, input: { p
     advisorId = t.advisorId;
   }
 
-  const { org: partner, user: partnerUser } = await ensureTestPartner(db, actor);
+  const { org: partner, user: partnerUser, tech } = await ensureTestPartner(db, actor);
   // Akkoordmail voor de selfbilling van de installateur naar de tester; partnertarief zodat er iets uit te betalen is.
   await db.update(organizations).set({ email: input.email }).where(eq(organizations.id, partner.id));
   if (!(await effectivePrice(db, "partner", pick.productId, partner.id, todayIso()))) {
@@ -146,7 +173,7 @@ export async function createTestScenario(db: Db, actor: ActorContext, input: { p
     db,
     actor,
     partner.id,
-    partnerUser.id,
+    tech.id,
     Array.from({ length: 14 }, (_, d) => addDays(today, d)).flatMap((date) => (["08", "10", "12", "14"] as const).map((part) => ({ date, part, available: true }))),
   );
 
@@ -191,6 +218,7 @@ export async function createTestScenario(db: Db, actor: ActorContext, input: { p
     quoteId: quote.id,
     partnerId: partner.id,
     partnerUserId: partnerUser.id,
+    technicianUserId: tech.id,
     regionName: region.name,
     salesChannelName: channel!.name,
     feeBasisPoints: channel!.feeBasisPoints,

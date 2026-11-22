@@ -83,10 +83,14 @@ describe("monteursportaal", () => {
     expect(day).toHaveLength(1);
     expect(day[0]).toMatchObject({ id: appt.id, time: "08:00–10:00", customerName: expect.stringContaining("Klant") });
     expect((await call("GET", `/partner/appointments/${appt.id}`, undefined, janH)).statusCode).toBe(200);
-    // De andere monteur van de partner ziet deze klus niet via het monteursportaal
-    const [other] = await ctx.db.select().from(users).where(eq(users.id, s.partnerUserId));
-    expect(other!.isTechnician).toBe(true);
-    expect((await call("GET", `/technician/day?date=${date}`, undefined, partner)).json()).toHaveLength(0);
+    // Beheeraccount van de installateur is geen monteur; de testmonteur ziet deze klus niet en geen beheer
+    const [admin] = await ctx.db.select().from(users).where(eq(users.id, s.partnerUserId));
+    expect(admin!.isTechnician).toBe(false);
+    const testTech = await loginAs(s.technicianUserId);
+    expect((await call("GET", `/technician/day?date=${date}`, undefined, testTech)).json()).toHaveLength(0);
+    expect((await call("GET", "/partner/appointments", undefined, testTech)).statusCode).toBe(403);
+    expect((await call("GET", "/partner/selfbilling", undefined, testTech)).statusCode).toBe(403);
+    expect((await call("GET", `/partner/appointments/${appt.id}`, undefined, testTech)).statusCode).toBe(404);
 
     // Onderweg: Google geeft 18 minuten → klant krijgt bericht met aankomsttijd
     process.env.GOOGLE_MAPS_API_KEY = "test";
@@ -103,7 +107,7 @@ describe("monteursportaal", () => {
     // Locatie wordt bewaard (alleen overdag); andermans klus kan niet
     await call("POST", "/technician/location", { lat: 52.1, lng: 5.1, accuracy: 15 }, janH);
     expect((await ctx.db.select().from(technicianLocations).where(eq(technicianLocations.technicianUserId, jan))).length).toBeGreaterThanOrEqual(0);
-    expect((await call("POST", `/technician/appointments/${appt.id}/check-in`, null, partner)).statusCode).toBe(404);
+    expect((await call("POST", `/technician/appointments/${appt.id}/check-in`, null, testTech)).statusCode).toBe(404);
     // Afmelden = opleveren met het rapport
     const rep = await call("POST", `/partner/appointments/${appt.id}/report`, { positive: true, data: { remarks: "klaar" } }, janH);
     expect(rep.statusCode, rep.body).toBe(200);

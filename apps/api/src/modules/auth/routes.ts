@@ -94,6 +94,8 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
       organizationId: user.organizationId,
       organizationType: org?.type ?? null,
       organizationName: org?.name ?? null,
+      /** B87: monteur (krijgt klussen; ziet "Mijn dag"). */
+      isTechnician: user.isTechnician,
       mfaEnabled: mfaMethod(user) !== null,
       mfaMethod: mfaMethod(user),
       mfaVerified,

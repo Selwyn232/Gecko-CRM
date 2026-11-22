@@ -22,7 +22,7 @@ export function PartnerApp() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const partner = can("partner.portal");
-  const technician = can("technician.portal");
+  const technician = can("technician.portal") && !!me?.isTechnician;
   const tabs: { to: string; label: string; icon: IconName }[] = [
     ...(technician ? [{ to: "/mijn-dag", label: "Mijn dag", icon: "werk" as IconName }] : []),
     ...(partner

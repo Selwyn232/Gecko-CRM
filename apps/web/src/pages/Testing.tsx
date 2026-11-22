@@ -12,6 +12,7 @@ interface Scenario {
   quoteId: string;
   partnerId: string;
   partnerUserId: string;
+  technicianUserId?: string;
   regionName: string;
   salesChannelName?: string;
   feeBasisPoints?: number | null;
@@ -54,8 +55,9 @@ export function TestingPage() {
       }
     },
   });
-  const impersonate = async () => {
-    await api.post(`/users/${scenario!.partnerUserId}/impersonate`);
+  const impersonate = async (as: "partner" | "monteur" = "partner") => {
+    const id = as === "monteur" && scenario!.technicianUserId ? scenario!.technicianUserId : scenario!.partnerUserId;
+    await api.post(`/users/${id}/impersonate`);
     window.location.replace("/");
   };
   const on = !!status.data?.testMode;
@@ -106,7 +108,7 @@ export function TestingPage() {
           <p className="muted" style={{ fontSize: 13 }}>Testproject in gebied <strong>{scenario.regionName}</strong>{scenario.salesChannelName && <>, verkocht via <strong>{scenario.salesChannelName}</strong>{scenario.feeBasisPoints != null && <> ({scenario.feeBasisPoints / 100}% fee)</>}</>}. Volg de stappen; als installateur werk je via <em>Inloggen als</em> (gele balk bovenin om terug te keren).</p>
           <ol className="steps">
             <li>
-              <div><div className="who">Planner</div><strong>Schouw inplannen</strong><div className="muted">Op het project bij Afspraken → Schouw plannen. Kies een dagdeel van de testinstallateur. Daarna gaat automatisch de aanbetalingsfactuur uit.</div></div>
+              <div><div className="who">Planner</div><strong>Schouw inplannen</strong><div className="muted">Op het project bij Afspraken → Schouw plannen. Kies een moment van Monteur Test (testinstallateur). Daarna gaat automatisch de aanbetalingsfactuur uit.</div></div>
               <Link className="btn small" to={`/projecten/${scenario.projectId}`}>Naar project</Link>
             </li>
             <li>
@@ -114,20 +116,20 @@ export function TestingPage() {
               <Link className="btn small" to={`/projecten/${scenario.projectId}`}>Naar project</Link>
             </li>
             <li>
-              <div><div className="who">Installateur</div><strong>Schouwrapport indienen</strong><div className="muted">Afspraken → de schouw → foto's, checklist en eventueel meerwerk → Rapport indienen.</div></div>
-              <button className="btn small primary" onClick={() => void impersonate()}>Inloggen als testinstallateur</button>
+              <div><div className="who">Monteur</div><strong>Schouwrapport indienen</strong><div className="muted">Mijn dag → Ik vertrek → Aangekomen → Details / opleveren → foto's, checklist en eventueel meerwerk → Rapport indienen.</div></div>
+              <button className="btn small primary" onClick={() => void impersonate("monteur")}>Inloggen als monteur</button>
             </li>
             <li>
               <div><div className="who">Planner</div><strong>Schouwrapport beoordelen</strong><div className="muted">Planning → Rapporten. Met meerwerk ontstaat een meerwerk-offerte: definitief maken en versturen ter akkoord (de klant accepteert via de e-maillink).</div></div>
               <Link className="btn small" to="/planning">Naar planning</Link>
             </li>
             <li>
-              <div><div className="who">Planner</div><strong>Installatie inplannen</strong><div className="muted">Planning → Installatie te plannen. Neemt hele dag(en) van dezelfde installateur in.</div></div>
+              <div><div className="who">Planner</div><strong>Installatie inplannen</strong><div className="muted">Planning → Installatie te plannen. 6 uur per dag bij dezelfde installateur; rijtijd wordt meegerekend.</div></div>
               <Link className="btn small" to="/planning">Naar planning</Link>
             </li>
             <li>
-              <div><div className="who">Installateur</div><strong>Opleverrapport met handtekening klant</strong><div className="muted">Serienummers, foto's, en laat de "klant" tekenen in het tekenvlak.</div></div>
-              <button className="btn small primary" onClick={() => void impersonate()}>Inloggen als testinstallateur</button>
+              <div><div className="who">Monteur</div><strong>Opleverrapport met handtekening klant</strong><div className="muted">Mijn dag → de installatie → serienummers, foto's, en laat de "klant" tekenen in het tekenvlak.</div></div>
+              <button className="btn small primary" onClick={() => void impersonate("monteur")}>Inloggen als monteur</button>
             </li>
             <li>
               <div><div className="who">Planner</div><strong>Opleverrapport goedkeuren</strong><div className="muted">Daarna gaat automatisch de eindfactuur uit (incl. meerwerk, minus aanbetaling). Betaal die → project "Afgerond".</div></div>
@@ -142,7 +144,7 @@ export function TestingPage() {
             </li>
             <li>
               <div><div className="who">Finance</div><strong>Selfbilling installateur (na stap 7)</strong><div className="muted">Zelfde route voor Testinstallateur (test): partnertarief min eventuele boetes, btw verlegd. Akkoord via de mail, of via het portaal (Inloggen als → Uitbetalingen; mag alleen in testmodus).</div></div>
-              <button className="btn small primary" onClick={() => void impersonate()}>Inloggen als testinstallateur</button>
+              <button className="btn small primary" onClick={() => void impersonate()}>Inloggen als testinstallateur (beheer)</button>
             </li>
             <li>
               <div><div className="who">Finance</div><strong>Uitbetalen</strong><div className="muted">Na akkoord: op de selfbillingfactuur → Markeren als betaald.</div></div>

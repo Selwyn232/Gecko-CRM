@@ -41,6 +41,7 @@ export interface Me {
   mustChangePassword: boolean;
   organizationId: string;
   organizationType: string | null;
+  isTechnician?: boolean;
   organizationName: string | null;
   /** Gevuld als een beheerder via "Inloggen als" meekijkt. */
   impersonatedBy: { id: string; name: string } | null;
