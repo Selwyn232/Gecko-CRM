@@ -561,3 +561,12 @@ td.mono, .mono { white-space: nowrap; }
 .selfie-btn.disabled { opacity: 0.6; pointer-events: none; }
 .portal-account-btn img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
 .portal-account-btn:has(img) { padding: 0; overflow: hidden; }
+.selfie-cam { position: relative; width: min(320px, 82vw); aspect-ratio: 3 / 4; border-radius: 18px; overflow: hidden; background: #111; max-width: 100%; }
+.selfie-cam video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.selfie-guide { position: absolute; inset: 0; width: 100%; height: 100%; }
+.selfie-oval { fill: none; stroke: #ef4444; stroke-width: 3; stroke-dasharray: 8 6; vector-effect: non-scaling-stroke; transition: stroke 0.2s; }
+.selfie-cam.ok .selfie-oval { stroke: #22c55e; stroke-dasharray: none; }
+.selfie-grid { stroke: rgba(255, 255, 255, 0.35); stroke-width: 1; vector-effect: non-scaling-stroke; stroke-dasharray: 4 6; }
+.selfie-hint { position: absolute; left: 10px; right: 10px; bottom: 44px; text-align: center; color: #fff; font-weight: 600; font-size: 15px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
+.selfie-check { position: absolute; left: 50%; transform: translateX(-50%); bottom: 10px; white-space: nowrap; padding: 4px 10px; border-radius: 99px; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 12px; }
+.selfie-check.done { background: #15803d; }

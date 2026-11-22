@@ -1,34 +1,41 @@
-import { useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { ErrorBox } from "./ui";
 
 /**
- * Profielfoto in de huisstijl: elke selfie wordt op exact dezelfde manier bewerkt, op het toestel zelf
- * (geen externe dienst). Stappen: gezicht zoeken → bijsnijden met het gezicht op vaste plek en grootte →
- * achtergrond weg (AI-segmentatie) → vaste Gecko-achtergrond → licht en kleur gelijktrekken.
+ * Profielfoto in de huisstijl (B88): een echte selfie met de live camera (geen upload), met een ovaal in beeld
+ * waar het hoofd in moet, en een echtheidscheck (knipperen met de ogen: een foto of scherm kan dat niet).
+ * Daarna wordt elke foto op exact dezelfde manier bewerkt, op het toestel zelf (geen externe dienst):
+ * gezicht op vaste plek en grootte → achtergrond weg (AI-segmentatie) → vaste Gecko-achtergrond →
+ * licht en huidtint gelijktrekken.
  */
 
 const OUT = 640;
 /** Gezichtshoogte als deel van de foto, en waar het midden van het gezicht komt. */
-const FACE_HEIGHT = 0.4;
+const FACE_HEIGHT = 0.42;
 const FACE_X = 0.5;
 const FACE_Y = 0.46;
 /** Doel-helderheid (0–255) en maximale correcties. */
 const TARGET_LUMA = 150;
 
+/** Ovaal in het camerabeeld (als deel van de beeldbreedte/-hoogte van de zoeker, 3:4). */
+const GUIDE = { cx: 0.5, cy: 0.44, w: 0.56, h: 0.56 };
+
 type Vision = typeof import("@mediapipe/tasks-vision");
-type Models = { face: import("@mediapipe/tasks-vision").FaceDetector; seg: import("@mediapipe/tasks-vision").ImageSegmenter };
+type Landmarker = import("@mediapipe/tasks-vision").FaceLandmarker;
+type Models = { face: Landmarker; seg: import("@mediapipe/tasks-vision").ImageSegmenter };
 let models: Promise<Models> | null = null;
 /** Modellen eenmalig laden (alleen op dit scherm), allemaal van onze eigen server. */
 function loadModels() {
   models ??= (async () => {
     const v: Vision = await import("@mediapipe/tasks-vision");
     const fileset = await v.FilesetResolver.forVisionTasks("/mediapipe/wasm");
-    const face = await v.FaceDetector.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: "/models/face_short.tflite" },
-      runningMode: "IMAGE",
-      minDetectionConfidence: 0.5,
+    const face = await v.FaceLandmarker.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: "/models/face_landmarker.task" },
+      runningMode: "VIDEO",
+      numFaces: 2,
+      outputFaceBlendshapes: true,
     });
     const seg = await v.ImageSegmenter.createFromOptions(fileset, {
       baseOptions: { modelAssetPath: "/models/selfie_segmenter.tflite" },
@@ -44,25 +51,19 @@ function loadModels() {
   return models;
 }
 
-async function toCanvas(file: File) {
-  const bmp = await createImageBitmap(file);
-  const scale = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
-  const c = document.createElement("canvas");
-  c.width = Math.round(bmp.width * scale);
-  c.height = Math.round(bmp.height * scale);
-  c.getContext("2d")!.drawImage(bmp, 0, 0, c.width, c.height);
-  bmp.close();
-  return c;
+type Box = { originX: number; originY: number; width: number; height: number };
+/** Kader om het gezicht uit de gezichtspunten (genormaliseerd 0–1 → pixels). */
+function landmarkBox(points: { x: number; y: number }[], w: number, h: number): Box {
+  let x0 = 1, y0 = 1, x1 = 0, y1 = 0;
+  for (const p of points) {
+    x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y);
+  }
+  return { originX: x0 * w, originY: y0 * h, width: (x1 - x0) * w, height: (y1 - y0) * h };
 }
 
-export async function processSelfie(file: File): Promise<string> {
-  const src = await toCanvas(file);
-  const { face, seg } = await loadModels();
-  const faces = face.detect(src).detections;
-  if (!faces.length) throw new Error("Geen gezicht gevonden. Kijk recht in de camera, in goed licht, en probeer opnieuw.");
-  if (faces.length > 1) throw new Error("Er staan meerdere gezichten op de foto. Maak een selfie waar alleen jij op staat.");
-  const bb = faces[0]!.boundingBox!;
-  if (bb.height < src.height * 0.1) throw new Error("Je staat te ver weg. Houd de telefoon iets dichterbij (hoofd en schouders in beeld).");
+/** Bewerkt een vastgelegd camerabeeld (canvas) met het gezichtskader tot de profielfoto in huisstijl. */
+export async function processSelfie(src: HTMLCanvasElement, bb: Box): Promise<string> {
+  const { seg } = await loadModels();
   // Achtergrond: kans per pixel dat het de persoon is.
   const res = seg.segment(src);
   const cm = res.confidenceMasks ?? [];
@@ -171,6 +172,7 @@ function normalize(pc: CanvasRenderingContext2D, mc: CanvasRenderingContext2D, f
   const kr = clamp(1 + 0.6 * ((1.25 * ag) / ar - 1), 0.85, 1.15);
   const kg = 1;
   const kb = clamp(1 + 0.6 * ((0.85 * ag) / ab - 1), 0.85, 1.15);
+  if (fn && fl / fn < 45) throw new Error("Te donker. Zoek meer licht (bij voorkeur van voren) en probeer opnieuw.");
   const gain = clamp(TARGET_LUMA / ((fn ? fl / fn : sl / n) || 1), 0.75, 1.6);
   const curve = new Uint8ClampedArray(256);
   for (let v = 0; v < 256; v++) {
@@ -185,24 +187,126 @@ function normalize(pc: CanvasRenderingContext2D, mc: CanvasRenderingContext2D, f
   pc.putImageData(img, 0, 0);
 }
 
-/** Selfie maken en opslaan. Gebruikt als verplichte stap na het inloggen, en om later een nieuwe te maken. */
+type Hint = { ok: boolean; text: string };
+
+/**
+ * Live camera met ovaal: het hoofd moet in het ovaal, recht, op de juiste afstand. Pas als je met je ogen hebt
+ * geknipperd (echtheidscheck) en even stil houdt, wordt de foto automatisch gemaakt.
+ */
 export function SelfieCapture({ onSaved, onCancel }: { onSaved: () => void; onCancel?: () => void }) {
-  const [busy, setBusy] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [phase, setPhase] = useState<"loading" | "live" | "processing" | "preview" | "nocamera">("loading");
+  const [hint, setHint] = useState<Hint>({ ok: false, text: "Camera starten…" });
+  const [blinked, setBlinked] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const pick = async (e: ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    e.target.value = "";
-    if (!f) return;
-    setBusy(true);
+  const [busy, setBusy] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    if (phase === "preview" || phase === "nocamera") return;
+    let stream: MediaStream | null = null;
+    let raf = 0;
+    let stopped = false;
+    let eyesClosed = false;
+    let blink = false;
+    let steadySince = 0;
+    (async () => {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) throw new DOMException("no camera", "NotFoundError");
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
+        const video = videoRef.current!;
+        video.srcObject = stream;
+        await video.play();
+        const { face } = await loadModels();
+        if (stopped) return;
+        setPhase("live");
+        const loop = () => {
+          if (stopped) return;
+          if (video.readyState >= 2) {
+            const r = face.detectForVideo(video, performance.now());
+            const vw = video.videoWidth, vh = video.videoHeight;
+            const faces = r.faceLandmarks ?? [];
+            let h: Hint;
+            if (!faces.length) h = { ok: false, text: "Plaats je hoofd in het ovaal" };
+            else if (faces.length > 1) h = { ok: false, text: "Alleen jij in beeld, graag" };
+            else {
+              // Ovaal ligt in een 3:4-zoeker (object-fit: cover); reken het gezicht om naar zoekercoördinaten.
+              const box = landmarkBox(faces[0]!, vw, vh);
+              const viewW = Math.min(vw, (vh * 3) / 4), viewH = Math.min(vh, (vw * 4) / 3);
+              const ox = (vw - viewW) / 2, oy = (vh - viewH) / 2;
+              const fx = (box.originX + box.width / 2 - ox) / viewW;
+              const fy = (box.originY + box.height / 2 - oy) / viewH;
+              const fh = box.height / viewH;
+              // Echtheidscheck: ogen dicht en weer open.
+              const bs = r.faceBlendshapes?.[0]?.categories ?? [];
+              const eye = (n: string) => bs.find((c) => c.categoryName === n)?.score ?? 0;
+              const closed = eye("eyeBlinkLeft") > 0.5 && eye("eyeBlinkRight") > 0.5;
+              if (closed) eyesClosed = true;
+              else if (eyesClosed && eye("eyeBlinkLeft") < 0.25 && eye("eyeBlinkRight") < 0.25) {
+                if (!blink) setBlinked(true);
+                blink = true;
+              }
+              // Gespiegeld beeld: links/rechts voor de gebruiker omdraaien.
+              const dx = 1 - fx - GUIDE.cx, dy = fy - GUIDE.cy;
+              if (fh < GUIDE.h * 0.62) h = { ok: false, text: "Kom iets dichterbij" };
+              else if (fh > GUIDE.h * 0.95) h = { ok: false, text: "Iets verder weg" };
+              else if (dx < -0.07) h = { ok: false, text: "Schuif iets naar rechts" };
+              else if (dx > 0.07) h = { ok: false, text: "Schuif iets naar links" };
+              else if (dy < -0.07) h = { ok: false, text: "Iets lager" };
+              else if (dy > 0.07) h = { ok: false, text: "Iets hoger" };
+              else if (!blink) h = { ok: true, text: "Goed zo. Knipper nu met je ogen" };
+              else h = { ok: true, text: "Stil houden…" };
+              if (h.ok && blink && !closed) {
+                steadySince ||= performance.now();
+                if (performance.now() - steadySince > 900) {
+                  stopped = true;
+                  const c = document.createElement("canvas");
+                  c.width = vw;
+                  c.height = vh;
+                  c.getContext("2d")!.drawImage(video, 0, 0, vw, vh);
+                  setPhase("processing");
+                  setHint({ ok: true, text: "Foto wordt bewerkt…" });
+                  stream?.getTracks().forEach((t) => t.stop());
+                  processSelfie(c, box)
+                    .then((url) => {
+                      setPreview(url);
+                      setPhase("preview");
+                    })
+                    .catch((err) => {
+                      setError(err);
+                      setPhase("loading");
+                      setAttempt((n) => n + 1);
+                    });
+                  return;
+                }
+              } else steadySince = 0;
+            }
+            setHint(h);
+          }
+          raf = requestAnimationFrame(loop);
+        };
+        loop();
+      } catch (err) {
+        if (stopped) return;
+        const name = err instanceof DOMException ? err.name : "";
+        if (name === "NotAllowedError" || name === "NotFoundError" || name === "NotReadableError" || name === "OverconstrainedError") setPhase("nocamera");
+        else setError(err);
+      }
+    })();
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(raf);
+      stream?.getTracks().forEach((t) => t.stop());
+    };
+  }, [attempt, phase === "preview" || phase === "nocamera"]);
+
+  const retake = () => {
+    setPreview(null);
+    setBlinked(false);
     setError(null);
-    try {
-      setPreview(await processSelfie(f));
-    } catch (err) {
-      setError(err);
-    } finally {
-      setBusy(false);
-    }
+    setPhase("loading");
+    setAttempt((n) => n + 1);
   };
   const save = async () => {
     setBusy(true);
@@ -214,36 +318,61 @@ export function SelfieCapture({ onSaved, onCancel }: { onSaved: () => void; onCa
       setBusy(false);
     }
   };
+
+  if (phase === "nocamera") {
+    return (
+      <div className="selfie">
+        <div className="alert warning" style={{ textAlign: "left" }}>
+          <strong>Geen toegang tot de camera.</strong> Een profielfoto maak je met de camera van je toestel (een bestaande foto kiezen kan niet).
+          <ul className="loc-help">
+            <li><strong>iPhone / iPad:</strong> paginamenu links in de adresbalk → <em>Website-instellingen</em> → <em>Camera</em> → <em>Sta toe</em>.</li>
+            <li><strong>Android (Chrome):</strong> icoon links van het adres → <em>Machtigingen</em> → <em>Camera</em> → <em>Toestaan</em>.</li>
+            <li><strong>Computer zonder camera:</strong> log in op je telefoon en maak daar je selfie.</li>
+          </ul>
+        </div>
+        <button className="btn primary" onClick={() => { setPhase("loading"); setAttempt((n) => n + 1); }}>Opnieuw proberen</button>
+        {onCancel && <button className="link-btn" onClick={onCancel}>Annuleren</button>}
+      </div>
+    );
+  }
+
   return (
     <div className="selfie">
-      <div className={`selfie-frame ${preview ? "has" : ""}`}>
-        {preview ? <img src={preview} alt="Jouw profielfoto" /> : <span aria-hidden="true">🙂</span>}
-        {busy && <div className="selfie-busy">Bezig…</div>}
-      </div>
-      <ErrorBox error={error} />
-      {!preview ? (
-        <>
-          <ul className="selfie-tips">
-            <li>Kijk recht in de camera, hoofd en schouders in beeld</li>
-            <li>Goed licht van voren (niet met een raam achter je)</li>
-            <li>Geen zonnebril of pet</li>
-          </ul>
-          <label className={`btn primary selfie-btn ${busy ? "disabled" : ""}`}>
-            Selfie maken
-            <input type="file" accept="image/*" capture="user" onChange={(e) => void pick(e)} disabled={busy} hidden />
-          </label>
-          <label className="link-btn" style={{ display: "inline-block", marginTop: 8 }}>
-            of kies een foto
-            <input type="file" accept="image/*" onChange={(e) => void pick(e)} disabled={busy} hidden />
-          </label>
-        </>
+      {phase === "preview" && preview ? (
+        <div className="selfie-frame has"><img src={preview} alt="Jouw profielfoto" /></div>
       ) : (
-        <div className="row" style={{ justifyContent: "center", gap: 8 }}>
-          <button className="btn" disabled={busy} onClick={() => setPreview(null)}>Opnieuw</button>
-          <button className="btn primary" disabled={busy} onClick={() => void save()}>Deze foto gebruiken</button>
+        <div className={`selfie-cam ${hint.ok ? "ok" : ""}`}>
+          <video ref={videoRef} playsInline muted autoPlay />
+          <svg className="selfie-guide" viewBox="0 0 300 400" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <mask id="selfie-hole">
+                <rect width="300" height="400" fill="white" />
+                <ellipse cx={300 * GUIDE.cx} cy={400 * GUIDE.cy} rx={(300 * GUIDE.w) / 2} ry={(400 * GUIDE.h) / 2} fill="black" />
+              </mask>
+            </defs>
+            <rect width="300" height="400" fill="rgba(0,0,0,0.45)" mask="url(#selfie-hole)" />
+            <ellipse className="selfie-oval" cx={300 * GUIDE.cx} cy={400 * GUIDE.cy} rx={(300 * GUIDE.w) / 2} ry={(400 * GUIDE.h) / 2} />
+            <line className="selfie-grid" x1="150" y1="0" x2="150" y2="400" />
+            <line className="selfie-grid" x1="0" y1={400 * GUIDE.cy} x2="300" y2={400 * GUIDE.cy} />
+          </svg>
+          <div className="selfie-hint" role="status">{hint.text}</div>
+          <div className={`selfie-check ${blinked ? "done" : ""}`}>{blinked ? "✓ Echtheid gecontroleerd" : "Echtheidscheck: knipper met je ogen"}</div>
         </div>
       )}
-      {onCancel && <button className="link-btn" style={{ marginTop: 12 }} onClick={onCancel}>Annuleren</button>}
+      <ErrorBox error={error} />
+      {phase === "preview" ? (
+        <div className="row" style={{ justifyContent: "center", gap: 8 }}>
+          <button className="btn" disabled={busy} onClick={retake}>Opnieuw</button>
+          <button className="btn primary" disabled={busy} onClick={() => void save()}>Deze foto gebruiken</button>
+        </div>
+      ) : (
+        <ul className="selfie-tips">
+          <li>Hoofd in het ovaal, recht in de camera kijken</li>
+          <li>Goed licht van voren, geen pet of zonnebril</li>
+          <li>De foto wordt vanzelf gemaakt als alles klopt</li>
+        </ul>
+      )}
+      {onCancel && <button className="link-btn" onClick={onCancel}>Annuleren</button>}
     </div>
   );
 }
@@ -259,7 +388,7 @@ export function SelfieRequired() {
         </div>
         <h2>Maak je profielfoto</h2>
         <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>
-          Iedereen bij Gecko heeft een herkenbare foto, in dezelfde stijl. Klanten en collega's zien zo met wie ze te maken hebben. De foto wordt op je eigen toestel bewerkt; er gaat niets naar een externe dienst.
+          Iedereen bij Gecko heeft een herkenbare foto, in dezelfde stijl. Klanten en collega's zien zo met wie ze te maken hebben. Je maakt hem met de camera; de foto wordt op je eigen toestel bewerkt en er gaat niets naar een externe dienst.
         </p>
         <SelfieCapture onSaved={() => void refresh()} />
         <p className="muted" style={{ fontSize: 12, marginTop: 16 }}>
