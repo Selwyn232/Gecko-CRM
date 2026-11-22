@@ -1,6 +1,7 @@
 import { and, asc, eq, isNull, lt, sql } from "drizzle-orm";
 import type { Db } from "../../db/client.js";
 import type { ActorContext } from "../../lib/context.js";
+import { AppError } from "../../lib/errors.js";
 import { outboxEvents } from "../events/schema.js";
 import { invoiceProjectAndSend, type BillingDeps } from "../invoices/service.js";
 import { applyJourneyEvent } from "../journeys/auto.js";
@@ -26,6 +27,29 @@ type Handler = (db: Db, deps: BillingDeps, payload: Record<string, unknown>, eve
 const notifyOnce = (db: Db, eventId: number, permission: Permission, n: { title: string; body?: string | null; href?: string | null }) =>
   notifyPermission(db, permission, { ...n, dedupeKey: `event:${eventId}` });
 
+/**
+ * Factureert als het project (nog steeds) in een status met factuurmoment staat. Zonder getekende offerte kan dat niet:
+ * dan een melding in plaats van een fout, zodat de rest (klantbericht) gewoon doorgaat.
+ */
+async function invoiceIfTriggered(db: Db, deps: BillingDeps, projectId: string, eventId: number) {
+  const [row] = await db
+    .select({ trigger: journeyStatuses.invoiceTrigger, number: projects.number })
+    .from(projects)
+    .innerJoin(journeyStatuses, eq(journeyStatuses.id, projects.statusId))
+    .where(eq(projects.id, projectId));
+  if (row?.trigger !== "deposit" && row?.trigger !== "final") return;
+  try {
+    await invoiceProjectAndSend(db, deps, system, projectId, row.trigger);
+  } catch (err) {
+    if (!(err instanceof AppError) || err.code !== "no_accepted_quote") throw err;
+    await notifyOnce(db, eventId, "projects.manage", {
+      title: `${row.trigger === "deposit" ? "Aanbetalingsfactuur" : "Eindfactuur"} niet verstuurd: geen getekende offerte`,
+      body: `Project P-${String(row.number).padStart(6, "0")} — maak op het project een offerte en laat die accepteren`,
+      href: `/projecten/${projectId}`,
+    });
+  }
+}
+
 const HANDLERS: Record<string, Handler[]> = {
   "report.submitted": [
     async (db, _deps, payload, eventId) => {
@@ -44,6 +68,10 @@ const HANDLERS: Record<string, Handler[]> = {
     // B81: getekende order → vaste klantspecialist + welkomstbericht (als de klant er nog geen heeft).
     async (db, deps, payload, eventId) => {
       if (payload.customerId) await assignOnSignedOrder(db, deps, String(payload.customerId), eventId);
+    },
+    // Offerte achteraf bij een bestaand project: staat dat project al in een status met factuurmoment, dan alsnog factureren.
+    async (db, deps, payload, eventId) => {
+      if (payload.existingProject) await invoiceIfTriggered(db, deps, String(payload.projectId), eventId);
     },
   ],
   // B83: e-mail aan een klant ook via WhatsApp.
@@ -75,16 +103,8 @@ const HANDLERS: Record<string, Handler[]> = {
     async (db, _deps, payload) => {
       await releaseIfDone(db, String(payload.projectId));
     },
-    async (db, deps, payload) => {
-      const [row] = await db
-        .select({ trigger: journeyStatuses.invoiceTrigger })
-        .from(projects)
-        .innerJoin(journeyStatuses, eq(journeyStatuses.id, projects.statusId))
-        .where(eq(projects.id, String(payload.projectId)));
-      // Alleen factureren als het project nog steeds in die status staat met een factuurtrigger.
-      if (row?.trigger === "deposit" || row?.trigger === "final") {
-        await invoiceProjectAndSend(db, deps, system, String(payload.projectId), row.trigger);
-      }
+    async (db, deps, payload, eventId) => {
+      await invoiceIfTriggered(db, deps, String(payload.projectId), eventId);
     },
     // Klantbericht bij de bereikte status (als daarvoor een actief bericht is ingesteld).
     async (db, deps, payload, eventId) => {

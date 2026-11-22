@@ -330,6 +330,7 @@ export interface QuoteListItem {
   id: string;
   displayNumber: string;
   effectiveStatus: QuoteStatus;
+  kind?: "main" | "extra_work";
   productGroupId: string;
   validUntil: string | null;
   createdAt: string;

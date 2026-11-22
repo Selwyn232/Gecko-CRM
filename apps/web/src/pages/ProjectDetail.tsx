@@ -1,7 +1,7 @@
 import { WithAvatar } from "../components/Avatar";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { AppointmentsTable, CancelModal, PlanModal } from "./Planning";
 import { api, type Appointment, type InvoiceSummary, type JourneyStatus, type ProjectDetail, type QuoteListItem } from "../api";
 import { InvoicesTable } from "./Invoices";
@@ -45,6 +45,23 @@ export function ProjectDetailPage() {
     enabled: can("quotes.read"),
   });
 
+  const navigate = useNavigate();
+  // Project zonder getekende offerte (bv. handmatig aangemaakt): offerte achteraf aan dit project hangen.
+  const quoteForProject = useMutation({
+    mutationFn: (pr: ProjectDetail) =>
+      api.post<{ id: string }>("/quotes", {
+        projectId: pr.id,
+        customerId: pr.customerId,
+        propertyId: pr.propertyId,
+        productGroupId: pr.productGroupId,
+        salesChannelId: pr.salesChannelId,
+        installationPartnerId: pr.installationPartnerId,
+      }),
+    onSuccess: (q) => {
+      qc.invalidateQueries({ queryKey: ["quotes"] });
+      navigate(`/offertes/${q.id}`);
+    },
+  });
   const update = useMutation({
     mutationFn: (body: Record<string, unknown>) => api.patch(`/projects/${id}`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["project", id] }),
@@ -145,6 +162,25 @@ export function ProjectDetailPage() {
       )}
       {planType && <PlanModal projectId={p.id} type={planType} title={`${planType === "survey" ? "Schouw" : "Installatie"} plannen`} onClose={() => setPlanType(null)} />}
       {cancelling && <CancelModal appointment={cancelling} onClose={() => setCancelling(null)} />}
+      {can("quotes.read") && quotes.data && !quotes.data.some((q) => (q.kind ?? "main") === "main" && q.effectiveStatus === "accepted") && (
+        <div className="card" style={{ background: "var(--warning-soft)" }}>
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <strong>Geen getekende offerte</strong>
+              <div className="muted" style={{ fontSize: 13 }}>
+                Zonder getekende offerte kan het CRM geen aanbetalings- of eindfactuur maken.
+                {quotes.data.some((q) => (q.kind ?? "main") === "main" && ["draft", "sent"].includes(q.effectiveStatus))
+                  ? " Er staat al een offerte klaar: verstuur die en laat de klant akkoord geven (of zet hem op akkoord)."
+                  : " Maak de offerte voor dit project; na akkoord gaat de factuur automatisch uit."}
+              </div>
+            </div>
+            {can("quotes.manage") && !quotes.data.some((q) => (q.kind ?? "main") === "main" && ["draft", "sent"].includes(q.effectiveStatus)) && (
+              <button className="btn primary small" disabled={quoteForProject.isPending} onClick={() => quoteForProject.mutate(p)}>Offerte maken voor dit project</button>
+            )}
+          </div>
+          <ErrorBox error={quoteForProject.error} />
+        </div>
+      )}
       {can("quotes.read") && quotes.data && quotes.data.length > 0 && (
         <div className="card flush">
           <div style={{ padding: "16px 20px 8px" }}><h2 style={{ margin: 0 }}>Offertes</h2></div>

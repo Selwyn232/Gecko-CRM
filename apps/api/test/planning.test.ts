@@ -315,4 +315,33 @@ describe("klantreis zonder schouw (B82)", () => {
     // Opruimen voor eventuele latere tests: kanaal weer zonder aanlooptijd
     await call("PATCH", `/sales-channels/${channelId}`, { installationLeadDays: null });
   });
+
+  it("handmatig project zonder offerte: melding i.p.v. fout; offerte achteraf → zelfde project en alsnog aanbetaling", async () => {
+    const c = (await call("POST", "/customers", { lastName: "Handmatig", email: "handmatig@example.nl", property: { street: "Laan", houseNumber: "3", postalCode: "1234AB", city: "Ede" } })).json();
+    const pr = await call("POST", "/projects", { customerId: c.id, propertyId: c.properties[0].id, productGroupId: groupId, salesChannelId: channelId });
+    expect(pr.statusCode, pr.body).toBe(201);
+    const projectId = pr.json().id as string;
+    await flush();
+    const slot = (await call("GET", `/planning/slots?projectId=${projectId}&type=installation`)).json().slots[0];
+    expect((await call("POST", `/projects/${projectId}/appointments`, { type: "installation", date: slot.date, partnerId: slot.partnerId, part: slot.part })).statusCode).toBe(201);
+    await flush();
+    expect(await statusKey(projectId)).toBe("installatie_ingepland");
+    expect((await call("GET", `/invoices?projectId=${projectId}`)).json()).toHaveLength(0);
+    const notes = (await call("GET", "/notifications")).json().items;
+    expect(notes.some((n: { title: string }) => n.title.includes("geen getekende offerte"))).toBe(true);
+    // Offerte achteraf aan dit project
+    const q = await call("POST", "/quotes", { projectId, customerId: c.id, propertyId: c.properties[0].id, productGroupId: groupId, salesChannelId: channelId });
+    expect(q.statusCode, q.body).toBe(201);
+    await call("POST", `/quotes/${q.json().id}/lines`, { productId: pkgId, quantity: 1 });
+    await call("POST", `/quotes/${q.json().id}/send`);
+    const acc = (await call("POST", `/quotes/${q.json().id}/accept`, { acceptedByName: "Handmatig", method: "email" })).json();
+    expect(acc.projectId).toBe(projectId);
+    await flush();
+    expect(await statusKey(projectId)).toBe("installatie_ingepland");
+    const invs = (await call("GET", `/invoices?projectId=${projectId}`)).json();
+    expect(invs.filter((i: { type: string }) => i.type === "deposit")).toHaveLength(1);
+    // Tweede offerte voor hetzelfde project kan niet meer
+    const again = await call("POST", "/quotes", { projectId, customerId: c.id, propertyId: c.properties[0].id, productGroupId: groupId, salesChannelId: channelId });
+    expect(again.json().error.code).toBe("project_has_quote");
+  });
 });
