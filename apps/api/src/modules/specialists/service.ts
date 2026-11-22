@@ -172,7 +172,7 @@ async function messageCustomer(db: Db, deps: SpecialistDeps, customerId: string,
   const greeting = `Beste ${escapeHtml(c.firstName ?? c.lastName)},`;
   const intro =
     kind === "welcome"
-      ? `<p>Welkom bij ${escapeHtml(company.name)}! Vanaf nu heeft u één vaste contactpersoon die alles voor u regelt, van de schouw tot en met de installatie:</p>`
+      ? `<p>Welkom bij ${escapeHtml(company.name)}! Vanaf nu heeft u één vaste contactpersoon die alles voor u regelt, van de planning tot en met de installatie:</p>`
       : `<p>Vanaf nu helpt een nieuwe klantspecialist u verder. Uw dossier is volledig overgedragen; u hoeft niets opnieuw uit te leggen. Uw nieuwe contactpersoon:</p>`;
   const html = `<p>${greeting}</p>${intro}${photo}<p>Heeft u een vraag? Beantwoord gewoon deze e-mail; ${escapeHtml(first ?? s.name)} leest mee en reageert binnen 24 uur, bij spoed binnen 1 uur. Liever teruggebeld? Laat het weten met een tijdvak van 2 uur dat u uitkomt.</p>
 ${button(`${base}/mijn`, "Naar Mijn Gecko")}
@@ -184,6 +184,7 @@ ${button(`${base}/mijn`, "Naar Mijn Gecko")}
     html: layout(company, html),
     text: `${html.replace(/<[^>]+>/g, "").replace(/\n{3,}/g, "\n\n").trim()}\n\nMijn Gecko: ${base}/mijn`,
     template: kind === "welcome" ? "specialist.welcome" : "specialist.transfer",
+    fromName: `${s.name} | ${company.name.replace(/\s+B\.?V\.?$/i, "")}`,
     customerId,
     dedupeKey,
     whatsapp: {

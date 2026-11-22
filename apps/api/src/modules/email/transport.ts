@@ -5,6 +5,15 @@ export interface EmailMessage {
   subject: string;
   html: string;
   text: string;
+  /** Eigen afzendernaam, bv. "Ingrid de Wit | Gecko" (het adres blijft dat van MAIL_FROM). */
+  fromName?: string | null;
+}
+
+/** "Naam <adres>" met een andere naam; het adres komt uit de standaardafzender. */
+export function withFromName(from: string, name: string | null | undefined) {
+  if (!name) return from;
+  const address = from.match(/<([^>]+)>/)?.[1] ?? from.trim();
+  return `"${name.replace(/["\\<>\r\n]/g, "")}" <${address}>`;
 }
 
 /** Een manier om e-mail te versturen. Verwisselbaar (Mailgun, test, later eventueel een andere aanbieder). */
@@ -26,7 +35,7 @@ export class MailgunTransport implements EmailTransport {
   async send(message: EmailMessage) {
     const host = this.region === "eu" ? "https://api.eu.mailgun.net" : "https://api.mailgun.net";
     const body = new FormData();
-    body.set("from", this.from);
+    body.set("from", withFromName(this.from, message.fromName));
     body.set("to", message.to);
     body.set("subject", message.subject);
     body.set("html", message.html);
