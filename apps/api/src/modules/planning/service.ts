@@ -10,6 +10,7 @@ import type { EmailTransport } from "../email/transport.js";
 import { emitEvent } from "../events/service.js";
 import { emitJourneyEvent } from "../journeys/auto.js";
 import { journeyStatuses, journeyTransitions } from "../journeys/schema.js";
+import { journeyHasSurvey } from "../journeys/service.js";
 import { organizations } from "../organizations/schema.js";
 import { assertPartnerHandlesGroup } from "../organizations/service.js";
 import { projects } from "../projects/schema.js";
@@ -212,6 +213,7 @@ export interface Slot {
 
 export async function findSlots(db: DbOrTx, projectId: string, type: AppointmentType) {
   const ctx = await projectContext(db, projectId);
+  if (type === "survey" && !(await journeyHasSurvey(db, ctx.project.statusId))) throw badRequest("no_survey_in_journey", "De klantreis van dit project heeft geen schouw; plan direct de installatie");
   const regs = await regionsForPostal(db, ctx.property.postalCode);
   if (!regs.length) return { regions: [], slots: [] as Slot[], message: `Postcode ${ctx.property.postalCode} valt in geen enkele regio. Voeg hem toe bij Regio's.` };
   let partners = await partnersForRegions(db, regs.map((r) => r.id));
@@ -350,6 +352,9 @@ export async function scheduleAppointment(
     const [project] = await tx.select().from(projects).where(eq(projects.id, projectId)).for("update");
     if (input.type === "installation" && project!.installationPartnerId && project!.installationPartnerId !== input.partnerId) {
       throw badRequest("partner_mismatch", "De installatie moet bij dezelfde partner als de schouw");
+    }
+    if (input.type === "survey" && !(await journeyHasSurvey(tx, project!.statusId))) {
+      throw badRequest("no_survey_in_journey", "De klantreis van dit project heeft geen schouw; plan direct de installatie");
     }
     if (input.type === "survey" && !input.part) throw badRequest("part_required", "Kies ochtend of middag voor de schouw");
     const [existing] = await tx

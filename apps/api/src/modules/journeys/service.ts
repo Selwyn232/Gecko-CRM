@@ -30,6 +30,21 @@ export async function statusByKeyInJourneyOf(db: DbOrTx, statusId: string, key: 
   return s;
 }
 
+/** Statussleutels van de schouw; een klantreis "zonder schouw" (B82) heeft er geen. */
+export const SURVEY_STATUS_KEYS = ["schouw_inplannen", "schouw_ingepland", "schouw_uitgevoerd"];
+
+/** Heeft de klantreis waar deze status in zit een schouw? */
+export async function journeyHasSurvey(db: DbOrTx, statusId: string) {
+  const [ref] = await db.select().from(journeyStatuses).where(eq(journeyStatuses.id, statusId));
+  if (!ref) return true;
+  const [s] = await db
+    .select({ id: journeyStatuses.id })
+    .from(journeyStatuses)
+    .where(and(inJourney(ref.productGroupId, ref.salesChannelId), inArray(journeyStatuses.key, SURVEY_STATUS_KEYS)))
+    .limit(1);
+  return Boolean(s);
+}
+
 export async function getJourney(db: DbOrTx, productGroupId: string, salesChannelId: string | null = null): Promise<StatusWithTransitions[]> {
   const statuses = await db
     .select()

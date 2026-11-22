@@ -289,6 +289,11 @@ describe("klantreis zonder schouw (B82)", () => {
     // Staat meteen bij "Installatie inplannen", niet bij de schouw
     expect((await call("GET", "/planning/to-plan?type=installation")).json().some((p: { projectId: string }) => p.projectId === projectId)).toBe(true);
     expect((await call("GET", "/planning/to-plan?type=survey")).json().some((p: { projectId: string }) => p.projectId === projectId)).toBe(false);
+    // Geen schouw mogelijk in deze klantreis
+    expect((await call("GET", `/planning/slots?projectId=${projectId}&type=survey`)).statusCode).toBe(400);
+    const sv = await call("POST", `/projects/${projectId}/appointments`, { type: "survey", date: addDays(today, 1), partnerId: partnerA, part: "morning" });
+    expect(sv.statusCode).toBe(400);
+    expect(sv.json().error.code).toBe("no_survey_in_journey");
     // Eerste mogelijke installatiedatum = over 30 dagen
     const slots = (await call("GET", `/planning/slots?projectId=${projectId}&type=installation`)).json();
     expect(slots.slots.length).toBeGreaterThan(0);

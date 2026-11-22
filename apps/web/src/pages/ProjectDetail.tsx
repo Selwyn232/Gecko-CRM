@@ -56,6 +56,8 @@ export function ProjectDetailPage() {
   const allStatuses = (journeys.data?.find((j) => j.statuses.some((s) => s.id === p.statusId)) ?? journeys.data?.find((j) => j.productGroup.id === p.productGroupId))?.statuses ?? [];
   const statusName = (sid: string | null) => (sid ? allStatuses.find((s) => s.id === sid)?.name ?? "—" : "—");
   const manage = can("projects.manage");
+  // B82: klantreis zonder schouw (bv. Greenteam) → geen knop "Schouw plannen".
+  const hasSurvey = !allStatuses.length || allStatuses.some((s) => ["schouw_inplannen", "schouw_ingepland", "schouw_uitgevoerd"].includes(s.key));
 
   return (
     <>
@@ -133,7 +135,7 @@ export function ProjectDetailPage() {
             <h2 style={{ margin: 0 }}>Afspraken</h2>
             {can("planning.manage") && (
               <div className="row">
-                <button className="btn small" onClick={() => setPlanType("survey")}>Schouw plannen</button>
+                {hasSurvey && <button className="btn small" onClick={() => setPlanType("survey")}>Schouw plannen</button>}
                 <button className="btn small" onClick={() => setPlanType("installation")}>Installatie plannen</button>
               </div>
             )}
