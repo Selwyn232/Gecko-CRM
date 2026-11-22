@@ -31,13 +31,17 @@ import {
 export type TemplateTarget = { key: FixedMessageKey } | { journeyStatusId: string };
 
 const TYPE_LABEL = { survey: "schouw", installation: "installatie" } as const;
-const WINDOW_LABEL = { morning: "in de ochtend (8:00–12:00)", afternoon: "in de middag (12:00–17:00)", day: "gedurende de dag" } as const;
+const WINDOW_LABEL = { morning: "in de ochtend (8:00–12:00)", afternoon: "in de middag (12:00–17:00)", day: "de hele dag" } as const;
 const dateNl = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
 /** Platte tekst met invulvelden → e-mail in de huisstijl. Een lege regel = nieuwe alinea. */
 export function renderMessage(company: Company, tpl: { subject: string; body: string }, vars: MessageVars) {
   const subject = fill(tpl.subject, vars).replace(/\s+/g, " ").trim();
-  const text = fill(tpl.body, vars).trim();
+  // Oude standaardtekst "({n} dag(en))" netjes maken (ook in sjablonen die al in de database staan).
+  const text = fill(tpl.body, vars)
+    .replace(/\s*\(1 dag\(en\)\)/g, "")
+    .replace(/\((\d+) dag\(en\)\)/g, "($1 dagen)")
+    .trim();
   const html = text
     .split(/\n{2,}/)
     .map((p) => `<p>${escapeHtml(p.trim()).replace(/\n/g, "<br>")}</p>`)

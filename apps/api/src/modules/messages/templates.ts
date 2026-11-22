@@ -14,7 +14,7 @@ export const PLACEHOLDERS = {
   bedrijf: "Naam van Gecko",
   afspraak_soort: "schouw of installatie (eerstvolgende afspraak)",
   afspraak_datum: "Datum van de afspraak, bv. dinsdag 17 november 2026",
-  dagdeel: "in de ochtend (8:00–12:00), in de middag (12:00–17:00) of gedurende de dag",
+  dagdeel: "in de ochtend (8:00–12:00), in de middag (12:00–17:00) of de hele dag",
   aantal_dagen: "Aantal dagen van de installatie",
   partner: "Naam van de installatiepartner",
 } as const;

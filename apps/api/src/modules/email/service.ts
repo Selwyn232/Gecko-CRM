@@ -1,10 +1,16 @@
-import { and, desc, eq, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, type SQL } from "drizzle-orm";
 import type { DbOrTx } from "../../db/client.js";
 import { users } from "../auth/schema.js";
 import { customers } from "../customers/schema.js";
 import { emitEvent } from "../events/service.js";
 import { organizations } from "../organizations/schema.js";
 import type { WhatsappHint } from "../whatsapp/service.js";
+import { invoices } from "../invoices/schema.js";
+import { journeyStatuses } from "../journeys/schema.js";
+import { appointments } from "../planning/schema.js";
+import { projects } from "../projects/schema.js";
+import { quotes } from "../quotes/schema.js";
+import { HEAD_END, HEAD_START, JOURNEY_SLOT, journeyBar, specialistHead, specialistSignature } from "./layout.js";
 import { outboundEmails } from "./schema.js";
 import type { EmailMessage, EmailTransport } from "./transport.js";
 
@@ -42,6 +48,72 @@ export async function staffSenderName(db: DbOrTx, userId: string | null | undefi
   return `${u.name.trim().split(/\s+/)[0]} | ${brandName(company?.name ?? "Gecko")}`;
 }
 
+/** Project waar deze mail over gaat (voor de voortgangsbalk). */
+async function projectOf(db: DbOrTx, input: SendEmailInput): Promise<string | null> {
+  const r = input.related;
+  if (r?.type === "project") return r.id;
+  if (r?.type === "appointment") return (await db.select({ p: appointments.projectId }).from(appointments).where(eq(appointments.id, r.id)))[0]?.p ?? null;
+  if (r?.type === "invoice") return (await db.select({ p: invoices.projectId }).from(invoices).where(eq(invoices.id, r.id)))[0]?.p ?? null;
+  if (r?.type === "quote") return (await db.select({ p: quotes.projectId }).from(quotes).where(eq(quotes.id, r.id)))[0]?.p ?? null;
+  if (!input.customerId) return null;
+  // Anders: het enige lopende project van de klant (bij meerdere is niet duidelijk welk bedoeld is).
+  const open = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .innerJoin(journeyStatuses, eq(journeyStatuses.id, projects.statusId))
+    .where(and(eq(projects.customerId, input.customerId), eq(journeyStatuses.isFinal, false)));
+  return open.length === 1 ? open[0]!.id : null;
+}
+
+const PHASE_LABEL: Record<string, string> = { Verkoop: "Order" };
+
+/** Stappen (fasen) van de klantreis van het project en de huidige stap. Geannuleerd = geen balk. */
+async function journeyProgress(db: DbOrTx, projectId: string) {
+  const [p] = await db
+    .select({ project: projects, status: journeyStatuses })
+    .from(projects)
+    .innerJoin(journeyStatuses, eq(journeyStatuses.id, projects.statusId))
+    .where(eq(projects.id, projectId));
+  if (!p || p.status.key === "geannuleerd") return null;
+  const all = await db
+    .select()
+    .from(journeyStatuses)
+    .where(and(eq(journeyStatuses.productGroupId, p.project.productGroupId), p.status.salesChannelId ? eq(journeyStatuses.salesChannelId, p.status.salesChannelId) : isNull(journeyStatuses.salesChannelId)))
+    .orderBy(asc(journeyStatuses.sortOrder));
+  const phases: string[] = [];
+  for (const st of all) {
+    if (st.key === "geannuleerd" || phases.includes(st.phase)) continue;
+    // Financiering alleen tonen als die voor deze klant speelt.
+    if (st.phase === "Financiering" && p.project.paymentMethod !== "warmtefonds" && p.status.phase !== "Financiering") continue;
+    phases.push(st.phase);
+  }
+  const current = p.status.key === "afgerond" ? phases.length : phases.indexOf(p.status.phase);
+  return { steps: phases.map((ph) => PHASE_LABEL[ph] ?? ph), current };
+}
+
+/** B81/B84: kop met de vaste klantspecialist en onderaan de voortgang in de klantreis. */
+async function personalize(db: DbOrTx, input: SendEmailInput): Promise<string> {
+  let html = input.html;
+  if (!html || !input.customerId || !html.includes(HEAD_START)) return html;
+  const [c] = await db.select({ s: customers.specialistUserId }).from(customers).where(eq(customers.id, input.customerId));
+  if (c?.s) {
+    const [u] = await db.select({ id: users.id, name: users.name, photo: users.photoDataUrl }).from(users).where(eq(users.id, c.s));
+    if (u) {
+      const [company] = await db.select({ name: organizations.name }).from(organizations).where(eq(organizations.type, "gecko")).limit(1);
+      const base = process.env.APP_BASE_URL?.replace(/\/$/, "");
+      const head = specialistHead({ name: u.name, photoUrl: u.photo && base ? `${base}/api/public/specialists/${u.id}/photo` : null, brand: brandName(company?.name ?? "Gecko") });
+      const start = html.indexOf(HEAD_START);
+      const end = html.indexOf(HEAD_END);
+      if (end > start) html = html.slice(0, start) + head + html.slice(end + HEAD_END.length);
+      const brand = brandName(company?.name ?? "Gecko");
+      if (!/met vriendelijke groet/i.test(html)) html = html.replace(JOURNEY_SLOT, specialistSignature({ name: u.name, brand }) + JOURNEY_SLOT);
+    }
+  }
+  const projectId = await projectOf(db, input);
+  const progress = projectId ? await journeyProgress(db, projectId) : null;
+  return html.replace(JOURNEY_SLOT, progress ? journeyBar(progress.steps, progress.current) : "");
+}
+
 export async function sendEmail(db: DbOrTx, transport: EmailTransport | null, input: SendEmailInput) {
   // B84: mail aan een klant komt van zijn vaste klantspecialist ("Ingrid | Gecko"), zolang die er is.
   if (input.fromName === undefined && input.customerId) {
@@ -52,6 +124,7 @@ export async function sendEmail(db: DbOrTx, transport: EmailTransport | null, in
     const [existing] = await db.select().from(outboundEmails).where(eq(outboundEmails.dedupeKey, input.dedupeKey));
     if (existing) return existing;
   }
+  input = { ...input, html: await personalize(db, input) };
   const [row] = await db
     .insert(outboundEmails)
     .values({

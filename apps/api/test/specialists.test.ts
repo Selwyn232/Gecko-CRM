@@ -54,6 +54,9 @@ describe("klantspecialisten", () => {
     expect(c1.specialistUserId).toBe(a.id);
     const mails = await ctx.db.select().from(outboundEmails).where(and(eq(outboundEmails.customerId, one.customerId), eq(outboundEmails.template, "specialist.welcome")));
     expect(mails).toHaveLength(1);
+    // Kop met de specialist en onderaan de voortgang in de klantreis
+    expect(mails[0]!.html).toContain("Bericht van uw klantspecialist");
+    expect(mails[0]!.html).toContain("Waar u nu staat");
     // A zit vol (maximum 1) → volgende klant naar B
     const two = await signedOrder("klant2@example.nl");
     expect((await specialistOf(two.customerId)).specialistUserId).toBe(b.id);
