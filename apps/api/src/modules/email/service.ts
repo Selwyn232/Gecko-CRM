@@ -1,6 +1,9 @@
 import { and, desc, eq, type SQL } from "drizzle-orm";
 import type { DbOrTx } from "../../db/client.js";
+import { users } from "../auth/schema.js";
+import { customers } from "../customers/schema.js";
 import { emitEvent } from "../events/service.js";
+import { organizations } from "../organizations/schema.js";
 import type { WhatsappHint } from "../whatsapp/service.js";
 import { outboundEmails } from "./schema.js";
 import type { EmailMessage, EmailTransport } from "./transport.js";
@@ -27,7 +30,24 @@ function logEmail(level: "info" | "error", data: Record<string, unknown>) {
  * Legt de e-mail vast en verstuurt hem (als er een transport is ingesteld).
  * Een mislukte verzending gooit geen fout naar de gebruiker; de status wordt "failed" met de reden.
  */
+/** Merknaam zonder rechtsvorm: "Gecko BV" → "Gecko". */
+export const brandName = (companyName: string) => companyName.replace(/\s+B\.?V\.?$/i, "").trim() || companyName;
+
+/** Afzendernaam "Voornaam | Gecko" van een medewerker (of null). */
+export async function staffSenderName(db: DbOrTx, userId: string | null | undefined) {
+  if (!userId) return null;
+  const [u] = await db.select({ name: users.name }).from(users).where(eq(users.id, userId));
+  if (!u) return null;
+  const [company] = await db.select({ name: organizations.name }).from(organizations).where(eq(organizations.type, "gecko")).limit(1);
+  return `${u.name.trim().split(/\s+/)[0]} | ${brandName(company?.name ?? "Gecko")}`;
+}
+
 export async function sendEmail(db: DbOrTx, transport: EmailTransport | null, input: SendEmailInput) {
+  // B84: mail aan een klant komt van zijn vaste klantspecialist ("Ingrid | Gecko"), zolang die er is.
+  if (input.fromName === undefined && input.customerId) {
+    const [c] = await db.select({ s: customers.specialistUserId }).from(customers).where(eq(customers.id, input.customerId));
+    input = { ...input, fromName: await staffSenderName(db, c?.s) };
+  }
   if (input.dedupeKey) {
     const [existing] = await db.select().from(outboundEmails).where(eq(outboundEmails.dedupeKey, input.dedupeKey));
     if (existing) return existing;

@@ -9,7 +9,7 @@ import { recordAudit } from "../audit/service.js";
 import { roles, userRoles, users } from "../auth/schema.js";
 import { customers } from "../customers/schema.js";
 import { button, escapeHtml, layout } from "../email/layout.js";
-import { sendEmail } from "../email/service.js";
+import { brandName, sendEmail } from "../email/service.js";
 import type { EmailTransport } from "../email/transport.js";
 import { journeyStatuses } from "../journeys/schema.js";
 import { projects } from "../projects/schema.js";
@@ -184,7 +184,7 @@ ${button(`${base}/mijn`, "Naar Mijn Gecko")}
     html: layout(company, html),
     text: `${html.replace(/<[^>]+>/g, "").replace(/\n{3,}/g, "\n\n").trim()}\n\nMijn Gecko: ${base}/mijn`,
     template: kind === "welcome" ? "specialist.welcome" : "specialist.transfer",
-    fromName: `${s.name} | ${company.name.replace(/\s+B\.?V\.?$/i, "")}`,
+    fromName: `${s.name.trim().split(/\s+/)[0]} | ${brandName(company.name)}`,
     customerId,
     dedupeKey,
     whatsapp: {

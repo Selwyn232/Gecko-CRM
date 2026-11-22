@@ -1,3 +1,4 @@
+import { users } from "../auth/schema.js";
 import { ownCustomerFilter } from "../specialists/service.js";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
@@ -7,7 +8,7 @@ import { badRequest, notFound } from "../../lib/errors.js";
 import { recordAudit } from "../audit/service.js";
 import { customers } from "../customers/schema.js";
 import { escapeHtml, layout } from "../email/layout.js";
-import { sendEmail } from "../email/service.js";
+import { sendEmail, staffSenderName } from "../email/service.js";
 import type { EmailTransport } from "../email/transport.js";
 import { projects } from "../projects/schema.js";
 import { getCompany } from "../quotes/links.js";
@@ -131,13 +132,19 @@ export async function replyInbound(db: Db, transport: EmailTransport | null, act
   if (!text.trim()) throw badRequest("empty", "Schrijf eerst een antwoord");
   const company = await getCompany(db);
   const quoted = m.text.split("\n").slice(0, 40).map((l) => `> ${l}`).join("\n");
-  const html = `${text.trim().split(/\n{2,}/).map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br>")}</p>`).join("")}<hr style="border:0;border-top:1px solid #dfe3dd;margin:20px 0"><p style="color:#5f6b62;font-size:13px">Op ${m.receivedAt.toLocaleString("nl-NL")} schreef ${escapeHtml(m.fromName ?? m.fromAddress)}:<br>${escapeHtml(m.text.slice(0, 3000)).replace(/\n/g, "<br>")}</p>`;
+  // Antwoord komt van wie antwoordt ("Ingrid | Gecko"), met naam onder het bericht.
+  const fromName = await staffSenderName(db, actor.userId);
+  const [me] = actor.userId ? await db.select({ name: users.name }).from(users).where(eq(users.id, actor.userId)) : [];
+  const signature = me ? `\n\nMet vriendelijke groet,\n${me.name}\n${company.name}` : "";
+  text = `${text.trim()}${signature}`;
+  const html = `${text.trim().split(/\n{2,}/).map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br>")}</p>`).join("")}<hr style="border:0;border-top:1px solid #dfe3dd;margin:20px 0"><p style="color:#5f6b62;font-size:13px">Op ${m.receivedAt.toLocaleString("nl-NL", { timeZone: "Europe/Amsterdam", dateStyle: "long", timeStyle: "short" })} schreef ${escapeHtml(m.fromName ?? m.fromAddress)}:<br>${escapeHtml(m.text.slice(0, 3000)).replace(/\n/g, "<br>")}</p>`;
   const sent = await sendEmail(db, transport, {
     to: m.fromAddress,
     subject: /^re:/i.test(m.subject) ? m.subject : `Re: ${m.subject}`,
     html: layout(company, html),
     text: `${text.trim()}\n\n${quoted}`,
     template: "inbox.reply",
+    fromName,
     customerId: m.customerId,
     related: { type: "inbound_email", id },
   });
