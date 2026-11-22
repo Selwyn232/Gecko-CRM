@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { api, type Appointment, type AvailabilityBlock, type Penalty, type Region, type Report, type Technician } from "../api";
 import { TechnicianDay } from "./TechnicianDay";
+import { LocationBar, LocationProvider } from "./LocationSharing";
 import { NavIcon, type IconName } from "../components/icons";
 import { WorkArea } from "../components/WorkArea";
 import { sbStatus, SelfBillingDocument, type SelfBillingDetail } from "../components/SelfBillingDocument";
@@ -46,6 +47,7 @@ export function PartnerApp() {
     </>
   );
   return (
+    <LocationProvider>
     <div className="shell compact portal-app">
       <aside className="sidebar">
         <div className="brand"><span className="brand-mark">G</span> {partner ? "Partnerportaal" : "Monteur"}</div>
@@ -63,6 +65,7 @@ export function PartnerApp() {
         {accountOpen && <div className="portal-account-menu">{account}</div>}
       </header>
       <main className="main">
+        {technician && <LocationBar />}
         <Routes>
           <Route path="/" element={<Navigate to={partner ? "/afspraken" : "/mijn-dag"} replace />} />
           {technician && <Route path="/mijn-dag" element={<TechnicianDay />} />}
@@ -87,6 +90,7 @@ export function PartnerApp() {
       )}
       {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
     </div>
+    </LocationProvider>
   );
 }
 

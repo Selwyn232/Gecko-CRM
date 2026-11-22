@@ -1,28 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, type TechnicianJob } from "../api";
 import { ErrorBox, Loading, PageHead } from "../components/ui";
 import { addDaysIso, APPOINTMENT_TYPE, todayIso, weekday } from "../format";
-
-const WORKDAY_KEY = "gecko.werkdag";
-const SEND_EVERY_MS = 60_000;
-
-function readWorkday(): string | null {
-  try {
-    return localStorage.getItem(WORKDAY_KEY);
-  } catch {
-    return null;
-  }
-}
-function writeWorkday(v: string | null) {
-  try {
-    if (v) localStorage.setItem(WORKDAY_KEY, v);
-    else localStorage.removeItem(WORKDAY_KEY);
-  } catch {
-    /* privémodus: alleen voor deze sessie */
-  }
-}
 
 const position = () =>
   new Promise<{ lat: number; lng: number; accuracy: number } | null>((resolve) => {
@@ -37,41 +18,13 @@ const position = () =>
 const clock = (iso: string) => new Date(iso).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
 
 /**
- * B87: dagplanning van de monteur. Werkdag starten = locatie delen tot "Werkdag beëindigen" (alleen zolang
- * deze pagina open is op de telefoon). Per klus: vertrekken (klant krijgt aankomsttijd), aanmelden, opleveren.
+ * B87: dagplanning van de monteur (locatie aan/uit staat in de balk erboven, LocationSharing).
+ * Per klus: vertrekken (klant krijgt aankomsttijd), aanmelden, opleveren.
  */
 export function TechnicianDay() {
   const qc = useQueryClient();
   const [date, setDate] = useState(todayIso());
   const day = useQuery({ queryKey: ["technician-day", date], queryFn: () => api.get<TechnicianJob[]>(`/technician/day?date=${date}`), refetchInterval: 60_000 });
-  const [workday, setWorkday] = useState<string | null>(readWorkday() === todayIso() ? todayIso() : null);
-  const [geoError, setGeoError] = useState<string | null>(null);
-  const lastSent = useRef(0);
-
-  // Locatie volgen tijdens de werkdag (zolang de pagina open is).
-  useEffect(() => {
-    if (!workday || !("geolocation" in navigator)) return;
-    const id = navigator.geolocation.watchPosition(
-      (p) => {
-        setGeoError(null);
-        if (Date.now() - lastSent.current < SEND_EVERY_MS) return;
-        lastSent.current = Date.now();
-        void api.post("/technician/location", { lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }).catch(() => undefined);
-      },
-      (e) => setGeoError(e.code === e.PERMISSION_DENIED ? "Locatie staat uit. Sta locatie toe voor deze website in de instellingen van je telefoon." : "Locatie tijdelijk niet beschikbaar."),
-      { enableHighAccuracy: true, maximumAge: 30_000 },
-    );
-    return () => navigator.geolocation.clearWatch(id);
-  }, [workday]);
-
-  const startDay = () => {
-    writeWorkday(todayIso());
-    setWorkday(todayIso());
-  };
-  const endDay = () => {
-    writeWorkday(null);
-    setWorkday(null);
-  };
 
   const action = useMutation({
     mutationFn: async ({ job, kind }: { job: TechnicianJob; kind: "en-route" | "check-in" }) => {
@@ -95,18 +48,7 @@ export function TechnicianDay() {
             <button className="btn small" onClick={() => setDate(addDaysIso(date, 1))}>→</button>
             {!isToday && <button className="btn small" onClick={() => setDate(todayIso())}>Vandaag</button>}
           </div>
-          {workday ? (
-            <button className="btn small" onClick={endDay}>Werkdag beëindigen</button>
-          ) : (
-            <button className="btn primary small" onClick={startDay}>Werkdag starten</button>
-          )}
         </div>
-        <p className="muted" style={{ fontSize: 13, margin: "8px 0 0" }}>
-          {workday
-            ? "Je locatie wordt gedeeld met Gecko en je werkgever zolang deze pagina open is, tot je de werkdag beëindigt. Locaties worden na 7 dagen verwijderd."
-            : "Start je werkdag om je locatie te delen; daarmee krijgen klanten een betrouwbare aankomsttijd."}
-        </p>
-        {geoError && <div className="alert warning" style={{ marginTop: 8 }}>{geoError}</div>}
       </div>
       <ErrorBox error={day.error ?? action.error} />
       {day.isLoading ? <Loading /> : !jobs.length ? (

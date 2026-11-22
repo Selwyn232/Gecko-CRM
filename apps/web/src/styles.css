@@ -531,3 +531,20 @@ td.mono, .mono { white-space: nowrap; }
   .impersonation-bar { padding: 6px 12px; font-size: 12.5px; gap: 6px; }
   .impersonation-bar .btn { padding: 4px 10px; font-size: 12.5px; min-height: 0; }
 }
+
+/* B87: locatie aanzetten (monteur) */
+.loc-bar { display: flex; align-items: center; gap: 10px; width: 100%; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; font: inherit; text-align: left; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.loc-bar small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.loc-bar.off { background: var(--accent); border-color: var(--accent); color: var(--on-accent); cursor: pointer; min-height: 60px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12); }
+.loc-bar.off small { color: inherit; opacity: 0.85; }
+.loc-bar.off strong { font-size: 17px; }
+.loc-bar.off:disabled { opacity: 0.7; cursor: wait; }
+.loc-pin { font-size: 26px; line-height: 1; }
+.loc-bar.on { justify-content: space-between; padding: 8px 12px; background: var(--surface-2); font-size: 14px; }
+.loc-bar.on span:nth-child(2) { flex: 1; font-weight: 600; }
+.loc-dot { width: 10px; height: 10px; border-radius: 50%; background: #1f9d55; box-shadow: 0 0 0 4px rgba(31, 157, 85, 0.2); flex: none; }
+.loc-bar.denied { justify-content: space-between; flex-wrap: wrap; border-color: #d4a015; background: var(--warning-soft); font-size: 14px; }
+.loc-help { margin: 8px 0 0; padding-left: 18px; font-size: 13px; display: grid; gap: 6px; }
+.link-btn { background: none; border: 0; padding: 0; font: inherit; color: var(--accent-text); text-decoration: underline; cursor: pointer; }
+@media (prefers-reduced-motion: no-preference) { .loc-dot { animation: locpulse 2s ease-in-out infinite; } }
+@keyframes locpulse { 50% { box-shadow: 0 0 0 7px rgba(31, 157, 85, 0.08); } }
