@@ -6,6 +6,7 @@ import { conflict, notFound } from "../../lib/errors.js";
 import { recordAudit } from "../audit/service.js";
 import { customers, properties } from "../customers/schema.js";
 import { outboundEmails } from "../email/schema.js";
+import { whatsappMessages } from "../whatsapp/schema.js";
 import { files } from "../files/schema.js";
 import { invoiceLines, invoices, payments } from "../invoices/schema.js";
 import { journeyStatuses } from "../journeys/schema.js";
@@ -59,6 +60,10 @@ export async function exportCustomerData(db: DbOrTx, actor: ActorContext, custom
       .select({ to: outboundEmails.toAddress, subject: outboundEmails.subject, text: outboundEmails.text, status: outboundEmails.status, createdAt: outboundEmails.createdAt })
       .from(outboundEmails)
       .where(eq(outboundEmails.customerId, customerId)),
+    whatsapp: await db
+      .select({ direction: whatsappMessages.direction, body: whatsappMessages.body, status: whatsappMessages.status, createdAt: whatsappMessages.createdAt })
+      .from(whatsappMessages)
+      .where(eq(whatsappMessages.customerId, customerId)),
   };
   await recordAudit(db, actor, { action: "privacy.exported", entityType: "customer", entityId: customerId });
   return data;
@@ -101,6 +106,7 @@ export async function anonymizeCustomer(db: Db, actor: ActorContext, customerId:
       .update(outboundEmails)
       .set({ toAddress: "[verwijderd]", html: "[verwijderd]", text: "[verwijderd]" })
       .where(eq(outboundEmails.customerId, customerId));
+    await tx.update(whatsappMessages).set({ waId: "[verwijderd]", body: "[verwijderd]", mediaId: null }).where(eq(whatsappMessages.customerId, customerId));
     // Foto's en handtekeningen van de woning: inhoud wissen, registratie behouden.
     if (aids.length) {
       await tx.update(files).set({ data: null, filename: "[verwijderd]" }).where(and(eq(files.ownerType, "appointment"), inArray(files.ownerId, aids)));

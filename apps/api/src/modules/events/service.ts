@@ -15,7 +15,8 @@ export type DomainEventType =
   | "journey.event"
   | "appointment.scheduled"
   | "appointment.canceled"
-  | "report.submitted";
+  | "report.submitted"
+  | "whatsapp.mirror";
 
 export async function emitEvent(
   tx: DbOrTx,

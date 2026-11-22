@@ -11,6 +11,7 @@ import { sendStatusMessage } from "../messages/service.js";
 import type { Permission } from "../auth/permissions.js";
 import { notifyPermission } from "../tasks/service.js";
 import { projects } from "../projects/schema.js";
+import { mirrorEmail, type WhatsappHint } from "../whatsapp/service.js";
 import { assignOnSignedOrder, releaseIfDone } from "../specialists/service.js";
 
 const MAX_ATTEMPTS = 5;
@@ -43,6 +44,12 @@ const HANDLERS: Record<string, Handler[]> = {
     // B81: getekende order → vaste klantspecialist + welkomstbericht (als de klant er nog geen heeft).
     async (db, deps, payload, eventId) => {
       if (payload.customerId) await assignOnSignedOrder(db, deps, String(payload.customerId), eventId);
+    },
+  ],
+  // B83: e-mail aan een klant ook via WhatsApp.
+  "whatsapp.mirror": [
+    async (db, deps, payload) => {
+      await mirrorEmail(db, { whatsappTransport: deps.whatsappTransport ?? null, config: deps.config }, String(payload.emailId), (payload.hint as WhatsappHint | null) ?? null);
     },
   ],
   "invoice.collection": [

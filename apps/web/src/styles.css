@@ -472,3 +472,17 @@ td.mono, .mono { white-space: nowrap; }
 .meter em { font-style: normal; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); min-width: 36px; text-align: right; }
 .transfer-list { display: grid; gap: 6px; max-height: 320px; overflow: auto; padding: 8px 2px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 @media (max-width: 800px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* WhatsApp (B83) */
+.wa-thread { display: grid; gap: 6px; max-height: 420px; overflow-y: auto; padding: 10px; border-radius: 10px; background: var(--surface-2); margin-bottom: 10px; }
+.wa-msg { display: flex; }
+.wa-msg.out { justify-content: flex-end; }
+.wa-bubble { max-width: min(78%, 560px); padding: 8px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.wa-msg.out .wa-bubble { background: var(--success-soft); border-color: transparent; }
+.wa-meta { font-size: 11.5px; color: var(--muted); margin-top: 4px; text-align: right; }
+.wa-tag { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+.wa-failed { color: var(--danger); }
+.wa-compose { display: flex; gap: 8px; align-items: flex-end; }
+.wa-compose textarea { flex: 1; min-width: 0; resize: vertical; }
+.wa-closed { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 12px; border-radius: 8px; background: var(--warning-soft); }
+.wa-template { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; }

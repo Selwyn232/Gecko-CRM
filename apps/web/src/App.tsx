@@ -1,3 +1,4 @@
+import { WhatsAppPage } from "./pages/WhatsApp";
 import { OwnPhotoButton } from "./components/Specialist";
 import { SpecialistsPage } from "./pages/Specialists";
 import { PasskeyPrompt, PasskeysButton, shouldPromptPasskey } from "./components/Passkeys";
@@ -147,6 +148,7 @@ export function App() {
           <div className="nav-section">Klanten</div>
           <NavLink to="/werk"><NavIcon name="werk" />Mijn werk</NavLink>
           {can("customers.read") && <NavLink to="/inbox"><NavIcon name="inbox" />Inbox</NavLink>}
+          {can("customers.read") && <NavLink to="/whatsapp"><NavIcon name="whatsapp" />WhatsApp</NavLink>}
           <NavLink to="/hulp"><NavIcon name="hulp" />Handleiding</NavLink>
           {can("customers.read") && <NavLink to="/klanten"><NavIcon name="klanten" />Klanten</NavLink>}
           {can("quotes.read") && <NavLink to="/offertes"><NavIcon name="offertes" />Offertes</NavLink>}
@@ -202,6 +204,7 @@ export function App() {
           <Route path="/werk" element={<WorkPage />} />
           <Route path="/hulp" element={<HelpPage />} />
           <Route path="/inbox" element={<InboxPage />} />
+          <Route path="/whatsapp" element={<WhatsAppPage />} />
           <Route path="/klanten" element={<CustomersPage />} />
           <Route path="/klanten/:id" element={<CustomerDetailPage />} />
           <Route path="/projecten" element={<ProjectsPage />} />

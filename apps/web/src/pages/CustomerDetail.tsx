@@ -1,3 +1,4 @@
+import { WhatsAppPanel } from "../components/WhatsApp";
 import { SpecialistCell } from "../components/Specialist";
 import { CustomerExternalQuotes } from "../components/GreenteamImport";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -117,6 +118,7 @@ export function CustomerDetailPage() {
       )}
       {can("purchase_prices.read") && <CustomerMargins projects={c.projects} />}
       <CustomerTasks customerId={c.id} projects={c.projects} />
+      <WhatsAppPanel customerId={c.id} />
       <CustomerTimeline customerId={c.id} projects={c.projects} />
       <CustomerEmails customerId={c.id} />
 

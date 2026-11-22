@@ -1,3 +1,4 @@
+import type { WhatsappTransport } from "../src/modules/whatsapp/transport.js";
 import { eq, sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app.js";
@@ -35,11 +36,11 @@ export async function resetDb(db: Db) {
   await seed(db);
 }
 
-export async function createTestContext(opts: { emailTransport?: EmailTransport | null; smsTransport?: SmsTransport | null } = {}): Promise<TestContext> {
+export async function createTestContext(opts: { emailTransport?: EmailTransport | null; smsTransport?: SmsTransport | null; whatsappTransport?: WhatsappTransport | null } = {}): Promise<TestContext> {
   const config = loadConfig();
   const { db, pool } = createDb(config.DATABASE_URL);
   await resetDb(db);
-  const app = await buildApp({ config, db, emailTransport: opts.emailTransport ?? null, smsTransport: opts.smsTransport ?? null });
+  const app = await buildApp({ config, db, emailTransport: opts.emailTransport ?? null, smsTransport: opts.smsTransport ?? null, whatsappTransport: opts.whatsappTransport ?? null });
   await app.ready();
   return {
     app,

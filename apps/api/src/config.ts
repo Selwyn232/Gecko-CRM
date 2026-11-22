@@ -42,6 +42,18 @@ const ConfigSchema = z.object({
   CM_PRODUCT_TOKEN: z.string().optional(),
   /** Afzender van de sms: max. 11 letters/cijfers. */
   SMS_SENDER: z.string().regex(/^[A-Za-z0-9]{1,11}$/, "SMS_SENDER: max. 11 letters/cijfers").default("Gecko"),
+  /**
+   * WhatsApp via de Meta Cloud API (B83). Zonder token en telefoonnummer-id wordt niets verstuurd: berichten worden
+   * alleen vastgelegd. Zie docs/14-whatsapp.md.
+   */
+  WHATSAPP_TOKEN: z.string().optional(),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
+  /** App secret van de Meta-app: controleert dat binnenkomende webhooks echt van Meta komen. */
+  WHATSAPP_APP_SECRET: z.string().optional(),
+  /** Zelfgekozen tekst die je bij Meta invult bij het instellen van de webhook. */
+  WHATSAPP_VERIFY_TOKEN: z.string().optional(),
+  /** Taal van de sjablonen bij Meta. */
+  WHATSAPP_TEMPLATE_LANGUAGE: z.string().default("nl"),
   /** Achtergrondtaken (automatiseringen, aanmaningen) draaien in dit proces. Uit in tests. */
   JOBS_ENABLED: z
     .enum(["true", "false"])

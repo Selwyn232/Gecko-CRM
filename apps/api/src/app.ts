@@ -1,3 +1,5 @@
+import { whatsappRoutes } from "./modules/whatsapp/routes.js";
+import { whatsappTransportFromConfig, type WhatsappTransport } from "./modules/whatsapp/transport.js";
 import { registerSpecialistGuard } from "./modules/specialists/guard.js";
 import { specialistRoutes } from "./modules/specialists/routes.js";
 import { smsTransportFromConfig, type SmsTransport } from "./modules/auth/sms.js";
@@ -67,6 +69,7 @@ export interface AppDeps {
   paymentProvider?: PaymentProvider;
   /** Sms (2FA). Standaard CM.com als CM_PRODUCT_TOKEN is ingesteld, anders geen sms. */
   smsTransport?: SmsTransport | null;
+  whatsappTransport?: WhatsappTransport | null;
 }
 
 /** Serveert de webapplicatie; onbekende paden buiten /api krijgen index.html (client-side routing). */
@@ -94,8 +97,9 @@ export async function buildApp({
   emailTransport = transportFromConfig(config),
   paymentProvider = paymentProviderFromConfig(config),
   smsTransport = smsTransportFromConfig(config),
+  whatsappTransport = whatsappTransportFromConfig(config),
 }: AppDeps) {
-  const billing: BillingDeps = { config, emailTransport, paymentProvider };
+  const billing: BillingDeps = { config, emailTransport, paymentProvider, whatsappTransport };
   const app = Fastify({
     logger:
       config.NODE_ENV === "test"
@@ -212,6 +216,7 @@ export async function buildApp({
       await api.register(inboundWebhook, { db, config });
       await api.register(portalRoutes, { db, config, deps: billing });
       await api.register(specialistRoutes, { db, config, emailTransport });
+      await api.register(whatsappRoutes, { db, config, whatsappTransport });
     },
     { prefix: "/api" },
   );

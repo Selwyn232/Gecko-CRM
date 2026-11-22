@@ -1,5 +1,7 @@
 import { and, desc, eq, type SQL } from "drizzle-orm";
 import type { DbOrTx } from "../../db/client.js";
+import { emitEvent } from "../events/service.js";
+import type { WhatsappHint } from "../whatsapp/service.js";
 import { outboundEmails } from "./schema.js";
 import type { EmailMessage, EmailTransport } from "./transport.js";
 
@@ -9,6 +11,8 @@ export interface SendEmailInput extends EmailMessage {
   related?: { type: string; id: string };
   /** Zelfde sleutel = niet nogmaals versturen. */
   dedupeKey?: string;
+  /** Eigen WhatsApp-sjabloon voor deze e-mail (anders het algemene sjabloon "gecko_bericht"), B83. */
+  whatsapp?: WhatsappHint | null;
 }
 
 /** Uitkomst van elke verzending in de serverlogs (zonder inhoud of ontvanger), voor diagnose. */
@@ -44,6 +48,10 @@ export async function sendEmail(db: DbOrTx, transport: EmailTransport | null, in
       provider: transport?.name ?? null,
     })
     .returning();
+  // B83: alles wat per e-mail naar een klant gaat, gaat ook via WhatsApp (via de outbox, dus los van deze verzending).
+  if (input.customerId) {
+    await emitEvent(db, "whatsapp.mirror", { type: "email", id: row!.id }, { emailId: row!.id, hint: input.whatsapp ?? null });
+  }
   if (!transport) return row!;
   try {
     const { providerMessageId } = await transport.send(input);

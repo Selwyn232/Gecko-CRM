@@ -1,4 +1,4 @@
-import { bigint, index, pgTable, text, timestamp, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, pgTable, text, timestamp, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { id, timestamps } from "../../db/columns.js";
 import { users } from "../auth/schema.js";
@@ -24,6 +24,8 @@ export const customers = pgTable(
      * Vaste klantspecialist (B81): gekoppeld bij de getekende order, tot en met de afgeronde installatie.
      * Daarna gaat de klant naar de afdeling Service (serviceSince gezet, specialist leeg).
      */
+    /** WhatsApp-berichten aan deze klant (B83). Uit bij "STOP" van de klant of op verzoek. */
+    whatsappEnabled: boolean("whatsapp_enabled").notNull().default(true),
     specialistUserId: uuid("specialist_user_id").references((): AnyPgColumn => users.id),
     specialistAssignedAt: timestamp("specialist_assigned_at", { withTimezone: true }),
     serviceSince: timestamp("service_since", { withTimezone: true }),

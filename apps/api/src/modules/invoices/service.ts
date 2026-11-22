@@ -1,3 +1,4 @@
+import type { WhatsappTransport } from "../whatsapp/transport.js";
 import { ownCustomerFilter } from "../specialists/service.js";
 import { and, asc, desc, eq, gte, inArray, lte, ne, sql, type SQL } from "drizzle-orm";
 import type { Config } from "../../config.js";
@@ -28,6 +29,8 @@ export interface BillingDeps {
   config: Config;
   emailTransport: EmailTransport | null;
   paymentProvider: PaymentProvider;
+  /** WhatsApp (B83); leeg = berichten alleen vastleggen. */
+  whatsappTransport?: WhatsappTransport | null;
 }
 
 const SERIES = "F";

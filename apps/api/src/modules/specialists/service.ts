@@ -186,6 +186,11 @@ ${button(`${base}/mijn`, "Naar Mijn Gecko")}
     template: kind === "welcome" ? "specialist.welcome" : "specialist.transfer",
     customerId,
     dedupeKey,
+    whatsapp: {
+      template: kind === "welcome" ? "welkom" : "nieuweContactpersoon",
+      params: [c.firstName ?? c.lastName, s.name],
+      headerImageUrl: s.photo ? `${base}/api/public/specialists/${s.id}/photo` : null,
+    },
   });
 }
 
