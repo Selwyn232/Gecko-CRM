@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { forbidden } from "../../lib/errors.js";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { Db } from "../../db/client.js";
 import { customers, properties } from "../customers/schema.js";
@@ -37,6 +38,22 @@ const RESOLVERS: [string, Resolver][] = [
   ["/api/tasks/:id", async (db, id) => (await db.select({ c: tasks.customerId }).from(tasks).where(eq(tasks.id, id)))[0]?.c],
 ];
 
+const WRITE = ["POST", "PUT", "PATCH", "DELETE"];
+/** Onderdelen die niet over eigen klanten gaan (methoden leeg = alles). */
+const BLOCKED: [string, string[] | null][] = [
+  ["/api/reports/overview", null],
+  ["/api/selfbilling", null],
+  ["/api/users", null],
+  ["/api/roles", null],
+  ["/api/audit", null],
+  ["/api/imports", null],
+  ["/api/exports", null],
+  ["/api/regions", WRITE],
+  ["/api/planning/partner-regions", WRITE],
+  ["/api/planning/availability", WRITE],
+  ["/api/settings", WRITE],
+];
+
 /**
  * B81: een klantspecialist (zonder recht customers.all) komt alleen bij de eigen klanten. Deze hook controleert
  * elke route met een `:id` van een klantgebonden onderdeel, en `customerId` / `projectId` / `quoteId` in de
@@ -47,6 +64,9 @@ export function registerSpecialistGuard(api: FastifyInstance, db: Db) {
     const actor = req.actor;
     if (!actor || !ownCustomersOnly(actor)) return;
     const url = req.routeOptions.url ?? "";
+    // Een klantspecialist doet alleen werk voor eigen klanten: geen overzichten over alle klanten/partners en geen beheer.
+    const blocked = BLOCKED.some(([prefix, methods]) => (url === prefix || url.startsWith(`${prefix}/`)) && (!methods || methods.includes(req.method)));
+    if (blocked) throw forbidden("own_customers_only", "Als klantspecialist werk je alleen met je eigen klanten");
     const params = (req.params ?? {}) as Record<string, string>;
     for (const [prefix, resolve] of RESOLVERS) {
       if ((url === prefix || url.startsWith(`${prefix}/`)) && params.id) {

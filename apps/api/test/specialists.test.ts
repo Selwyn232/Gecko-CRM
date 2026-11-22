@@ -114,4 +114,14 @@ describe("klantspecialisten", () => {
     expect(img.statusCode).toBe(200);
     expect(img.headers["content-type"]).toBe("image/png");
   });
+  it("specialist komt niet bij overzichten en beheer (alleen eigen klanten)", async () => {
+    for (const url of ["/selfbilling", "/reports/overview", "/users", "/roles"]) {
+      expect((await call(a.headers, "GET", url)).statusCode, url).toBe(403);
+      expect((await call(manager, "GET", url)).statusCode, url).not.toBe(403);
+    }
+    expect((await call(a.headers, "POST", "/regions", { name: "X", postalRanges: [[1000, 1001]] })).statusCode).toBe(403);
+    // Wel: producten lezen (voor offertes) en eigen werk
+    expect((await call(a.headers, "GET", "/products")).statusCode).toBe(200);
+    expect((await call(a.headers, "GET", "/work")).statusCode).toBe(200);
+  });
 });

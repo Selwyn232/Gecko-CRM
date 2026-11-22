@@ -267,7 +267,9 @@ export async function myWork(db: DbOrTx, actor: ActorContext) {
     });
   }
 
-  return { sections, generatedAt: new Date().toISOString() };
+  // Klantspecialist: alleen werk voor eigen klanten, geen selfbilling of partnerbeheer (B81).
+  const mineOnly = own ? sections.filter((x) => !x.key.startsWith("sb-") && !x.key.startsWith("partners-")) : sections;
+  return { sections: mineOnly, generatedAt: new Date().toISOString() };
 }
 
 

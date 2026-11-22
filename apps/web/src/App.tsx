@@ -54,6 +54,8 @@ import { UsersPage } from "./pages/Users";
 
 export function App() {
   const { me, can, logout, refresh } = useAuth();
+  // Klantspecialist (B81): alleen werk voor eigen klanten; geen overzichten, catalogus of beheer.
+  const ownOnly = can("customers.read") && !can("customers.all");
   const [changingPassword, setChangingPassword] = useState(false);
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -145,7 +147,7 @@ export function App() {
         </div>
         <GlobalSearch />
         <nav className="nav">
-          <div className="nav-section">Klanten</div>
+          <div className="nav-section">{ownOnly ? "Mijn klanten" : "Klanten"}</div>
           <NavLink to="/werk"><NavIcon name="werk" />Mijn werk</NavLink>
           {can("customers.read") && <NavLink to="/inbox"><NavIcon name="inbox" />Inbox</NavLink>}
           {can("customers.read") && <NavLink to="/whatsapp"><NavIcon name="whatsapp" />WhatsApp</NavLink>}
@@ -155,24 +157,28 @@ export function App() {
           {can("projects.read") && <NavLink to="/projecten"><NavIcon name="projecten" />Projecten</NavLink>}
           {can("planning.read") && <NavLink to="/planning"><NavIcon name="planning" />Planning</NavLink>}
           {can("invoices.read") && <NavLink to="/facturen"><NavIcon name="facturen" />Facturen</NavLink>}
-          {can("invoices.read") && <NavLink to="/selfbilling"><NavIcon name="selfbilling" />Selfbilling</NavLink>}
-          {can("projects.read") && <NavLink to="/rapportages"><NavIcon name="rapportages" />Rapportages</NavLink>}
-          <div className="nav-section">Catalogus</div>
-          {can("catalog.read") && <NavLink to="/producten"><NavIcon name="producten" />Producten</NavLink>}
-          {can("catalog.read") && <NavLink to="/verkoopkanalen"><NavIcon name="kanalen" />Verkoopkanalen</NavLink>}
-          <div className="nav-section">Beheer</div>
-          {can("organizations.read") && <NavLink to="/organisaties"><NavIcon name="organisaties" />Organisaties</NavLink>}
-          {can("projects.read") && <NavLink to="/klantreizen"><NavIcon name="reizen" />Klantreizen</NavLink>}
-          {can("projects.read") && <NavLink to="/klantberichten"><NavIcon name="berichten" />Klantberichten</NavLink>}
-          {can("planning.read") && <NavLink to="/checklists"><NavIcon name="checklists" />Checklists</NavLink>}
-          {can("planning.read") && <NavLink to="/regios"><NavIcon name="regios" />Regio's</NavLink>}
-          {can("planning.read") && <NavLink to="/beschikbaarheid"><NavIcon name="beschikbaarheid" />Beschikbaarheid</NavLink>}
-          {can("specialists.manage") && <NavLink to="/klantspecialisten"><NavIcon name="klanten" />Klantspecialisten</NavLink>}
-          {can("users.read") && <NavLink to="/gebruikers"><NavIcon name="gebruikers" />Gebruikers</NavLink>}
-          {can("users.read") && <NavLink to="/rollen"><NavIcon name="rollen" />Rollen &amp; rechten</NavLink>}
-          {can("audit.read") && <NavLink to="/logboek"><NavIcon name="logboek" />Logboek</NavLink>}
-          {can("settings.manage") && <NavLink to="/instellingen"><NavIcon name="instellingen" />Instellingen</NavLink>}
-          {can("settings.manage") && <NavLink to="/testen"><NavIcon name="testen" />Testen</NavLink>}
+          {!ownOnly && (
+            <>
+            {can("invoices.read") && <NavLink to="/selfbilling"><NavIcon name="selfbilling" />Selfbilling</NavLink>}
+            {can("projects.read") && <NavLink to="/rapportages"><NavIcon name="rapportages" />Rapportages</NavLink>}
+            <div className="nav-section">Catalogus</div>
+            {can("catalog.read") && <NavLink to="/producten"><NavIcon name="producten" />Producten</NavLink>}
+            {can("catalog.read") && <NavLink to="/verkoopkanalen"><NavIcon name="kanalen" />Verkoopkanalen</NavLink>}
+            <div className="nav-section">Beheer</div>
+            {can("organizations.read") && <NavLink to="/organisaties"><NavIcon name="organisaties" />Organisaties</NavLink>}
+            {can("projects.read") && <NavLink to="/klantreizen"><NavIcon name="reizen" />Klantreizen</NavLink>}
+            {can("projects.read") && <NavLink to="/klantberichten"><NavIcon name="berichten" />Klantberichten</NavLink>}
+            {can("planning.read") && <NavLink to="/checklists"><NavIcon name="checklists" />Checklists</NavLink>}
+            {can("planning.read") && <NavLink to="/regios"><NavIcon name="regios" />Regio's</NavLink>}
+            {can("planning.read") && <NavLink to="/beschikbaarheid"><NavIcon name="beschikbaarheid" />Beschikbaarheid</NavLink>}
+            {can("specialists.manage") && <NavLink to="/klantspecialisten"><NavIcon name="klanten" />Klantspecialisten</NavLink>}
+            {can("users.read") && <NavLink to="/gebruikers"><NavIcon name="gebruikers" />Gebruikers</NavLink>}
+            {can("users.read") && <NavLink to="/rollen"><NavIcon name="rollen" />Rollen &amp; rechten</NavLink>}
+            {can("audit.read") && <NavLink to="/logboek"><NavIcon name="logboek" />Logboek</NavLink>}
+            {can("settings.manage") && <NavLink to="/instellingen"><NavIcon name="instellingen" />Instellingen</NavLink>}
+            {can("settings.manage") && <NavLink to="/testen"><NavIcon name="testen" />Testen</NavLink>}
+            </>
+          )}
         </nav>
         <div className="sidebar-footer">
           <div className="me-row">
@@ -199,6 +205,7 @@ export function App() {
         <button type="button" onClick={() => setMenuOpen(true)}><TabIcon d="M3 5h14M3 10h14M3 15h14" />Menu</button>
       </nav>
       <main className="main">
+        {ownOnly && !OWN_ONLY_PATHS.some((p) => location.pathname === p || location.pathname.startsWith(`${p}/`)) && <Navigate to="/werk" replace />}
         <Routes>
           <Route path="/" element={<Navigate to="/werk" replace />} />
           <Route path="/werk" element={<WorkPage />} />
@@ -242,6 +249,9 @@ export function App() {
     </>
   );
 }
+
+/** Pagina's die een klantspecialist mag openen (al het andere gaat naar Mijn werk). */
+const OWN_ONLY_PATHS = ["/werk", "/inbox", "/whatsapp", "/hulp", "/klanten", "/offertes", "/projecten", "/planning", "/facturen", "/rapporten"];
 
 /** Klein lijnicoon voor de onderbalk op de telefoon. */
 function TabIcon({ d }: { d: string }) {

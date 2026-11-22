@@ -37,7 +37,7 @@ export function CustomersPage() {
         actions={
           <>
             <a className="btn" href="/api/exports/klanten.csv">Exporteren (CSV)</a>
-            {can("customers.manage") && <button className="btn" onClick={() => setImporting(true)}>Greenteam-offerte inlezen</button>}
+            {can("customers.manage") && can("customers.all") && <button className="btn" onClick={() => setImporting(true)}>Greenteam-offerte inlezen</button>}
             {can("customers.manage") && <button className="btn primary" onClick={() => setCreating(true)}>Nieuwe klant</button>}
           </>
         }
