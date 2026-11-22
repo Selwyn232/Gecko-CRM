@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { todayIso } from "../src/lib/dates.js";
 import { productGroups, salesChannels } from "../src/modules/catalog/schema.js";
 import { MemoryTransport } from "../src/modules/email/transport.js";
+import { quotes } from "../src/modules/quotes/schema.js";
 import { adminSession, createTestContext, type TestContext } from "./helpers.js";
 
 const mail = new MemoryTransport();
@@ -113,6 +114,8 @@ describe("installatiepartner per productgroep", () => {
     }
     const c = (await call("POST", "/customers", { lastName: "Batterij", property: { street: "Trêd", houseNumber: "75", postalCode: "8603DZ", city: "Sneek" } })).json();
     batProject = (await call("POST", "/projects", { customerId: c.id, propertyId: c.properties[0].id, productGroupId: bat, salesChannelId: channelId })).json().id;
+    // B86: plannen vereist een geaccepteerde offerte
+    await ctx.db.insert(quotes).values({ customerId: c.id, propertyId: c.properties[0].id, productGroupId: bat, salesChannelId: channelId, projectId: batProject, status: "accepted" });
   });
 
   it("productgroepen zijn per partner in te stellen", async () => {

@@ -211,8 +211,18 @@ export interface Slot {
   days: number;
 }
 
+/** B86: plannen (schouw of installatie) kan alleen met een geaccepteerde offerte. */
+const SIGNED = (projectIdCol: unknown) =>
+  sql`exists (select 1 from quotes q where q.project_id = ${projectIdCol} and q.kind = 'main' and q.status = 'accepted')`;
+
+async function assertSignedQuote(db: DbOrTx, projectId: string) {
+  const [q] = await db.select({ id: quotes.id }).from(quotes).where(and(eq(quotes.projectId, projectId), eq(quotes.kind, "main"), eq(quotes.status, "accepted"))).limit(1);
+  if (!q) throw badRequest("no_accepted_quote", "Inplannen kan pas als de klant akkoord heeft gegeven op de offerte");
+}
+
 export async function findSlots(db: DbOrTx, projectId: string, type: AppointmentType) {
   const ctx = await projectContext(db, projectId);
+  await assertSignedQuote(db, projectId);
   if (type === "survey" && !(await journeyHasSurvey(db, ctx.project.statusId))) throw badRequest("no_survey_in_journey", "De klantreis van dit project heeft geen schouw; plan direct de installatie");
   const regs = await regionsForPostal(db, ctx.property.postalCode);
   if (!regs.length) return { regions: [], slots: [] as Slot[], message: `Postcode ${ctx.property.postalCode} valt in geen enkele regio. Voeg hem toe bij Regio's.` };
@@ -353,6 +363,7 @@ export async function scheduleAppointment(
     if (input.type === "installation" && project!.installationPartnerId && project!.installationPartnerId !== input.partnerId) {
       throw badRequest("partner_mismatch", "De installatie moet bij dezelfde partner als de schouw");
     }
+    await assertSignedQuote(tx, projectId);
     if (input.type === "survey" && !(await journeyHasSurvey(tx, project!.statusId))) {
       throw badRequest("no_survey_in_journey", "De klantreis van dit project heeft geen schouw; plan direct de installatie");
     }
@@ -584,6 +595,7 @@ export async function toPlan(db: DbOrTx, type: AppointmentType) {
       and(
         inArray(projects.statusId, fromStatuses.map((s) => s.id)),
         sql`not exists (select 1 from appointments a where a.project_id = ${projects.id} and a.type = ${type} and a.status = 'planned')`,
+        SIGNED(projects.id),
       ),
     )
     .orderBy(asc(projects.statusChangedAt));

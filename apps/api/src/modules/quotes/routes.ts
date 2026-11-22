@@ -72,7 +72,6 @@ export const quoteRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; emailT
     installationPartnerId: z.string().uuid().nullish(),
     customerNote: z.string().max(5000).nullish(),
     internalNote: z.string().max(5000).nullish(),
-    projectId: z.string().uuid().nullish(),
   });
 
   app.post("/quotes", { preValidation: manage, schema: { body: QuoteBody } }, async (req, reply) => {
@@ -81,7 +80,7 @@ export const quoteRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; emailT
   });
   app.patch(
     "/quotes/:id",
-    { preValidation: manage, schema: { params: IdParams, body: QuoteBody.omit({ customerId: true, productGroupId: true, projectId: true }).partial() } },
+    { preValidation: manage, schema: { params: IdParams, body: QuoteBody.omit({ customerId: true, productGroupId: true }).partial() } },
     async (req) => view(req, await updateQuote(db, req.actor, req.params.id, req.body)),
   );
 

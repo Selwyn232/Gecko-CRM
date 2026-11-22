@@ -15,7 +15,6 @@ import { emitEvent } from "../events/service.js";
 import { advisors, organizations } from "../organizations/schema.js";
 import { assertPartnerHandlesGroup } from "../organizations/service.js";
 import { emitJourneyEvent } from "../journeys/auto.js";
-import { projects } from "../projects/schema.js";
 import { createProjectInTx } from "../projects/service.js";
 import { quoteContentHash } from "./hash.js";
 import { quoteLines, quotes, type Quote, type QuoteLine } from "./schema.js";
@@ -199,18 +198,6 @@ export interface QuoteInput {
   installationPartnerId?: string | null;
   customerNote?: string | null;
   internalNote?: string | null;
-  /** Offerte achteraf voor een bestaand project zonder getekende offerte (bv. handmatig aangemaakt project). */
-  projectId?: string | null;
-}
-
-async function assertProjectWithoutQuote(tx: DbOrTx, projectId: string, input: Pick<QuoteInput, "customerId" | "propertyId" | "productGroupId">) {
-  const [p] = await tx.select().from(projects).where(eq(projects.id, projectId));
-  if (!p || p.customerId !== input.customerId) throw badRequest("invalid_project", "Project hoort niet bij deze klant");
-  if (p.propertyId !== input.propertyId || p.productGroupId !== input.productGroupId) {
-    throw badRequest("invalid_project", "Woning en productgroep moeten gelijk zijn aan die van het project");
-  }
-  const [signed] = await tx.select({ id: quotes.id }).from(quotes).where(and(eq(quotes.projectId, projectId), eq(quotes.kind, "main"), eq(quotes.status, "accepted")));
-  if (signed) throw conflict("project_has_quote", "Dit project heeft al een getekende offerte");
 }
 
 async function assertQuoteRefs(tx: DbOrTx, input: Partial<QuoteInput>, existing?: Quote) {
@@ -244,8 +231,7 @@ async function loadDraft(tx: DbOrTx, id: string) {
 export async function createQuote(db: Db, actor: ActorContext, input: QuoteInput) {
   return db.transaction(async (tx) => {
     await assertQuoteRefs(tx, input);
-    if (input.projectId) await assertProjectWithoutQuote(tx, input.projectId, input);
-    const [q] = await tx.insert(quotes).values({ ...input, kind: "main", createdBy: actor.userId }).returning();
+    const [q] = await tx.insert(quotes).values({ ...input, createdBy: actor.userId }).returning();
     await recordAudit(tx, actor, { action: "quote.created", entityType: "quote", entityId: q!.id, after: q });
     return getQuote(tx, q!.id);
   });
@@ -385,11 +371,8 @@ export async function acceptQuote(
     const q = await loadSent(tx, id);
     if (effectiveStatus(q) === "expired") throw conflict("quote_expired", "Offerte is verlopen; maak een nieuwe versie");
     // Meerwerk hoort bij een bestaand project; een hoofdofferte maakt het project aan.
-    // Hoofdofferte voor een bestaand project (achteraf) → geen nieuw project.
-    const existingProject = q.kind === "main" && q.projectId ? q.projectId : null;
-    if (existingProject) await assertProjectWithoutQuote(tx, existingProject, q);
     const project =
-      (q.kind === "extra_work" || existingProject) && q.projectId
+      q.kind === "extra_work" && q.projectId
         ? { id: q.projectId }
         : await createProjectInTx(tx, actor, {
             customerId: q.customerId,
@@ -417,7 +400,7 @@ export async function acceptQuote(
       before: { status: "sent" },
       after: { status: "accepted", acceptedByName: input.acceptedByName, method: input.method, projectId: project.id },
     });
-    await emitEvent(tx, "quote.accepted", { type: "quote", id }, { quoteId: id, projectId: project.id, customerId: q.customerId, existingProject: Boolean(existingProject) });
+    await emitEvent(tx, "quote.accepted", { type: "quote", id }, { quoteId: id, projectId: project.id, customerId: q.customerId });
     return getQuote(tx, id);
   });
 }
@@ -532,7 +515,7 @@ export async function reviseQuote(db: Db, actor: ActorContext, id: string) {
         internalNote: q.internalNote,
         supersedesQuoteId: q.id,
         kind: q.kind,
-        projectId: q.projectId,
+        projectId: q.kind === "extra_work" ? q.projectId : null,
         createdBy: actor.userId,
       })
       .returning();

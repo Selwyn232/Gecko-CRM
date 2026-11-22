@@ -44,7 +44,7 @@ async function invoiceIfTriggered(db: Db, deps: BillingDeps, projectId: string, 
     if (!(err instanceof AppError) || err.code !== "no_accepted_quote") throw err;
     await notifyOnce(db, eventId, "projects.manage", {
       title: `${row.trigger === "deposit" ? "Aanbetalingsfactuur" : "Eindfactuur"} niet verstuurd: geen getekende offerte`,
-      body: `Project P-${String(row.number).padStart(6, "0")} — maak op het project een offerte en laat die accepteren`,
+      body: `Project P-${String(row.number).padStart(6, "0")} — dit project heeft geen geaccepteerde offerte`,
       href: `/projecten/${projectId}`,
     });
   }
@@ -68,10 +68,6 @@ const HANDLERS: Record<string, Handler[]> = {
     // B81: getekende order → vaste klantspecialist + welkomstbericht (als de klant er nog geen heeft).
     async (db, deps, payload, eventId) => {
       if (payload.customerId) await assignOnSignedOrder(db, deps, String(payload.customerId), eventId);
-    },
-    // Offerte achteraf bij een bestaand project: staat dat project al in een status met factuurmoment, dan alsnog factureren.
-    async (db, deps, payload, eventId) => {
-      if (payload.existingProject) await invoiceIfTriggered(db, deps, String(payload.projectId), eventId);
     },
   ],
   // B83: e-mail aan een klant ook via WhatsApp.
