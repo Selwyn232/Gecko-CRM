@@ -491,3 +491,43 @@ td.mono, .mono { white-space: nowrap; }
 .tech-jobs { display: grid; gap: 12px; }
 .tech-job.done { opacity: 0.7; }
 .tech-job .btn { min-height: 40px; }
+
+/* Partner- en monteursportaal op de telefoon: kopbalk + tabbalk onderin (app-gevoel). */
+.portal-top, .portal-tabs { display: none; }
+@media (max-width: 800px) {
+  .shell.portal-app .sidebar { display: none; }
+  .portal-top {
+    display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 40;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 8px max(14px, env(safe-area-inset-right, 0px)) 8px max(14px, env(safe-area-inset-left, 0px));
+  }
+  .portal-top .brand { margin: 0; font-size: 16px; }
+  .portal-account-btn {
+    width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--accent); color: var(--on-accent);
+    font: inherit; font-weight: 700; font-size: 14px; cursor: pointer;
+  }
+  .portal-account-menu {
+    position: absolute; right: max(10px, env(safe-area-inset-right, 0px)); top: calc(100% + 6px); width: min(320px, calc(100vw - 20px));
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; font-size: 13px; color: var(--muted);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  }
+  .portal-account-menu .row { flex-wrap: wrap; }
+  .portal-tabs {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 4px max(6px, env(safe-area-inset-right, 0px)) calc(4px + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px));
+  }
+  .portal-tabs a {
+    flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px;
+    color: var(--muted); text-decoration: none; font-size: 11px; border-radius: 8px;
+  }
+  .portal-tabs a span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .portal-tabs a.active { color: var(--accent-text); font-weight: 600; }
+  .portal-tabs a .nav-icon { width: 22px; height: 22px; opacity: 0.8; }
+  .portal-tabs a.active .nav-icon { opacity: 1; }
+  .shell.portal-app .main { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+  /* Inloggen-als-balk compacter en niet vast (de kopbalk is al vast) */
+  .impersonation-bar { position: static; }
+  .impersonation-bar { padding: 6px 12px; font-size: 12.5px; gap: 6px; }
+  .impersonation-bar .btn { padding: 4px 10px; font-size: 12.5px; min-height: 0; }
+}

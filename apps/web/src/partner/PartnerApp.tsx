@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { api, type Appointment, type AvailabilityBlock, type Penalty, type Region, type Report, type Technician } from "../api";
 import { TechnicianDay } from "./TechnicianDay";
+import { NavIcon, type IconName } from "../components/icons";
 import { WorkArea } from "../components/WorkArea";
 import { sbStatus, SelfBillingDocument, type SelfBillingDetail } from "../components/SelfBillingDocument";
 import { ApprovalBox } from "../pages/SelfBilling";
@@ -19,29 +20,48 @@ import { addDaysIso, APPOINTMENT_STATUS, APPOINTMENT_TYPE, formatCents, formatDa
 export function PartnerApp() {
   const { me, logout, can } = useAuth();
   const [changingPassword, setChangingPassword] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const partner = can("partner.portal");
   const technician = can("technician.portal");
+  const tabs: { to: string; label: string; icon: IconName }[] = [
+    ...(technician ? [{ to: "/mijn-dag", label: "Mijn dag", icon: "werk" as IconName }] : []),
+    ...(partner
+      ? [
+          { to: "/afspraken", label: "Afspraken", icon: "planning" as IconName },
+          { to: "/monteurs", label: "Monteurs", icon: "gebruikers" as IconName },
+          { to: "/beschikbaarheid", label: "Beschikbaar", icon: "beschikbaarheid" as IconName },
+          { to: "/uitbetalingen", label: "Uitbetaling", icon: "facturen" as IconName },
+        ]
+      : []),
+  ];
+  const account = (
+    <>
+      <div style={{ color: "var(--text)", fontWeight: 500 }}>{me?.name}</div>
+      <div>{me?.organizationName}</div>
+      <div className="row" style={{ marginTop: 8 }}>
+        <button className="btn small" onClick={() => { setAccountOpen(false); setChangingPassword(true); }}>Wachtwoord</button>
+        <PasskeysButton />
+        <button className="btn small" onClick={logout}>Uitloggen</button>
+      </div>
+    </>
+  );
   return (
-    <div className="shell compact">
+    <div className="shell compact portal-app">
       <aside className="sidebar">
         <div className="brand"><span className="brand-mark">G</span> {partner ? "Partnerportaal" : "Monteur"}</div>
         <nav className="nav">
-          {technician && <NavLink to="/mijn-dag">Mijn dag</NavLink>}
-          {partner && <NavLink to="/afspraken">Afspraken</NavLink>}
-          {partner && <NavLink to="/monteurs">Monteurs</NavLink>}
-          {partner && <NavLink to="/beschikbaarheid">Beschikbaarheid</NavLink>}
-          {partner && <NavLink to="/uitbetalingen">Uitbetalingen</NavLink>}
+          {tabs.map((t) => <NavLink key={t.to} to={t.to}><NavIcon name={t.icon} />{t.label === "Beschikbaar" ? "Beschikbaarheid" : t.label === "Uitbetaling" ? "Uitbetalingen" : t.label}</NavLink>)}
         </nav>
-        <div className="sidebar-footer">
-          <div style={{ color: "var(--text)", fontWeight: 500 }}>{me?.name}</div>
-          <div>{me?.organizationName}</div>
-          <div className="row" style={{ marginTop: 8 }}>
-            <button className="btn small" onClick={() => setChangingPassword(true)}>Wachtwoord</button>
-            <PasskeysButton />
-            <button className="btn small" onClick={logout}>Uitloggen</button>
-          </div>
-        </div>
+        <div className="sidebar-footer">{account}</div>
       </aside>
+      {/* Telefoon: smalle kopbalk met accountmenu en een tabbalk onderin */}
+      <header className="portal-top">
+        <div className="brand"><span className="brand-mark">G</span> {partner ? "Partnerportaal" : "Monteur"}</div>
+        <button className="portal-account-btn" aria-expanded={accountOpen} aria-label="Account" onClick={() => setAccountOpen(!accountOpen)}>
+          {(me?.name ?? "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
+        </button>
+        {accountOpen && <div className="portal-account-menu">{account}</div>}
+      </header>
       <main className="main">
         <Routes>
           <Route path="/" element={<Navigate to={partner ? "/afspraken" : "/mijn-dag"} replace />} />
@@ -55,6 +75,16 @@ export function PartnerApp() {
           <Route path="*" element={<Navigate to={partner ? "/afspraken" : "/mijn-dag"} replace />} />
         </Routes>
       </main>
+      {tabs.length > 1 && (
+        <nav className="portal-tabs" aria-label="Menu">
+          {tabs.map((t) => (
+            <NavLink key={t.to} to={t.to}>
+              <NavIcon name={t.icon} />
+              <span>{t.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+      )}
       {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
     </div>
   );
