@@ -195,7 +195,7 @@ export function App() {
           <div className="row" style={{ marginTop: 8 }}>
             <button className="btn small" onClick={() => setChangingPassword(true)}>Wachtwoord</button>
             <PasskeysButton />
-            {can("customers.read") && !can("customers.all") && <OwnPhotoButton />}
+            <OwnPhotoButton />
             <button className="btn small" onClick={logout}>Uitloggen</button>
           </div>
         </div>

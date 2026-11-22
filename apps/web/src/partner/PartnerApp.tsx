@@ -5,6 +5,7 @@ import { Link, NavLink, Navigate, Route, Routes, useNavigate, useParams } from "
 import { api, type Appointment, type AvailabilityBlock, type Penalty, type Region, type Report, type Technician } from "../api";
 import { TechnicianDay } from "./TechnicianDay";
 import { photoUrl } from "../components/Avatar";
+import { OwnPhotoButton } from "../components/Specialist";
 import { LocationBar, LocationProvider } from "./LocationSharing";
 import { NavIcon, type IconName } from "../components/icons";
 import { WorkArea } from "../components/WorkArea";
@@ -43,6 +44,7 @@ export function PartnerApp() {
       <div className="row" style={{ marginTop: 8 }}>
         <button className="btn small" onClick={() => { setAccountOpen(false); setChangingPassword(true); }}>Wachtwoord</button>
         <PasskeysButton />
+        <OwnPhotoButton />
         <button className="btn small" onClick={logout}>Uitloggen</button>
       </div>
     </>

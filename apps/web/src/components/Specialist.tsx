@@ -1,3 +1,4 @@
+import { SelfieCapture } from "./Selfie";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api";
@@ -108,53 +109,26 @@ function ChangeSpecialist({ customerId, currentId, onClose }: { customerId: stri
   );
 }
 
-/** Pasfoto kiezen: verkleind tot 256×256 in de browser (klein genoeg voor e-mail). */
-export async function photoToDataUrl(file: File): Promise<string> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const i = new Image();
-      i.onload = () => resolve(i);
-      i.onerror = () => reject(new Error("Kon de afbeelding niet lezen"));
-      i.src = url;
-    });
-    const size = 256;
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext("2d")!;
-    const side = Math.min(img.width, img.height);
-    ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
-    return canvas.toDataURL("image/jpeg", 0.85);
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
-/** Knop "Pasfoto" voor de specialist zelf (sidebar). */
+/** Knop "Nieuwe selfie": een nieuwe profielfoto kan alleen met de live camera (B88). */
 export function OwnPhotoButton() {
-  const { me } = useAuth();
+  const { refresh } = useAuth();
   const qc = useQueryClient();
-  const [error, setError] = useState<unknown>(null);
-  const save = useMutation({
-    meta: { toast: "Pasfoto opgeslagen" },
-    mutationFn: (photoDataUrl: string) => api.patch(`/specialists/${me!.id}`, { photoDataUrl }),
-    onSuccess: () => qc.invalidateQueries(),
-    onError: setError,
-  });
+  const [open, setOpen] = useState(false);
   return (
-    <label className="btn small" style={{ cursor: "pointer" }} title={error instanceof Error ? error.message : "Foto die klanten zien in het welkomstbericht"}>
-      Pasfoto
-      <input
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={async (e) => {
-          const f = e.target.files?.[0];
-          if (f) save.mutate(await photoToDataUrl(f));
-          e.target.value = "";
-        }}
-      />
-    </label>
+    <>
+      <button className="btn small" onClick={() => setOpen(true)} title="Nieuwe profielfoto maken met de camera">Nieuwe selfie</button>
+      {open && (
+        <Modal title="Nieuwe profielfoto" onClose={() => setOpen(false)}>
+          <SelfieCapture
+            onCancel={() => setOpen(false)}
+            onSaved={async () => {
+              setOpen(false);
+              await refresh();
+              await qc.invalidateQueries();
+            }}
+          />
+        </Modal>
+      )}
+    </>
   );
 }

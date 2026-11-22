@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
-import { photoToDataUrl, SpecialistAvatar, useSpecialists, type SpecialistRow } from "../components/Specialist";
+import { SpecialistAvatar, useSpecialists, type SpecialistRow } from "../components/Specialist";
 import { ErrorBox, Field, Loading, Modal, PageHead } from "../components/ui";
 import { formatDate } from "../format";
 
@@ -90,10 +90,9 @@ function EditSpecialist({ s, onClose }: { s: SpecialistRow; onClose: () => void 
   const qc = useQueryClient();
   const [max, setMax] = useState(s.maxCustomers?.toString() ?? "");
   const [accepts, setAccepts] = useState(s.acceptsNewCustomers);
-  const [photo, setPhoto] = useState<string | null | undefined>(undefined);
   const save = useMutation({
     mutationFn: () =>
-      api.patch(`/specialists/${s.id}`, { maxCustomers: max.trim() ? Number(max) : null, acceptsNewCustomers: accepts, ...(photo !== undefined ? { photoDataUrl: photo } : {}) }),
+      api.patch(`/specialists/${s.id}`, { maxCustomers: max.trim() ? Number(max) : null, acceptsNewCustomers: accepts }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["specialists"] });
       onClose();
@@ -108,13 +107,10 @@ function EditSpecialist({ s, onClose }: { s: SpecialistRow; onClose: () => void 
       <label className="row" style={{ gap: 8, marginBottom: 12 }}>
         <input type="checkbox" checked={accepts} onChange={(e) => setAccepts(e.target.checked)} /> Krijgt automatisch nieuwe klanten (uitzetten bij afwezigheid)
       </label>
-      <Field label="Pasfoto (zien klanten in het welkomstbericht)">
-        <span className="row">
-          {photo ? <img src={photo} alt="" width={48} height={48} style={{ borderRadius: "50%" }} /> : <SpecialistAvatar id={s.id} name={s.name} hasPhoto={s.hasPhoto && photo !== null} size={48} />}
-          <input type="file" accept="image/*" onChange={async (e) => e.target.files?.[0] && setPhoto(await photoToDataUrl(e.target.files[0]))} />
-          {(s.hasPhoto || photo) && <button type="button" className="btn small" onClick={() => setPhoto(null)}>Verwijderen</button>}
-        </span>
-      </Field>
+      <div className="row" style={{ gap: 8, marginBottom: 12 }}>
+        <SpecialistAvatar id={s.id} name={s.name} hasPhoto={s.hasPhoto} size={48} />
+        <span className="muted" style={{ fontSize: 13 }}>De profielfoto maakt de specialist zelf als selfie (verplicht bij het inloggen); die kan hier niet worden gewijzigd.</span>
+      </div>
       <div className="modal-actions">
         <button className="btn" onClick={onClose}>Annuleren</button>
         <button className="btn primary" disabled={save.isPending} onClick={() => save.mutate()}>Opslaan</button>

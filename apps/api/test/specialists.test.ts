@@ -109,13 +109,17 @@ describe("klantspecialisten", () => {
     expect((await call(a.headers, "GET", `/customers/${c!.id}`)).statusCode).toBe(404);
   });
 
-  it("specialist mag eigen pasfoto zetten, niet het maximum", async () => {
+  it("pasfoto alleen als eigen selfie; specialist mag het maximum niet wijzigen", async () => {
     const photo = "data:image/png;base64,iVBORw0KGgo=";
-    expect((await call(a.headers, "PATCH", `/specialists/${a.id}`, { photoDataUrl: photo })).statusCode).toBe(200);
+    // Uploaden via de specialistenroute kan niet meer (ook niet door de manager)
+    expect((await call(a.headers, "PATCH", `/specialists/${a.id}`, { photoDataUrl: photo })).statusCode).toBe(400);
+    expect((await call(manager, "PATCH", `/specialists/${a.id}`, { photoDataUrl: photo })).statusCode).toBe(400);
     expect((await call(a.headers, "PATCH", `/specialists/${a.id}`, { maxCustomers: 99 })).statusCode).toBe(403);
+    const jpeg = `data:image/jpeg;base64,${Buffer.from([0xff, 0xd8, 0xff, 0xe0]).toString("base64")}`;
+    expect((await call(a.headers, "PUT", "/auth/me/photo", { dataUrl: jpeg })).statusCode).toBe(200);
     const img = await ctx.app.inject({ method: "GET", url: `/api/public/specialists/${a.id}/photo` });
     expect(img.statusCode).toBe(200);
-    expect(img.headers["content-type"]).toBe("image/png");
+    expect(img.headers["content-type"]).toBe("image/jpeg");
   });
   it("specialist komt niet bij overzichten en beheer (alleen eigen klanten)", async () => {
     for (const url of ["/selfbilling", "/reports/overview", "/users", "/roles"]) {

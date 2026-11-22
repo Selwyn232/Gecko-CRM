@@ -17,7 +17,7 @@ export const specialistRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; e
   app.get("/specialists", { preValidation: manage }, async () => specialistOverview(db));
   app.get("/specialists/:id/customers", { preValidation: manage, schema: { params: IdParams } }, async (req) => customersOf(db, req.params.id));
 
-  /** Maximum, nieuwe klanten aan/uit (manager), en pasfoto (manager of de specialist zelf). */
+  /** Maximum en nieuwe klanten aan/uit (manager). De profielfoto is altijd een eigen selfie (B88, PUT /auth/me/photo). */
   app.patch(
     "/specialists/:id",
     {
@@ -26,15 +26,11 @@ export const specialistRoutes: FastifyPluginAsyncZod<{ db: Db; config: Config; e
         body: z.object({
           maxCustomers: z.number().int().min(1).max(10000).nullable().optional(),
           acceptsNewCustomers: z.boolean().optional(),
-          photoDataUrl: z.string().max(400_000).nullable().optional(),
-        }),
+        }).strict(),
       },
     },
     async (req) => {
-      const isManager = req.actor.permissions.has("specialists.manage");
-      const self = req.actor.userId === req.params.id;
-      const onlyPhoto = Object.keys(req.body).every((k) => k === "photoDataUrl");
-      if (!isManager && !(self && onlyPhoto)) throw forbidden("forbidden", "Alleen de manager klantenservice kan dit wijzigen");
+      if (!req.actor.permissions.has("specialists.manage")) throw forbidden("forbidden", "Alleen de manager klantenservice kan dit wijzigen");
       return updateSpecialist(db, req.actor, req.params.id, req.body);
     },
   );
