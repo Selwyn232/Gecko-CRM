@@ -18,7 +18,8 @@ export function avatarColor(name: string) {
   return COLORS[h % COLORS.length]!;
 }
 
-export function Avatar({ name, size = 26 }: { name: string; size?: number }) {
+export function Avatar({ name, size = 26, photo }: { name: string; size?: number; /** URL van de profielfoto (selfie) */ photo?: string | null }) {
+  if (photo) return <img className="avatar" src={photo} alt="" width={size} height={size} style={{ width: size, height: size, objectFit: "cover" }} />;
   return (
     <span className="avatar" style={{ width: size, height: size, fontSize: Math.round(size * 0.4), background: avatarColor(name) }} aria-hidden="true">
       {initials(name)}
@@ -36,3 +37,6 @@ export function WithAvatar({ name, size, strong }: { name: string; size?: number
     </span>
   );
 }
+
+/** URL van de eigen of andermans profielfoto (met versie, zodat een nieuwe foto direct zichtbaar is). */
+export const photoUrl = (userId: string, version?: string | null) => (version ? `/api/users/${userId}/photo?v=${version}` : null);

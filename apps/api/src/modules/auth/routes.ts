@@ -6,7 +6,9 @@ import type { Db } from "../../db/client.js";
 import { organizations } from "../organizations/schema.js";
 import { ADMIN_SESSION_COOKIE, requirePermission, SESSION_COOKIE } from "../../http/auth-plugin.js";
 import { users } from "./schema.js";
-import { forbidden, unauthorized } from "../../lib/errors.js";
+import { forbidden, notFound, unauthorized } from "../../lib/errors.js";
+import { createHash } from "node:crypto";
+import { recordAudit } from "../audit/service.js";
 import { loadPermissions } from "./access.js";
 import { PasskeyService } from "./passkeys.js";
 import { maskPhone, mfaMethod, type AuthService } from "./service.js";
@@ -103,6 +105,9 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
       smsAllowed: authService.smsAvailable && (await loadPermissions(db, user.id)).has("mfa.sms"),
       smsPhone: user.smsPhone ? maskPhone(user.smsPhone) : null,
       hasPasskey: user.passkeyEnabledAt !== null,
+      /** Profielfoto (selfie, verplicht bij elk account); versie voor de cache. */
+      hasPhoto: user.photoDataUrl !== null,
+      photoVersion: user.photoDataUrl ? createHash("sha1").update(user.photoDataUrl).digest("hex").slice(0, 10) : null,
       /** Domein waarop passkeys werken (bv. crm.gecko.nl). */
       passkeyDomain: passkeys.rpID,
       permissions: [...req.actor.permissions].sort(),
@@ -110,6 +115,27 @@ export const authRoutes: FastifyPluginAsyncZod<{ authService: AuthService; confi
         ? (await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.id, req.auth!.impersonatorUserId)))[0] ?? null
         : null,
     };
+  });
+
+  /** Eigen profielfoto (selfie, op het toestel bewerkt). Alleen de gebruiker zelf, niet via "inloggen als". */
+  app.put(
+    "/auth/me/photo",
+    { bodyLimit: 1024 * 1024, schema: { body: z.object({ dataUrl: z.string().max(700_000).regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/, "Foto moet een JPEG zijn") }) } },
+    async (req) => {
+      if (req.auth!.impersonatorUserId) throw forbidden("impersonation_not_allowed", "Een selfie maakt de gebruiker zelf");
+      await db.update(users).set({ photoDataUrl: req.body.dataUrl }).where(eq(users.id, req.auth!.user.id));
+      await recordAudit(db, req.actor, { action: "user.photo_set", entityType: "user", entityId: req.auth!.user.id });
+      return { ok: true };
+    },
+  );
+
+  /** Profielfoto van een collega (alleen voor ingelogde gebruikers). */
+  app.get("/users/:id/photo", { schema: { params: z.object({ id: z.string().uuid() }) } }, async (req, reply) => {
+    const [u] = await db.select({ photo: users.photoDataUrl }).from(users).where(eq(users.id, req.params.id));
+    const m = u?.photo?.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+    if (!m) throw notFound("Foto");
+    reply.header("content-type", m[1]!).header("cache-control", "private, max-age=86400");
+    return reply.send(Buffer.from(m[2]!, "base64"));
   });
 
   app.post(

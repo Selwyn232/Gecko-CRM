@@ -120,7 +120,7 @@ export async function buildApp({
 
   await app.register(helmet, {
     contentSecurityPolicy: {
-      directives: { "img-src": ["'self'", "data:"], "script-src": ["'self'"], "style-src": ["'self'", "'unsafe-inline'"] },
+      directives: { "img-src": ["'self'", "data:"], "script-src": ["'self'", "'wasm-unsafe-eval'"], "style-src": ["'self'", "'unsafe-inline'"] },
     },
   });
   await app.register(cookie);

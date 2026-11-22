@@ -2,7 +2,7 @@ import { WhatsAppPage } from "./pages/WhatsApp";
 import { OwnPhotoButton } from "./components/Specialist";
 import { SpecialistsPage } from "./pages/Specialists";
 import { PasskeyPrompt, PasskeysButton, shouldPromptPasskey } from "./components/Passkeys";
-import { Avatar } from "./components/Avatar";
+import { Avatar, photoUrl } from "./components/Avatar";
 import { NavIcon } from "./components/icons";
 import { Toaster } from "./components/Toast";
 import { AccountActivatePage } from "./pages/AccountActivate";
@@ -41,6 +41,7 @@ import { InvoicesPage } from "./pages/Invoices";
 import { PublicInvoicePage } from "./pages/PublicInvoice";
 import { SettingsPage } from "./pages/Settings";
 import { PartnerApp } from "./partner/PartnerApp";
+import { SelfieRequired } from "./components/Selfie";
 import { PlanningPage } from "./pages/Planning";
 import { AvailabilityPage, RegionsPage } from "./pages/Regions";
 import { ReportReviewPage } from "./pages/ReportReview";
@@ -85,6 +86,8 @@ export function App() {
   }
   if (!me || !me.mfaVerified || (me.mustChangePassword && !me.impersonatedBy)) return <LoginPage />;
   if (passkeyPrompt) return <PasskeyPrompt userId={me.id} kind={passkeyPrompt} onDone={async () => { setPasskeyPrompt(false); await refresh(); }} />;
+  // Verplichte profielfoto (selfie in de huisstijl) voor ieder account; niet bij "inloggen als".
+  if (me.hasPhoto === false && !me.impersonatedBy) return <SelfieRequired />;
   if (me.organizationType === "sales_partner") {
     return (
       <>
@@ -182,7 +185,7 @@ export function App() {
         </nav>
         <div className="sidebar-footer">
           <div className="me-row">
-            <Avatar name={me.name} size={32} />
+            <Avatar name={me.name} size={32} photo={photoUrl(me.id, me.photoVersion)} />
             <div style={{ minWidth: 0 }}>
               <div style={{ color: "var(--text)", fontWeight: 500 }}>{me.name}</div>
               <div className="ellipsis">{me.email ?? me.username}</div>

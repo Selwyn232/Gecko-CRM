@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { api, type Appointment, type AvailabilityBlock, type Penalty, type Region, type Report, type Technician } from "../api";
 import { TechnicianDay } from "./TechnicianDay";
+import { photoUrl } from "../components/Avatar";
 import { LocationBar, LocationProvider } from "./LocationSharing";
 import { NavIcon, type IconName } from "../components/icons";
 import { WorkArea } from "../components/WorkArea";
@@ -60,7 +61,7 @@ export function PartnerApp() {
       <header className="portal-top">
         <div className="brand"><span className="brand-mark">G</span> {partner ? "Partnerportaal" : "Monteur"}</div>
         <button className="portal-account-btn" aria-expanded={accountOpen} aria-label="Account" onClick={() => setAccountOpen(!accountOpen)}>
-          {(me?.name ?? "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
+          {me?.photoVersion ? <img src={photoUrl(me.id, me.photoVersion)!} alt="" /> : (me?.name ?? "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
         </button>
         {accountOpen && <div className="portal-account-menu">{account}</div>}
       </header>

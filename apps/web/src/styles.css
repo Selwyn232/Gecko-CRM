@@ -550,3 +550,14 @@ td.mono, .mono { white-space: nowrap; }
 @keyframes locpulse { 50% { box-shadow: 0 0 0 7px rgba(31, 157, 85, 0.08); } }
 .loc-still { display: block; margin-top: 6px; color: #9a3412; font-weight: 600; }
 .loc-help { padding-left: 20px; }
+
+/* Profielfoto (selfie in huisstijl) */
+.selfie { display: grid; justify-items: center; gap: 12px; }
+.selfie-frame { position: relative; width: 200px; height: 200px; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 50% 38%, #fff3e3, #ffd8a8 55%, #fbb46a); display: grid; place-items: center; font-size: 72px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12); }
+.selfie-frame img { width: 100%; height: 100%; object-fit: cover; }
+.selfie-busy { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(255, 255, 255, 0.7); font-size: 15px; font-weight: 600; color: #1c211d; }
+.selfie-tips { text-align: left; margin: 0; padding-left: 18px; font-size: 13px; color: var(--muted); display: grid; gap: 2px; }
+.selfie-btn { min-width: 220px; min-height: 46px; justify-content: center; font-size: 16px; cursor: pointer; }
+.selfie-btn.disabled { opacity: 0.6; pointer-events: none; }
+.portal-account-btn img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+.portal-account-btn:has(img) { padding: 0; overflow: hidden; }

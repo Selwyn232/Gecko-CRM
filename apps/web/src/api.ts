@@ -55,6 +55,8 @@ export interface Me {
   smsPhone?: string | null;
   /** Heeft een passkey (Face ID e.d.). */
   hasPasskey?: boolean;
+  hasPhoto?: boolean;
+  photoVersion?: string | null;
   /** Domein waarop passkeys werken. */
   passkeyDomain?: string;
   permissions: string[];
