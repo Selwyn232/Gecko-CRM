@@ -4,7 +4,7 @@ import { CustomerExternalQuotes } from "../components/GreenteamImport";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, type InvoiceSummary, type CustomerDetail, type ProjectDetail, type Quote, type QuoteListItem } from "../api";
+import { api, type InvoiceSummary, type CustomerDetail, type Quote, type QuoteListItem } from "../api";
 import { QuotesTable } from "./Quotes";
 import { InvoicesTable } from "./Invoices";
 import { useAuth } from "../auth";
@@ -24,7 +24,6 @@ export function CustomerDetailPage() {
   const channels = useChannels();
   const [editing, setEditing] = useState(false);
   const [addingProperty, setAddingProperty] = useState(false);
-  const [addingProject, setAddingProject] = useState(false);
   const [addingQuote, setAddingQuote] = useState(false);
   const customer = useQuery({ queryKey: ["customer", id], queryFn: () => api.get<CustomerDetail>(`/customers/${id}`) });
   const invoices = useQuery({
@@ -80,7 +79,7 @@ export function CustomerDetailPage() {
       <div className="card flush">
         <div className="row" style={{ justifyContent: "space-between", padding: "16px 20px 8px" }}>
           <h2 style={{ margin: 0 }}>Projecten</h2>
-          {can("projects.manage") && <button className="btn primary small" onClick={() => setAddingProject(true)}>Nieuw project</button>}
+          {/* B86: een project ontstaat alleen uit een geaccepteerde offerte (Nieuwe offerte hieronder). */}
         </div>
         {!c.projects.length ? <div className="empty">Nog geen projecten.</div> : (
           <table>
@@ -125,7 +124,6 @@ export function CustomerDetailPage() {
       {editing && <CustomerForm customer={c} onClose={() => setEditing(false)} />}
       {addingProperty && <PropertyForm customerId={c.id} onClose={() => setAddingProperty(false)} />}
       {addingQuote && <QuoteForm customer={c} onClose={() => setAddingQuote(false)} onSaved={(q) => navigate(`/offertes/${q.id}`)} />}
-      {addingProject && <ProjectForm customer={c} onClose={() => setAddingProject(false)} onSaved={(p) => navigate(`/projecten/${p.id}`)} />}
     </>
   );
 }
@@ -265,72 +263,6 @@ function PropertyForm({ customerId, onClose }: { customerId: string; onClose: ()
         <div className="modal-actions">
           <button type="button" className="btn" onClick={onClose}>Annuleren</button>
           <button className="btn primary">Opslaan</button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-function ProjectForm({ customer, onClose, onSaved }: { customer: CustomerDetail; onClose: () => void; onSaved: (p: ProjectDetail) => void }) {
-  const qc = useQueryClient();
-  const groups = useProductGroups();
-  const channels = useChannels();
-  const orgs = useOrganizations();
-  const [form, setForm] = useState({
-    propertyId: customer.properties[0]?.id ?? "",
-    productGroupId: "",
-    salesChannelId: customer.salesChannelId ?? "",
-    installationPartnerId: "",
-    paymentMethod: "direct",
-  });
-  const channel = channels.data?.find((c) => c.id === form.salesChannelId);
-  const allowedGroups = (groups.data ?? []).filter((g) => !channel || channel.productGroupIds.includes(g.id));
-  const save = useMutation({
-    mutationFn: () => api.post<ProjectDetail>("/projects", { ...form, customerId: customer.id, installationPartnerId: form.installationPartnerId || null }),
-    onSuccess: async (p) => {
-      await qc.invalidateQueries({ queryKey: ["customer", customer.id] });
-      await qc.invalidateQueries({ queryKey: ["projects"] });
-      onSaved(p);
-    },
-  });
-  return (
-    <Modal title="Nieuw project" onClose={onClose}>
-      <form onSubmit={(e: FormEvent) => { e.preventDefault(); save.mutate(); }}>
-        <ErrorBox error={save.error} />
-        <p className="muted" style={{ fontSize: 13 }}>Eén project per productgroep. Koopt de klant meerdere productgroepen, maak dan meerdere projecten aan.</p>
-        <Field label="Woning">
-          <select value={form.propertyId} onChange={(e) => setForm({ ...form, propertyId: e.target.value })} required>
-            {customer.properties.map((p) => <option key={p.id} value={p.id}>{formatAddress(p)}</option>)}
-          </select>
-        </Field>
-        <div className="grid-2">
-          <Field label="Verkoopkanaal">
-            <select value={form.salesChannelId} onChange={(e) => setForm({ ...form, salesChannelId: e.target.value, productGroupId: "" })} required>
-              <option value="">Kies…</option>
-              {channels.data?.filter((c) => c.isActive).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Productgroep">
-            <select value={form.productGroupId} onChange={(e) => setForm({ ...form, productGroupId: e.target.value })} required>
-              <option value="">Kies…</option>
-              {allowedGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Installatiepartner">
-            <select value={form.installationPartnerId} onChange={(e) => setForm({ ...form, installationPartnerId: e.target.value })}>
-              <option value="">Nog niet bekend</option>
-              {partnersFor(orgs.data, form.productGroupId).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Betaalwijze">
-            <select value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>
-              {Object.entries(PAYMENT_METHODS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-          </Field>
-        </div>
-        <div className="modal-actions">
-          <button type="button" className="btn" onClick={onClose}>Annuleren</button>
-          <button className="btn primary" disabled={save.isPending}>Aanmaken</button>
         </div>
       </form>
     </Modal>
