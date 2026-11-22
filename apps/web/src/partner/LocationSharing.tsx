@@ -87,7 +87,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
 /** Balk bovenaan voor monteurs: één knop om de locatie aan te zetten, met hulp als de telefoon het blokkeert. */
 export function LocationBar() {
   const { state, start, stop } = useLocationSharing();
-  const [help, setHelp] = useState(false);
+  const [tries, setTries] = useState(0);
   if (state === "on") {
     return (
       <div className="loc-bar on" role="status">
@@ -100,17 +100,20 @@ export function LocationBar() {
   if (state === "denied") {
     return (
       <div className="loc-bar denied" role="alert">
-        <div>
-          <strong>Locatie is geblokkeerd op deze telefoon.</strong>{" "}
-          <button className="link-btn" onClick={() => setHelp(!help)}>{help ? "Verberg uitleg" : "Hoe zet ik het aan?"}</button>
-          {help && (
-            <ul className="loc-help">
-              <li><strong>iPhone (Safari):</strong> tik in de adresbalk op <em>aA</em> → <em>Website-instellingen</em> → <em>Locatie</em> → <em>Sta toe</em>. Werkt het niet: <em>Instellingen</em> → <em>Privacy en beveiliging</em> → <em>Locatievoorzieningen</em> → <em>Safari-websites</em> → <em>Tijdens gebruik</em>.</li>
-              <li><strong>Android (Chrome):</strong> tik op het slotje naast het adres → <em>Machtigingen</em> → <em>Locatie</em> → <em>Toestaan</em>.</li>
-            </ul>
-          )}
+        <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+          <strong>Locatie is geblokkeerd op dit apparaat.</strong>{" "}
+          {tries > 0 && <span className="loc-still">Nog steeds geblokkeerd ({tries}×). Safari vraagt het niet opnieuw: zet het eerst aan via de stappen hieronder.</span>}
+          <ol className="loc-help">
+            <li><strong>iPhone / iPad (Safari):</strong> tik links in de adresbalk op het <em>paginamenu</em> (icoon met streepjes, op oudere versies <em>aA</em>) → <em>Website-instellingen</em> → <em>Locatie</em> → <em>Sta toe</em>.</li>
+            <li>Staat daar geen Locatie of helpt het niet: open de app <em>Instellingen</em> → <em>Privacy en beveiliging</em> → <em>Locatievoorzieningen</em>: zet die <em>aan</em>, en zet <em>Safari-websites</em> op <em>Tijdens gebruik</em>.</li>
+            <li><strong>Android (Chrome):</strong> tik op het icoon links naast het adres → <em>Machtigingen</em> → <em>Locatie</em> → <em>Toestaan</em>.</li>
+            <li>Daarna: tik op <em>Pagina herladen</em> en dan op <em>Locatie aanzetten</em>.</li>
+          </ol>
         </div>
-        <button className="btn small primary" onClick={start}>Opnieuw proberen</button>
+        <div className="row" style={{ gap: 6 }}>
+          <button className="btn small" onClick={() => window.location.reload()}>Pagina herladen</button>
+          <button className="btn small primary" onClick={() => { setTries((n) => n + 1); start(); }}>Opnieuw proberen</button>
+        </div>
       </div>
     );
   }

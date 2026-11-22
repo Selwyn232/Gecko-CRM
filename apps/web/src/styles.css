@@ -548,3 +548,5 @@ td.mono, .mono { white-space: nowrap; }
 .link-btn { background: none; border: 0; padding: 0; font: inherit; color: var(--accent-text); text-decoration: underline; cursor: pointer; }
 @media (prefers-reduced-motion: no-preference) { .loc-dot { animation: locpulse 2s ease-in-out infinite; } }
 @keyframes locpulse { 50% { box-shadow: 0 0 0 7px rgba(31, 157, 85, 0.08); } }
+.loc-still { display: block; margin-top: 6px; color: #9a3412; font-weight: 600; }
+.loc-help { padding-left: 20px; }
