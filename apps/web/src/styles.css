@@ -570,3 +570,67 @@ td.mono, .mono { white-space: nowrap; }
 .selfie-hint { position: absolute; left: 10px; right: 10px; bottom: 44px; text-align: center; color: #fff; font-weight: 600; font-size: 15px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
 .selfie-check { position: absolute; left: 50%; transform: translateX(-50%); bottom: 10px; white-space: nowrap; padding: 4px 10px; border-radius: 99px; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 12px; }
 .selfie-check.done { background: #15803d; }
+
+/* ======================================================================
+   Stijl A "Warm en zacht" (2026-11-25): warme ondergrond, zachte schaduwen
+   i.p.v. grijze lijnen, rondere vormen, vriendelijke letter. Overschrijft de
+   basis hierboven; tokens eerst, daarna de onderdelen.
+   ====================================================================== */
+:root {
+  --bg: #fbf7f2;
+  --surface: #ffffff;
+  --surface-2: #f8f1e8;
+  --border: #efe5d9;
+  --text: #2a2420;
+  --muted: #74675b;
+  --radius: 16px;
+  --shadow: 0 1px 2px rgba(120, 70, 20, 0.04), 0 8px 24px rgba(120, 70, 20, 0.06);
+  --font: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17130f;
+    --surface: #211b16;
+    --surface-2: #2a231c;
+    --border: #3a3027;
+    --text: #f1e9e0;
+    --muted: #b3a597;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+  }
+}
+body { font-family: var(--font); font-size: 14px; letter-spacing: -0.003em; }
+h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; }
+h2 { font-weight: 700; letter-spacing: -0.01em; }
+.card { border-color: transparent; }
+.modal { border-radius: 20px; }
+.sidebar { border-right-color: var(--border); }
+.brand { font-weight: 800; letter-spacing: -0.01em; }
+.nav a { border-radius: 12px; padding: 8px 12px; color: var(--muted); font-weight: 500; }
+.nav a:hover { background: var(--surface-2); color: var(--text); }
+.nav a.active { color: var(--accent-text); font-weight: 700; }
+.btn { border-radius: 99px; padding: 7px 16px; font-weight: 600; border-color: var(--border); }
+.btn.small { padding: 4px 12px; }
+.btn.primary { box-shadow: 0 4px 12px rgba(252, 136, 1, 0.25); }
+input, select, textarea { border-radius: 12px; border-color: var(--border); }
+input:focus, select:focus, textarea:focus { outline: 2px solid rgba(252, 136, 1, 0.35); outline-offset: 1px; border-color: var(--accent); }
+th { background: transparent; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; }
+.card.flush { overflow: hidden; }
+.badge, .status, .pill { border-radius: 99px; }
+
+/* Begroeting op Mijn werk */
+.hello-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px;
+  padding: 22px 24px; border-radius: 22px;
+  background: radial-gradient(circle at 88% 18%, #ffd9a6 0, #ffe7c7 32%, #fff6ea 72%);
+  color: #2a2420;
+}
+.hello-card h1 { margin: 0 0 4px; }
+.hello-card p { margin: 0; color: #6f5f52; }
+.hello-card img { width: 72px; height: 72px; flex: none; filter: drop-shadow(0 8px 12px rgba(252, 136, 1, 0.35)); }
+@media (prefers-color-scheme: dark) {
+  .hello-card { background: radial-gradient(circle at 88% 18%, #5a3610 0, #3a2713 40%, #241c15 80%); color: #f1e9e0; }
+  .hello-card p { color: #d5c3b0; }
+}
+@media (max-width: 600px) { .hello-card { padding: 18px; } .hello-card img { width: 52px; height: 52px; } }
+.work-list a { text-decoration: none; font-weight: 600; color: var(--text); }
+.work-list a:hover { color: var(--accent-text); text-decoration: underline; }

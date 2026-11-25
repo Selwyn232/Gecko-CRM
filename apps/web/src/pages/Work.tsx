@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../auth";
-import { ErrorBox, Loading, PageHead } from "../components/ui";
+import { ErrorBox, Loading } from "../components/ui";
 
 interface WorkSection {
   key: string;
@@ -23,11 +23,23 @@ export function WorkPage() {
   if (work.isLoading) return <Loading />;
   if (!work.data) return <ErrorBox error={work.error} />;
   const sections = [...work.data.sections].sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "high" ? -1 : 1));
+  const total = sections.reduce((n, s) => n + s.count, 0);
+  const urgent = sections.filter((s) => s.severity === "high").length;
   return (
     <>
-      <PageHead title={`${greet}${me?.name ? `, ${me.name.split(" ")[0]}` : ""}`} sub="Wat er nu aandacht nodig heeft. Werkt automatisch bij." />
+      <div className="hello-card">
+        <div>
+          <h1>{greet}{me?.name ? ` ${me.name.split(" ")[0]}` : ""}</h1>
+          <p>
+            {!sections.length
+              ? "Alles is bij. Geniet van je dag."
+              : `${urgent ? `${urgent} ${urgent === 1 ? "onderwerp vraagt" : "onderwerpen vragen"} vandaag om aandacht` : "Niets dringends"}, ${total} ${total === 1 ? "punt staat" : "punten staan"} open.`}
+          </p>
+        </div>
+        <img src="/gecko-logo-192.png" alt="" />
+      </div>
       {!sections.length ? (
-        <div className="card empty">Alles is bij. Er staat niets open dat aandacht nodig heeft.</div>
+        <div className="card empty">Er staat niets open dat aandacht nodig heeft. 🎉</div>
       ) : (
         <div className="work-grid">
           {sections.map((s) => (

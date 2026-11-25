@@ -6,6 +6,7 @@ import { App } from "./App";
 import { AuthProvider } from "./auth";
 import { toast } from "./components/Toast";
 import { UpdateBar } from "./components/UpdateBar";
+import "@fontsource-variable/plus-jakarta-sans";
 import "./styles.css";
 import { startResponsiveTables } from "./responsiveTables";
 
