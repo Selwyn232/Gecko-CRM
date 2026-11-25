@@ -16,6 +16,26 @@ export function UsersPage() {
   const { me } = useAuth();
   const adminRoleId = roles.data?.find((r) => r.key === "beheerder")?.id;
   const [impError, setImpError] = useState<unknown>(null);
+  // Zoeken en filteren
+  const [q, setQ] = useState("");
+  const [orgF, setOrgF] = useState("");
+  const [roleF, setRoleF] = useState("");
+  const [statusF, setStatusF] = useState("");
+  const [mfaF, setMfaF] = useState("");
+  const statusOf = (u: User) => (!u.isActive ? "inactive" : u.lockedUntil && new Date(u.lockedUntil) > new Date() ? "locked" : "active");
+  const mfaOf = (u: User) => (u.mfaEnabled ? "on" : u.mfaRequired ? "todo" : "off");
+  const needle = q.trim().toLowerCase();
+  const all = users.data ?? [];
+  const shown = all.filter(
+    (u) =>
+      (!needle || [u.name, u.email, u.username, nameById(orgs.data, u.organizationId)].some((v) => v?.toLowerCase().includes(needle))) &&
+      (!orgF || u.organizationId === orgF) &&
+      (!roleF || u.roleIds.includes(roleF)) &&
+      (!statusF || statusOf(u) === statusF) &&
+      (!mfaF || mfaOf(u) === mfaF),
+  );
+  const filtered = !!(needle || orgF || roleF || statusF || mfaF);
+  const usedOrgs = (orgs.data ?? []).filter((o) => all.some((u) => u.organizationId === o.id));
   const impersonate = async (id: string) => {
     setImpError(null);
     try {
@@ -34,12 +54,38 @@ export function UsersPage() {
         actions={can("users.manage") && <button className="btn primary" onClick={() => setEditing("new")}>Nieuwe gebruiker</button>}
       />
       <ErrorBox error={impError} />
+      <div className="filter-bar">
+        <input id="user-search" type="search" placeholder="Zoek op naam, e-mail of organisatie…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Zoeken" />
+        <select id="user-org" value={orgF} onChange={(e) => setOrgF(e.target.value)} aria-label="Organisatie">
+          <option value="">Alle organisaties</option>
+          {usedOrgs.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+        </select>
+        <select id="user-role" value={roleF} onChange={(e) => setRoleF(e.target.value)} aria-label="Rol">
+          <option value="">Alle rollen</option>
+          {(roles.data ?? []).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+        </select>
+        <select id="user-status" value={statusF} onChange={(e) => setStatusF(e.target.value)} aria-label="Status">
+          <option value="">Elke status</option>
+          <option value="active">Actief</option>
+          <option value="inactive">Inactief</option>
+          <option value="locked">Geblokkeerd</option>
+        </select>
+        <select id="user-mfa" value={mfaF} onChange={(e) => setMfaF(e.target.value)} aria-label="2FA">
+          <option value="">2FA: alles</option>
+          <option value="on">2FA aan</option>
+          <option value="todo">2FA nog instellen</option>
+          <option value="off">2FA uitgezet</option>
+        </select>
+        <span className="muted" style={{ fontSize: 13 }}>{filtered ? `${shown.length} van ${all.length}` : `${all.length} gebruikers`}</span>
+        {filtered && <button className="btn small" onClick={() => { setQ(""); setOrgF(""); setRoleF(""); setStatusF(""); setMfaF(""); }}>Wis filters</button>}
+      </div>
       <div className="card flush">
         {users.isLoading ? <Loading /> : (
           <table>
             <thead><tr><th>Naam</th><th>Organisatie</th><th>Rollen</th><th>2FA</th><th>Laatst ingelogd</th><th>Status</th><th /></tr></thead>
             <tbody>
-              {users.data?.map((u) => (
+              {!shown.length && <tr><td colSpan={7} className="empty">Geen gebruikers gevonden met deze filters.</td></tr>}
+              {shown.map((u) => (
                 <tr key={u.id} className={can("users.manage") ? "clickable" : ""} onClick={() => can("users.manage") && setEditing(u)}>
                   <td>
                     <WithAvatar name={u.name} strong />

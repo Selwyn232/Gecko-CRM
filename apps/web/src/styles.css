@@ -634,3 +634,6 @@ th { background: transparent; text-transform: uppercase; letter-spacing: 0.04em;
 @media (max-width: 600px) { .hello-card { padding: 18px; } .hello-card img { width: 52px; height: 52px; } }
 .work-list a { text-decoration: none; font-weight: 600; color: var(--text); }
 .work-list a:hover { color: var(--accent-text); text-decoration: underline; }
+.filter-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.filter-bar input[type="search"] { flex: 1 1 260px; min-width: 0; }
+.filter-bar select { flex: 0 1 auto; max-width: 100%; }
